@@ -118,6 +118,14 @@ Flatness of the lot: Lvl (level), Bnk (banked: quick rise from the street to the
 Type of utilities. `train.csv`: AllPub 1,459, NoSeWa 1 (Id 945, Timber, built 1958, $137,500). `test.csv`: AllPub 1,457, and 2 with no value (Ids 1916, 1946). NoSewr and ELO don't appear.
 - **Decision:** drop. No test house is anything but AllPub, so the weight could never change a test prediction; in training it would only fit Id 945's price, which is noise. Dropping also means the 2 missing test values need no filling.
 
+### LotConfig: one-hot, Inside as reference, FR2 and FR3 merged
+
+Position of the lot: Inside, Corner, CulDSac (cul-de-sac), FR2 / FR3 (frontage on 2 / 3 sides). No natural order. See `plots/lot_config.png`.
+- `train.csv`: Inside 1,051 (72%, median $160k), Corner 262 ($161k), CulDSac 94 ($199k), FR2 47 ($165k), FR3 4 ($195k). `test.csv`: 1,081 / 248 / 82 / 38 / 10.
+- Inside, Corner and FR2 sell for about the same. Cul-de-sac stands out (+$39k), and its houses are newer and bigger (median year built 1985 against 1972, lot 12,655 against 9,100 sq ft, living area 1,693 against 1,452): the same pattern as LotShape, and most cul-de-sac lots are IR1, so the two columns overlap.
+- **FR3** (see `plots/fr3_houses.png`): the 4 training houses are 532 (1920, single-family, $128k), 1266 (1999, townhouse, $184k), 334 (2004, townhouse, $207k) and 1360 (2004, single-family, OverallQual 9, $315k). Their median rests on 4 spread-out houses (uncertain by roughly ±$80k). Train and test together, FR2 and FR3 are almost identical: median year built 1994 / 1996, lot 9,600 / 9,445 sq ft, living area 1,422 / 1,407 sq ft. The 10 test FR3 houses range from 1910 to 2006.
+- **Decision:** one-hot with Inside as the reference: `lot_config_corner`, `lot_config_culdsac`, `lot_config_fr2_fr3` (FR2 and FR3 merged, 51 training houses). Main reason: FR3's gap rests on 4 houses and FR3 looks like FR2 on everything checked. Part of those 4 houses' prices is explained by other columns (one is OverallQual 9, two are new townhouses), but that's an expectation to see in the weights, not a fact yet.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:

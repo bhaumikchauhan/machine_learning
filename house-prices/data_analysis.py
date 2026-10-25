@@ -372,6 +372,35 @@ def plot_price_by_category(train, panels, file_name, title):
     save(fig, file_name)
 
 
+def plot_fr3_houses(train, test):
+    houses = pd.concat([train[~train['Id'].isin(OUTLIER_IDS)].assign(source='train'), test.assign(source='test')])
+    fig, ax = new_figure(11, 6)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    others = houses[~houses['LotConfig'].isin(['FR2', 'FR3'])]
+    ax.scatter(others['YearBuilt'], others['LotArea'], s=8, color=BASELINE, alpha=0.5, linewidth=0,
+               label='all other lots')
+    fr2 = houses[houses['LotConfig'] == 'FR2']
+    ax.scatter(fr2['YearBuilt'], fr2['LotArea'], s=22, color=BLUE, alpha=0.7, linewidth=0, label='FR2 (train + test)')
+    for source, marker in [('train', 'o'), ('test', 'D')]:
+        fr3 = houses[(houses['LotConfig'] == 'FR3') & (houses['source'] == source)]
+        ax.scatter(fr3['YearBuilt'], fr3['LotArea'], s=60, marker=marker, color=ORANGE, edgecolor=SURFACE,
+                   linewidth=1.5, zorder=3, label=f"FR3, {source}.csv ({len(fr3)})")
+        for _, row in fr3.iterrows():
+            price = f", ${row['SalePrice'] / 1000:.0f}k" if source == 'train' else ''
+            left = row['Id'] == 1360  # same year and lot size as test Id 1666
+            ax.annotate(f"{row['Id']} {row['BldgType']}{price}", (row['YearBuilt'], row['LotArea']),
+                        xytext=(-6, 10) if left else (6, 4), textcoords='offset points',
+                        ha='right' if left else 'left', color=INK_SECONDARY, fontsize=7.5)
+    ax.set_ylim(0, 25000)
+    ax.yaxis.set_major_formatter(lambda v, _: f"{v / 1000:.0f}k")
+    ax.set_xlabel('YearBuilt', color=INK_SECONDARY)
+    ax.set_ylabel('LotArea (sq ft; lots over 25k not shown)', color=INK_SECONDARY)
+    ax.legend(frameon=False, loc='upper left', labelcolor=INK_SECONDARY, fontsize=9)
+    ax.set_title('FR3 houses (frontage on 3 sides): year built and lot size, with building type and train price',
+                 loc='left', color=INK, fontsize=11)
+    save(fig, 'fr3_houses.png')
+
+
 if __name__ == '__main__':
     train = pd.read_csv(TRAIN_CSV)
     test = pd.read_csv(TEST_CSV)
@@ -386,6 +415,11 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LandContour', {'Lvl': 'Lvl\nlevel', 'Bnk': 'Bnk\nbanked',
                                                     'HLS': 'HLS\nhillside', 'Low': 'Low\ndepression'})],
                            'land_contour.png', 'Sale price by LandContour, train.csv without Ids 524, 1299')
+    plot_price_by_category(train, [('LotConfig', {'Inside': 'Inside\ninside lot', 'Corner': 'Corner\ncorner lot',
+                                                  'CulDSac': 'CulDSac\ncul-de-sac', 'FR2': 'FR2\nfrontage 2 sides',
+                                                  'FR3': 'FR3\nfrontage 3 sides'})],
+                           'lot_config.png', 'Sale price by LotConfig, train.csv without Ids 524, 1299')
+    plot_fr3_houses(train, test)
     plot_lot_area(train)
     plot_living_area_outliers(train)
     plot_mszoning_counts(train, test)
