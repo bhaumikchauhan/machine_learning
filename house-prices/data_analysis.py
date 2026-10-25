@@ -1,0 +1,365 @@
+# Graphs used to decide on features. Written by Claude; the model code is in house_prices.py.
+
+import os
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from house_prices import TEST_CSV, TRAIN_CSV
+
+PLOTS_DIR = 'plots'
+
+# Reference palette (light mode)
+SURFACE = '#fcfcfb'
+INK = '#0b0b0b'
+INK_SECONDARY = '#52514e'
+MUTED = '#898781'
+GRID = '#e1e0d9'
+BASELINE = '#c3c2b7'
+BLUE = '#2a78d6'
+ORANGE = '#eb6834'
+
+
+def style_axes(ax):
+    ax.set_facecolor(SURFACE)
+    for side in ['top', 'right', 'left']:
+        ax.spines[side].set_visible(False)
+    ax.spines['bottom'].set_color(BASELINE)
+    ax.tick_params(colors=MUTED, labelcolor=INK_SECONDARY, length=0)
+    ax.grid(axis='y', color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+
+
+def new_figure(width=9, height=5):
+    fig, ax = plt.subplots(figsize=(width, height), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    return fig, ax
+
+
+def save(fig, name):
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    path = os.path.join(PLOTS_DIR, name)
+    fig.tight_layout()
+    fig.savefig(path, facecolor=SURFACE)
+    plt.close(fig)
+    print("Saved", path)
+
+
+# Short names for the MSSubClass codes, from data_description.txt.
+MSSUBCLASS_NAMES = {
+    20: '1-story new', 30: '1-story old', 40: '1-story attic', 45: '1.5-story unfin.',
+    50: '1.5-story fin.', 60: '2-story new', 70: '2-story old', 75: '2.5-story',
+    80: 'split/multi-level', 85: 'split foyer', 90: 'duplex', 120: '1-story PUD',
+    150: '1.5-story PUD', 160: '2-story PUD', 180: 'PUD multilevel', 190: '2-family conv.',
+}
+
+
+# Where a point's label goes, relative to the point: offset in points, then horizontal and vertical alignment.
+LABEL_PLACES = {
+    'above': ((0, 9), 'center', 'bottom'),
+    'below': ((0, -9), 'center', 'top'),
+    'left': ((-8, 0), 'right', 'center'),
+    'right': ((8, 0), 'left', 'center'),
+}
+
+
+def plot_mean_by_mssubclass(df, column, label, unit_format, label_places, file_name):
+    # Each code drawn at its numeric value: what the model sees if the code is used as a number.
+    stats = df.groupby('MSSubClass')[column].agg(['mean', 'size'])
+    fig, ax = new_figure(11, 5.5)
+    ax.scatter(stats.index, stats['mean'], s=60, color=BLUE, edgecolor=SURFACE, linewidth=2, zorder=3)
+    # label_places: codes whose label would collide with a neighbour's label or dot when placed above
+    for code, mean, n in zip(stats.index, stats['mean'], stats['size']):
+        offset, ha, va = LABEL_PLACES[label_places.get(code, 'above')]
+        ax.annotate(f"{code} {MSSUBCLASS_NAMES[code]}\n{unit_format(mean)}, n={n}", (code, mean),
+                    xytext=offset, textcoords='offset points', ha=ha, va=va,
+                    color=INK_SECONDARY, fontsize=7.5)
+    ax.set_xlim(5, 205)
+    ax.set_ylim(0, stats['mean'].max() * 1.25)
+    ax.yaxis.set_major_formatter(lambda v, _: unit_format(v))
+    ax.set_xlabel('MSSubClass code (as a number)', color=INK_SECONDARY)
+    ax.set_ylabel(label, color=INK_SECONDARY)
+    ax.set_title(f"{label.capitalize()} per MSSubClass code, drawn at the code's numeric value (train.csv)",
+                 loc='left', color=INK, fontsize=11)
+    save(fig, file_name)
+
+
+# All zones in data_description.txt, in its order. The data writes C as 'C (all)'. 'missing' is an empty value.
+MSZONING_NAMES = {
+    'A': 'Agriculture', 'C (all)': 'Commercial', 'FV': 'Floating Village Res.', 'I': 'Industrial',
+    'RH': 'Residential High Density', 'RL': 'Residential Low Density', 'RP': 'Residential Low Density Park',
+    'RM': 'Residential Medium Density', 'missing': 'missing',
+}
+
+
+def plot_mszoning_counts(train, test):
+    zones = list(MSZONING_NAMES)
+    counts = {name: df['MSZoning'].fillna('missing').value_counts().reindex(zones, fill_value=0)
+              for name, df in [('train.csv', train), ('test.csv', test)]}
+    fig, ax = new_figure(11, 5.5)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    y = range(len(zones))
+    bar_height = 0.38
+    for i, ((name, count), color) in enumerate(zip(counts.items(), [BLUE, ORANGE])):
+        positions = [p + (i - 0.5) * (bar_height + 0.02) for p in y]
+        ax.barh(positions, count, height=bar_height, color=color, label=name)
+        for position, n in zip(positions, count):
+            ax.text(n + 8, position, str(n), va='center', color=INK_SECONDARY, fontsize=8)
+    ax.set_yticks(list(y), [f"{zone}  {MSZONING_NAMES[zone]}" if zone != 'missing' else 'missing'
+                            for zone in zones])
+    ax.invert_yaxis()
+    ax.set_xlim(0, max(c.max() for c in counts.values()) * 1.1)
+    ax.set_xlabel('number of houses', color=INK_SECONDARY)
+    ax.legend(frameon=False, loc='lower right', labelcolor=INK_SECONDARY)
+    ax.set_title('Number of houses per MSZoning value', loc='left', color=INK, fontsize=11)
+    save(fig, 'mszoning_counts.png')
+
+
+ZONE_COLORS = {'RL': BLUE, 'RM': ORANGE, 'C (all)': '#1baf7a', 'FV': '#8a5cc4', 'RH': '#c79a1b'}
+LOCATION_COLUMNS = ['Neighborhood', 'Condition1', 'Condition2']
+
+
+def plot_missing_mszoning(train, test):
+    # Uses train and test together: MSZoning is an input, not the label, so test rows may help fill it.
+    houses = pd.concat([train, test])
+    known = houses[houses['MSZoning'].notna()]
+    missing = houses[houses['MSZoning'].isna()]
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13, 5), dpi=120, width_ratios=[1, 1.3])
+    fig.patch.set_facecolor(SURFACE)
+
+    # Left: zone mix of the known houses with the same neighborhood and conditions as each missing house.
+    style_axes(left)
+    left.grid(axis='y', visible=False)
+    left.grid(axis='x', color=GRID, linewidth=0.8)
+    groups = missing.groupby(LOCATION_COLUMNS)['Id'].apply(list)
+    for row, (location, ids) in enumerate(groups.items()):
+        same = known
+        for column, value in zip(LOCATION_COLUMNS, location):
+            same = same[same[column] == value]
+        counts = same['MSZoning'].value_counts()
+        start = 0
+        for zone, n in counts.items():
+            left.barh(row, n, left=start, height=0.5, color=ZONE_COLORS[zone], edgecolor=SURFACE, linewidth=2)
+            if n >= 8:
+                left.text(start + n / 2, row, f"{zone}\n{n}", ha='center', va='center', color=SURFACE, fontsize=8)
+            start += n
+        narrow = counts.iloc[-1] < 8  # last segment too narrow for its label inside: put it after the bar
+        note = (f"{counts.index[-1]} {counts.iloc[-1]}   " if narrow else '') + \
+            f"missing: Id {', '.join(map(str, ids))}"
+        left.text(start + 1.5, row, note, va='center', color=INK_SECONDARY, fontsize=8)
+    left.set_yticks(range(len(groups)), [f"{n}\n{c1} / {c2}" for n, c1, c2 in groups.index])
+    left.invert_yaxis()
+    left.set_xlim(0, 115)
+    left.set_xlabel('known houses with the same Neighborhood / Condition1 / Condition2', color=INK_SECONDARY)
+    left.set_title('Zones of the matching houses', loc='left', color=INK, fontsize=11)
+
+    # Right: lot area of every IDOTRR house by zone, with the three missing ones.
+    style_axes(right)
+    idotrr = houses[houses['Neighborhood'] == 'IDOTRR']
+    zones = ['RM', 'C (all)', 'missing']
+    for x, zone in enumerate(zones):
+        rows = idotrr[idotrr['MSZoning'].isna()] if zone == 'missing' else idotrr[idotrr['MSZoning'] == zone]
+        jitter = [((i * 37) % 21 - 10) / 40 for i in range(len(rows))]  # fixed spread, no random draw
+        right.scatter([x + j for j in jitter], rows['LotArea'], s=40, color=ZONE_COLORS.get(zone, INK),
+                      edgecolor=SURFACE, linewidth=1.5, zorder=3)
+        if zone == 'missing':
+            for j, (house_id, area) in zip(jitter, zip(rows['Id'], rows['LotArea'])):
+                right.annotate(f"Id {house_id}", (x + j, area), xytext=(8, 0), textcoords='offset points',
+                               va='center', color=INK_SECONDARY, fontsize=8)
+    right.set_xticks(range(len(zones)), [f"{z}\n(n={len(idotrr[idotrr['MSZoning'] == z]) if z != 'missing' else 3})"
+                                         for z in zones])
+    right.set_xlim(-0.6, 2.8)
+    right.yaxis.set_major_formatter(lambda v, _: f"{v / 1000:.0f}k")
+    right.set_ylabel('LotArea (sq ft)', color=INK_SECONDARY)
+    right.set_title('IDOTRR: lot area by zone (train + test)', loc='left', color=INK, fontsize=11)
+    save(fig, 'mszoning_missing.png')
+
+
+def plot_big_lots(train, test, min_lot_area=30000):
+    houses = pd.concat([train, test])
+    big = houses[houses['LotArea'] > min_lot_area].copy()
+    big['zone'] = big['MSZoning'].fillna('missing')
+    counts = pd.crosstab(big['Neighborhood'], big['zone'])
+    counts = counts.loc[counts.sum(axis=1).sort_values().index]
+    colors = dict(ZONE_COLORS, missing=INK)
+    zones = [z for z in ['RL', 'RM', 'missing'] if z in counts.columns]
+    fig, ax = new_figure(10, 5.5)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    start = pd.Series(0, index=counts.index)
+    for zone in zones:
+        ax.barh(counts.index, counts[zone], left=start, height=0.6, color=colors[zone], label=zone,
+                edgecolor=SURFACE, linewidth=2)
+        start += counts[zone]
+    for neighborhood, total in start.items():
+        missing_ids = big[(big['Neighborhood'] == neighborhood) & (big['zone'] == 'missing')]['Id']
+        note = f"{total}" + (f"   missing: Id {', '.join(map(str, missing_ids))}" if len(missing_ids) else '')
+        ax.text(total + 0.1, neighborhood, note, va='center', color=INK_SECONDARY, fontsize=8)
+    ax.set_xlim(0, start.max() + 3)
+    ax.set_xlabel('number of houses (train + test)', color=INK_SECONDARY)
+    ax.legend(frameon=False, loc='lower right', labelcolor=INK_SECONDARY, title='MSZoning',
+              title_fontproperties={'size': 9})
+    ax.set_title(f"Houses with LotArea above {min_lot_area:,} sq ft, by neighborhood and zone ({len(big)} houses)",
+                 loc='left', color=INK, fontsize=11)
+    save(fig, 'big_lots_by_neighborhood.png')
+
+
+def plot_zones_by_neighborhood(train, test):
+    houses = pd.concat([train, test])
+    houses['zone'] = houses['MSZoning'].fillna('missing')
+    counts = pd.crosstab(houses['Neighborhood'], houses['zone'])
+    zones = ['RL', 'RM', 'C (all)', 'FV', 'RH', 'missing']
+    counts = counts[zones]
+    # Sorted by the share of RL, lowest first at the top.
+    counts = counts.loc[(counts['RL'] / counts.sum(axis=1)).sort_values().index]
+    colors = dict(ZONE_COLORS, missing=INK)
+    fig, ax = new_figure(11, 8)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    start = pd.Series(0, index=counts.index)
+    for zone in zones:
+        ax.barh(counts.index, counts[zone], left=start, height=0.65, color=colors[zone], label=zone,
+                edgecolor=SURFACE, linewidth=1.5)
+        start += counts[zone]
+    for neighborhood, row in counts.iterrows():
+        parts = [f"{zone} {n}" for zone, n in row.items() if n > 0]
+        ax.text(start[neighborhood] + 3, neighborhood, ', '.join(parts), va='center', color=INK_SECONDARY,
+                fontsize=7.5)
+    ax.invert_yaxis()
+    ax.set_xlim(0, start.max() * 1.25)
+    ax.set_xlabel('number of houses (train + test)', color=INK_SECONDARY)
+    ax.legend(frameon=False, loc='lower right', labelcolor=INK_SECONDARY, title='MSZoning',
+              title_fontproperties={'size': 9})
+    ax.set_title('Zones per neighborhood, sorted by share of RL (lowest at the top)', loc='left', color=INK,
+                 fontsize=11)
+    save(fig, 'zones_by_neighborhood.png')
+
+
+LOT_CONFIG_NAMES = {'Inside': 'Inside lot', 'Corner': 'Corner lot', 'CulDSac': 'Cul-de-sac',
+                    'FR2': 'Frontage on 2 sides', 'FR3': 'Frontage on 3 sides'}
+
+
+def plot_lot_frontage(train, test):
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13, 5), dpi=120, width_ratios=[1.2, 1])
+    fig.patch.set_facecolor(SURFACE)
+
+    # Left: frontage against sale price (train only: test has no price).
+    style_axes(left)
+    left.grid(axis='x', color=GRID, linewidth=0.8)
+    known = train[train['LotFrontage'].notna()]
+    left.scatter(known['LotFrontage'], known['SalePrice'], s=14, color=BLUE, alpha=0.5, linewidth=0)
+    left.yaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k")
+    left.set_xlabel('LotFrontage (feet of street along the lot)', color=INK_SECONDARY)
+    left.set_ylabel('SalePrice', color=INK_SECONDARY)
+    corr = known['LotFrontage'].corr(known['SalePrice'])
+    left.set_title(f"Frontage vs price, train.csv ({len(known)} houses with a value, correlation {corr:.2f})",
+                   loc='left', color=INK, fontsize=10)
+
+    # Right: share of houses with no LotFrontage, per lot configuration.
+    style_axes(right)
+    right.grid(axis='y', visible=False)
+    right.grid(axis='x', color=GRID, linewidth=0.8)
+    houses = pd.concat([train, test])
+    stats = houses.groupby('LotConfig')['LotFrontage'].agg(missing=lambda s: s.isna().sum(), n='size')
+    stats['share'] = stats['missing'] / stats['n']
+    stats = stats.sort_values('share')
+    names = [LOT_CONFIG_NAMES[c] for c in stats.index]
+    right.barh(names, stats['share'] * 100, height=0.6, color=ORANGE)
+    for name, share, missing, n in zip(names, stats['share'], stats['missing'], stats['n']):
+        right.text(share * 100 + 1, name, f"{share:.0%}  ({missing} of {n})", va='center', color=INK_SECONDARY,
+                   fontsize=8)
+    overall = houses['LotFrontage'].isna().mean() * 100
+    right.axvline(overall, color=MUTED, linewidth=1, linestyle='--')
+    right.text(overall + 0.5, len(stats) - 0.45, f"all houses {overall:.0f}%", color=MUTED, fontsize=8,
+               va='bottom')
+    right.set_ylim(-0.5, len(stats) - 0.1)
+    right.set_xlim(0, 75)
+    right.set_xlabel('houses with no LotFrontage value (%)', color=INK_SECONDARY)
+    right.set_title('Missing LotFrontage by LotConfig (train + test)', loc='left', color=INK, fontsize=10)
+    save(fig, 'lot_frontage.png')
+
+
+OUTLIER_IDS = [524, 1299]  # the two largest houses, both sold far below the trend
+
+
+def plot_living_area_outliers(train):
+    fig, ax = new_figure(11, 5.5)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    outliers = train[train['Id'].isin(OUTLIER_IDS)]
+    rest = train[~train['Id'].isin(OUTLIER_IDS)]
+    ax.scatter(rest['GrLivArea'], rest['SalePrice'], s=14, color=BLUE, alpha=0.45, linewidth=0)
+    ax.scatter(outliers['GrLivArea'], outliers['SalePrice'], s=60, color=ORANGE, edgecolor=SURFACE, linewidth=2,
+               zorder=3)
+    for house_id, area, price in zip(outliers['Id'], outliers['GrLivArea'], outliers['SalePrice']):
+        ax.annotate(f"Id {house_id}: {area:,} sq ft, ${price / 1000:.0f}k", (area, price), xytext=(-8, 10),
+                    textcoords='offset points', ha='right', color=INK_SECONDARY, fontsize=8)
+    x = np.array([train['GrLivArea'].min(), train['GrLivArea'].max()])
+    lines = [('all 1,460 houses', train, INK, '-'), (f"without Ids {', '.join(map(str, OUTLIER_IDS))}", rest,
+                                                       ORANGE, '--')]
+    for label, rows, color, style in lines:
+        slope, intercept = np.polyfit(rows['GrLivArea'], rows['SalePrice'], 1)
+        ax.plot(x, intercept + slope * x, color=color, linewidth=2, linestyle=style,
+                label=f"straight-line fit, {label}: ${slope:.0f} per sq ft")
+    ax.yaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k")
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:,.0f}")
+    ax.set_xlabel('GrLivArea (above-ground living area, sq ft)', color=INK_SECONDARY)
+    ax.set_ylabel('SalePrice', color=INK_SECONDARY)
+    ax.legend(frameon=False, loc='upper left', labelcolor=INK_SECONDARY, fontsize=9)
+    ax.set_title('Living area vs price, train.csv: what the two largest houses do to a straight-line fit',
+                 loc='left', color=INK, fontsize=11)
+    save(fig, 'living_area_outliers.png')
+
+
+def plot_lot_area(train):
+    # Without the two removed outliers.
+    houses = train[~train['Id'].isin(OUTLIER_IDS)]
+    fig, axes = plt.subplots(2, 2, figsize=(13, 8.5), dpi=120, height_ratios=[1, 1.6])
+    fig.patch.set_facecolor(SURFACE)
+    panels = [('LotArea as recorded', houses['LotArea'], 'LotArea (sq ft)'),
+              ('log(LotArea)', np.log(houses['LotArea']), 'log(LotArea)')]
+    for column, (title, values, label) in enumerate(panels):
+        top, bottom = axes[0, column], axes[1, column]
+        style_axes(top)
+        top.hist(values, bins=60, color=BLUE, edgecolor=SURFACE, linewidth=0.5)
+        top.set_title(f"{title}: number of houses (skew {values.skew():.1f})", loc='left', color=INK, fontsize=10)
+        top.set_ylabel('houses', color=INK_SECONDARY)
+        style_axes(bottom)
+        bottom.grid(axis='x', color=GRID, linewidth=0.8)
+        bottom.scatter(values, houses['SalePrice'], s=12, color=BLUE, alpha=0.45, linewidth=0)
+        slope, intercept = np.polyfit(values, houses['SalePrice'], 1)
+        x = np.array([values.min(), values.max()])
+        bottom.plot(x, intercept + slope * x, color=INK, linewidth=2)
+        bottom.yaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k")
+        bottom.set_xlabel(label, color=INK_SECONDARY)
+        bottom.set_ylabel('SalePrice', color=INK_SECONDARY)
+        bottom.set_title(f"{title} vs price, with a straight-line fit (correlation {values.corr(houses['SalePrice']):.2f})",
+                         loc='left', color=INK, fontsize=10)
+    for ax in axes[:, 0]:
+        ax.xaxis.set_major_formatter(lambda v, _: f"{v / 1000:.0f}k")
+    fig.suptitle(f"LotArea, train.csv without Ids {', '.join(map(str, OUTLIER_IDS))} ({len(houses)} houses)",
+                 x=0.01, ha='left', color=INK, fontsize=12)
+    save(fig, 'lot_area.png')
+
+
+if __name__ == '__main__':
+    train = pd.read_csv(TRAIN_CSV)
+    test = pd.read_csv(TEST_CSV)
+    plot_lot_area(train)
+    plot_living_area_outliers(train)
+    plot_mszoning_counts(train, test)
+    plot_missing_mszoning(train, test)
+    plot_big_lots(train, test)
+    plot_zones_by_neighborhood(train, test)
+    plot_lot_frontage(train, test)
+    plot_mean_by_mssubclass(train, 'GrLivArea', 'mean above-ground living area (sq ft)',
+                            lambda v: f"{v:.0f} sq ft", {30: 'below', 80: 'below', 85: 'below'},
+                            'mssubclass_living_area.png')
+    plot_mean_by_mssubclass(train, 'SalePrice', 'mean sale price',
+                            lambda v: f"${v / 1000:.0f}k", {30: 'below', 45: 'below', 50: 'below', 80: 'right',
+                                                             85: 'left', 90: 'right', 180: 'below'},
+                            'mssubclass_sale_price.png')
