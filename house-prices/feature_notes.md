@@ -89,6 +89,13 @@ Type of road access. Almost constant: 1,452 paved, 6 gravel (0.4%) in `train.csv
 - Gravel houses: median $114k, against $163k paved. From 6 houses, so uncertain by about ±$50k, and possibly caused by what the gravel houses have in common (age, size, neighbourhood) rather than by the gravel itself. Other columns may already capture that.
 - **Decision:** keep, as a single 0/1 column with gravel = 1. Paved houses get 0, so the weight never touches their predictions: whatever the model learns, including overfitting to the 6 gravel houses' quirks, stays with the gravel houses (6 in training, 6 in test). A single weight can still overfit, so the protection is the 0 for paved houses, plus regularization keeping a weight learned from 6 houses small. Two one-hot columns would put a weight on the paved houses too.
 
+### Alley: two 0/1 columns (gravel, paved); no alley is the reference
+
+Type of alley access. **An empty cell is not missing data:** `data_description.txt` says `NA = No alley access`, but pandas reads the text "NA" as a missing value by default. Many later columns (pool, garage, basement, fence) work the same way.
+- `train.csv`: no alley 1,367 (94%, median $165k), gravel 50 (median $120k), paved 41 (median $172k). `test.csv`: 1,352 / 70 / 37. See `plots/street_alley.png`.
+- **Decision:** two 0/1 columns, `alley_gravel` and `alley_paved`. No alley gets no column of its own: it is the reference, with both columns 0, so its houses get no Alley weight, as for paved Street. Each weight then means "difference from a house with no alley".
+- Implementation: turn the empty cells into an explicit "None" value first, so they aren't treated as missing. With scikit-learn's `OneHotEncoder`, the reference is set with `drop=`.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
