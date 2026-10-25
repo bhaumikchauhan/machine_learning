@@ -113,6 +113,11 @@ Flatness of the lot: Lvl (level), Bnk (banked: quick rise from the street to the
 - Part of each gap is probably age or lot size: median year built 1974 / 1937 / 1996 / 1971, median lot 9,400 / 8,400 / 11,099 / 16,177 sq ft. Banked lots are mostly in old neighbourhoods (OldTown 12, SWISU 11, Crawfor 8), hillside lots in new ones (Crawfor 12, Timber 10, Gilbert 8), and 13 of the 36 depression lots are in ClearCr.
 - **Decision:** one-hot with Lvl, the most common value, as the reference: `land_contour_bnk`, `land_contour_hls`, `land_contour_low`. No merging: the smallest group has 36 houses.
 
+### Utilities: dropped
+
+Type of utilities. `train.csv`: AllPub 1,459, NoSeWa 1 (Id 945, Timber, built 1958, $137,500). `test.csv`: AllPub 1,457, and 2 with no value (Ids 1916, 1946). NoSewr and ELO don't appear.
+- **Decision:** drop. No test house is anything but AllPub, so the weight could never change a test prediction; in training it would only fit Id 945's price, which is noise. Dropping also means the 2 missing test values need no filling.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
