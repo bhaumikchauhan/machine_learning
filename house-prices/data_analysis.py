@@ -349,7 +349,8 @@ def plot_lot_area(train):
 def plot_price_by_category(train, panels, file_name, title):
     # panels: (column, {value: label}) pairs; a None value stands for an empty cell, which may mean "none".
     houses = train[~train['Id'].isin(OUTLIER_IDS)]
-    fig, axes = plt.subplots(1, len(panels), figsize=(6 * len(panels), 5), dpi=120, sharey=True)
+    fig, axes = plt.subplots(1, len(panels), figsize=(max(9, 6 * len(panels)), 5), dpi=120,
+                             sharey=True)
     fig.patch.set_facecolor(SURFACE)
     for ax, (column, labels) in zip(np.atleast_1d(axes), panels):
         style_axes(ax)
@@ -379,6 +380,9 @@ if __name__ == '__main__':
                                               'Pave': 'Pave\npaved'})],
                            'street_alley.png', 'Sale price by road access (Street) and alley access (Alley), '
                            'train.csv without Ids 524, 1299')
+    plot_price_by_category(train, [('LotShape', {'Reg': 'Reg\nregular', 'IR1': 'IR1\nslightly irregular',
+                                                 'IR2': 'IR2\nmoderately irregular', 'IR3': 'IR3\nirregular'})],
+                           'lot_shape.png', 'Sale price by LotShape, train.csv without Ids 524, 1299')
     plot_lot_area(train)
     plot_living_area_outliers(train)
     plot_mszoning_counts(train, test)

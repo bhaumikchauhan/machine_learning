@@ -96,6 +96,16 @@ Type of alley access. **An empty cell is not missing data:** `data_description.t
 - **Decision:** two 0/1 columns, `alley_gravel` and `alley_paved`. No alley gets no column of its own: it is the reference, with both columns 0, so its houses get no Alley weight, as for paved Street. Each weight then means "difference from a house with no alley".
 - Implementation: turn the empty cells into an explicit "None" value first, so they aren't treated as missing. With scikit-learn's `OneHotEncoder`, the reference is set with `drop=`.
 
+### LotShape: one-hot, Reg as reference, IR2 and IR3 merged; CV to compare
+
+General shape of the lot, with a natural order: Reg (regular), IR1 (slightly irregular), IR2 (moderately irregular), IR3 (irregular). See `plots/lot_shape.png`.
+- `train.csv`: Reg 925 (median $146k), IR1 483 ($189k), IR2 41 ($221k), IR3 9 ($215k). `test.csv`: 934 / 484 / 35 / 6.
+- **Irregular lots sell for more**, most likely because they are newer and bigger. Median year built: 1967 / 1984 / 1995 / 1998; median lot: 8,800 / 10,624 / 13,682 / 16,226 sq ft; median living area: 1,365 / 1,588 / 1,668 / 1,675 sq ft. Newer subdivisions have curving streets and culs-de-sac (77 of the 176 cul-de-sac lots are IR1, 1 is Reg). So LotShape may mostly stand in for what YearBuilt, LotArea and GrLivArea already say.
+- **Ordered or one-hot:** an ordered column (0–3) with one weight forces equal steps. The steps here are uneven (+$43k, +$32k, −$6k; the last on 9 houses).
+- **Overlapping columns don't cause underfitting** (a model too simple for the pattern). They make the model unsure which column deserves the credit, so it splits the weight between them, sometimes unstably. Predictions usually stay fine; the weights become hard to read. Ridge spreads the credit. Overlap is a keep-or-drop question, not an encoding question.
+- **Decision:** one-hot with Reg as the reference: `lot_shape_ir1`, and `lot_shape_ir2_ir3` (IR2 and IR3 merged, 50 houses), so no weight is learned from 9 houses.
+- **To compare in CV:** ordered (0–3), this one-hot version, and dropping LotShape.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -122,5 +132,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Keep rule for this problem: to be written before the first comparison.
 - Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
+- Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
 - Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`, `BldgType`. Check when we reach them.
 - Group similar columns (garage, basement, pool) instead of going one by one.
