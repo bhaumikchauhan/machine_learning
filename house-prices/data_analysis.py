@@ -383,6 +383,9 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LotShape', {'Reg': 'Reg\nregular', 'IR1': 'IR1\nslightly irregular',
                                                  'IR2': 'IR2\nmoderately irregular', 'IR3': 'IR3\nirregular'})],
                            'lot_shape.png', 'Sale price by LotShape, train.csv without Ids 524, 1299')
+    plot_price_by_category(train, [('LandContour', {'Lvl': 'Lvl\nlevel', 'Bnk': 'Bnk\nbanked',
+                                                    'HLS': 'HLS\nhillside', 'Low': 'Low\ndepression'})],
+                           'land_contour.png', 'Sale price by LandContour, train.csv without Ids 524, 1299')
     plot_lot_area(train)
     plot_living_area_outliers(train)
     plot_mszoning_counts(train, test)

@@ -106,6 +106,13 @@ General shape of the lot, with a natural order: Reg (regular), IR1 (slightly irr
 - **Decision:** one-hot with Reg as the reference: `lot_shape_ir1`, and `lot_shape_ir2_ir3` (IR2 and IR3 merged, 50 houses), so no weight is learned from 9 houses.
 - **To compare in CV:** ordered (0–3), this one-hot version, and dropping LotShape.
 
+### LandContour: one-hot, Lvl as reference
+
+Flatness of the lot: Lvl (level), Bnk (banked: quick rise from the street to the building), HLS (hillside: slope from side to side), Low (depression). No natural order: three different kinds of not-flat. See `plots/land_contour.png`.
+- `train.csv`: Lvl 1,311 (90%, median $163k), Bnk 61 ($136k), HLS 50 ($222k), Low 36 ($190k). `test.csv`: 1,311 / 54 / 70 / 24.
+- Part of each gap is probably age or lot size: median year built 1974 / 1937 / 1996 / 1971, median lot 9,400 / 8,400 / 11,099 / 16,177 sq ft. Banked lots are mostly in old neighbourhoods (OldTown 12, SWISU 11, Crawfor 8), hillside lots in new ones (Crawfor 12, Timber 10, Gilbert 8), and 13 of the 36 depression lots are in ClearCr.
+- **Decision:** one-hot with Lvl, the most common value, as the reference: `land_contour_bnk`, `land_contour_hls`, `land_contour_low`. No merging: the smallest group has 36 houses.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
