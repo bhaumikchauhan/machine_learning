@@ -346,9 +346,39 @@ def plot_lot_area(train):
     save(fig, 'lot_area.png')
 
 
+def plot_price_by_category(train, panels, file_name, title):
+    # panels: (column, {value: label}) pairs; a None value stands for an empty cell, which may mean "none".
+    houses = train[~train['Id'].isin(OUTLIER_IDS)]
+    fig, axes = plt.subplots(1, len(panels), figsize=(6 * len(panels), 5), dpi=120, sharey=True)
+    fig.patch.set_facecolor(SURFACE)
+    for ax, (column, labels) in zip(np.atleast_1d(axes), panels):
+        style_axes(ax)
+        for x, (value, label) in enumerate(labels.items()):
+            rows = houses[houses[column].isna()] if value is None else houses[houses[column] == value]
+            prices = rows['SalePrice']
+            jitter = [((i * 37) % 41 - 20) / 70 for i in range(len(prices))]  # fixed spread, no random draw
+            ax.scatter([x + j for j in jitter], prices, s=10, color=BLUE, alpha=0.35, linewidth=0)
+            ax.plot([x - 0.35, x + 0.35], [prices.median()] * 2, color=INK, linewidth=2)
+            ax.text(x, -45000, f"median ${prices.median() / 1000:.0f}k\nn={len(prices)}", ha='center', va='top',
+                    color=INK_SECONDARY, fontsize=8)
+        ax.set_xticks(range(len(labels)), list(labels.values()))
+        ax.set_xlim(-0.6, len(labels) - 0.4)
+        ax.set_ylim(-110000, houses['SalePrice'].max() * 1.05)
+        ax.yaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k" if v >= 0 else '')
+        ax.set_title(column, loc='left', color=INK, fontsize=11)
+    np.atleast_1d(axes)[0].set_ylabel('SalePrice (black line: median)', color=INK_SECONDARY)
+    fig.suptitle(title, x=0.01, ha='left', color=INK, fontsize=12)
+    save(fig, file_name)
+
+
 if __name__ == '__main__':
     train = pd.read_csv(TRAIN_CSV)
     test = pd.read_csv(TEST_CSV)
+    plot_price_by_category(train, [('Street', {'Grvl': 'Grvl\ngravel', 'Pave': 'Pave\npaved'}),
+                                   ('Alley', {None: 'empty\n(no alley access)', 'Grvl': 'Grvl\ngravel',
+                                              'Pave': 'Pave\npaved'})],
+                           'street_alley.png', 'Sale price by road access (Street) and alley access (Alley), '
+                           'train.csv without Ids 524, 1299')
     plot_lot_area(train)
     plot_living_area_outliers(train)
     plot_mszoning_counts(train, test)

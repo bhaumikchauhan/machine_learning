@@ -83,6 +83,12 @@ Lot size in square feet. No missing values. See `plots/lot_area.png` (without th
 - The log turns equal ratios into equal steps: 5k → 10k is the same step as 50k → 100k. That matches how lot size should matter: doubling a small lot means more than adding 5k to a huge one.
 - **Decision:** use log(LotArea), standardized. Raw LotArea is not used.
 
+### Street: one 0/1 column, gravel = 1
+
+Type of road access. Almost constant: 1,452 paved, 6 gravel (0.4%) in `train.csv` (without the two outliers); 6 gravel in `test.csv`. See `plots/street_alley.png`.
+- Gravel houses: median $114k, against $163k paved. From 6 houses, so uncertain by about ±$50k, and possibly caused by what the gravel houses have in common (age, size, neighbourhood) rather than by the gravel itself. Other columns may already capture that.
+- **Decision:** keep, as a single 0/1 column with gravel = 1. Paved houses get 0, so the weight never touches their predictions: whatever the model learns, including overfitting to the 6 gravel houses' quirks, stays with the gravel houses (6 in training, 6 in test). A single weight can still overfit, so the protection is the 0 for paved houses, plus regularization keeping a weight learned from 6 houses small. Two one-hot columns would put a weight on the paved houses too.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
