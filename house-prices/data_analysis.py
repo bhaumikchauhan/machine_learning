@@ -427,6 +427,37 @@ def plot_neighborhoods(train, test):
     save(fig, 'neighborhoods.png')
 
 
+CONDITION_NAMES = {
+    'Norm': 'Norm\nnothing nearby', 'Artery': 'Artery\narterial st.', 'Feedr': 'Feedr\nfeeder st.',
+    'RRNn': 'RRNn\nnear N-S rail', 'RRAn': 'RRAn\nnext to N-S rail', 'RRNe': 'RRNe\nnear E-W rail',
+    'RRAe': 'RRAe\nnext to E-W rail', 'PosN': 'PosN\nnear park etc.', 'PosA': 'PosA\nnext to park etc.',
+}
+
+
+def plot_conditions(train, test):
+    # A house counts under every condition in Condition1 or Condition2, so the 30 houses with two appear twice.
+    # Norm only counts houses with nothing nearby: Condition2 is Norm for almost every house.
+    houses = train[~train['Id'].isin(OUTLIER_IDS)]
+    fig, ax = new_figure(13, 5.5)
+    for x, (value, label) in enumerate(CONDITION_NAMES.items()):
+        second = value if value != 'Norm' else None
+        prices = houses.loc[(houses['Condition1'] == value) | (houses['Condition2'] == second), 'SalePrice']
+        in_test = ((test['Condition1'] == value) | (test['Condition2'] == second)).sum()
+        jitter = [((i * 37) % 41 - 20) / 70 for i in range(len(prices))]  # fixed spread, no random draw
+        ax.scatter([x + j for j in jitter], prices, s=10, color=BLUE, alpha=0.35, linewidth=0)
+        ax.plot([x - 0.35, x + 0.35], [prices.median()] * 2, color=INK, linewidth=2)
+        ax.text(x, -45000, f"median ${prices.median() / 1000:.0f}k\nn={len(prices)} / {in_test}", ha='center',
+                va='top', color=INK_SECONDARY, fontsize=8)
+    ax.set_xticks(range(len(CONDITION_NAMES)), list(CONDITION_NAMES.values()))
+    ax.set_xlim(-0.6, len(CONDITION_NAMES) - 0.4)
+    ax.set_ylim(-110000, houses['SalePrice'].max() * 1.05)
+    ax.yaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k" if v >= 0 else '')
+    ax.set_ylabel('SalePrice (black line: median)', color=INK_SECONDARY)
+    ax.set_title('Sale price by nearby condition (Condition1 or Condition2), train.csv without Ids 524, 1299; '
+                 'n = houses in train / test', loc='left', color=INK, fontsize=11)
+    save(fig, 'conditions.png')
+
+
 if __name__ == '__main__':
     train = pd.read_csv(TRAIN_CSV)
     test = pd.read_csv(TEST_CSV)
@@ -448,6 +479,7 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LandSlope', {'Gtl': 'Gtl\ngentle', 'Mod': 'Mod\nmoderate',
                                                   'Sev': 'Sev\nsevere'})],
                            'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
+    plot_conditions(train, test)
     plot_neighborhoods(train, test)
     plot_fr3_houses(train, test)
     plot_lot_area(train)

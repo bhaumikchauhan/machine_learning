@@ -159,6 +159,31 @@ Physical location within Ames: 25 neighbourhoods, none missing, all of them in b
 - **Veenker: its own column.** After quality, size, age and lot size, it still sold for about 10% more than NAmes, beyond its uncertainty; without a column its 13 test houses would be under-priced by about that. The penalty decides how far to pull its 11 noisy houses towards NAmes. (Score impact either way is small: about +0.0003 RMSE.)
 - **Columns:** one per neighbourhood except NAmes and Blueste: 23.
 
+### Condition1 and Condition2: three 0/1 columns from both columns together
+
+Proximity to conditions: Artery (arterial street), Feedr (feeder street), RRNn / RRAn (within 200 ft of / next to the north-south railroad), RRNe / RRAe (the same for the east-west railroad), PosN / PosA (near / next to a park, greenbelt etc.), Norm (nothing). Condition2 is only filled in when a house has a second condition. See `plots/conditions.png`.
+- Train + test: only 30 houses have a second condition, 13 of them repeating Condition1's value (PosN / PosN etc.). No house has Condition1 = Norm with something in Condition2, and the order between the two follows no rule (railroad + feeder street is 8 × RRAn / Feedr, 1 × Feedr / RRAn). So the two columns are a *set* of up to two conditions.
+- **Leftover check** (the simple fit of log price on OverallQual, log GrLivArea, YearBuilt, log LotArea, without the conditions), train houses with the condition in either column:
+
+  | Condition | Train | Test | Mean | Leftover |
+  |---|---|---|---|---|
+  | Norm | 1,260 | 1,251 | $184k | +0.01 ± 0.01 |
+  | Artery | 48 | 47 | $135k | −0.09 ± 0.05 |
+  | Feedr | 85 | 87 | $141k | −0.03 ± 0.04 |
+  | RRNn | 7 | 4 | $179k | +0.02 ± 0.06 |
+  | RRAn | 27 | 24 | $183k | −0.06 ± 0.06 |
+  | RRNe | 2 | 4 | $191k | −0.07 ± 0.10 |
+  | RRAe | 12 | 17 | $143k | −0.14 ± 0.10 |
+  | PosN | 18 | 20 | $217k | +0.04 ± 0.06 |
+  | PosA | 9 | 12 | $237k | +0.01 ± 0.14 |
+
+  Park-side houses look $33–53k dearer, but the leftover is about 0: they're bigger and better, and the park adds little that can be measured. Busy roads and railways cost something. Measured against each house's neighbourhood average, the leftovers barely change, so this isn't Neighborhood again.
+- **Decision:**
+  - **Reference (no column):** Norm, Feedr, RRNn, PosN, PosA, whose leftovers can't be told apart from Norm. Feedr and PosN are the same case (difference from Norm −0.04 and +0.03, both ranges reaching Norm), so they're treated the same way.
+  - `condition_artery`, `condition_rr_ns_adjacent` (RRAn), `condition_rr_ew` (RRAe + RRNe: the same east-west railroad; RRNe has only 2 training houses).
+  - Each column is 1 if the condition is in Condition1 **or** Condition2, so the order between them doesn't matter.
+- **To compare in CV:** Feedr and PosN merged into the reference against their own columns.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -188,6 +213,7 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
+- Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
 - Whether to scale the 0/1 columns: decide when writing the pipeline (it changes how hard the penalty pulls on small groups).
 - Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`, `BldgType`. Check when we reach them.
 - Group similar columns (garage, basement, pool) instead of going one by one.
