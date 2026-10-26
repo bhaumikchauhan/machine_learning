@@ -16,7 +16,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Merging rare categories.** A weight learned from very few rows mostly learns those rows. Merge a rare value with its most similar neighbour, after checking they really are similar. *HP: IR2 + IR3, FR2 + FR3, Mod + Sev slope.*
 
-**Target encoding.** Replace each category with the mean of the label for that category (one column instead of many). Because it's built from the label, it leaks unless done carefully (next three entries). `TargetEncoder` in scikit-learn does both fixes. *HP: MSSubClass.*
+**Target encoding.** Replace each category with the mean of the label for that category (one column instead of many). Because it's built from the label, it leaks unless done carefully (next three entries). `TargetEncoder` in scikit-learn does both fixes. It suits many unordered categories; it gives one weight on the *raw* group means, so the steps between groups keep their raw shape, which can be the wrong shape once other columns are in (GarageCars: raw steps biggest at 2 → 3 cars, because of quality; after quality, biggest at 0 → 1). *HP: MSSubClass, GarageCars.*
 
 **Leakage inside the training data.** If a row's own label is part of its feature value, the model learns that the column holds part of the answer, gives it too much weight, and that weight fails on test rows, whose labels are in no mean. Worst for small groups: in a group of 4, a row's own price is 25% of its value. *HP: MSSubClass. T: group fate.*
 
@@ -65,6 +65,8 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 **One weight per column, shared by everyone.** A linear model adds weight × value for each column, with the same weight for every row. If an effect differs between groups, it needs its own column (an interaction), or the weight learned from one group is applied to another. *T: is_male_adult, group fate for women and boys only.*
 
 **Additive on the log-odds scale.** Logistic regression adds weights in log-odds, so without interactions the class effect is the same for men and women. *T: Pclass interaction.*
+
+**Dates and ages in a linear model.** "Today − year" is the year flipped and shifted: same predictions, only the weight's sign changes. Age at sale (YrSold − YearBuilt) does differ, but a single age weight can't express a market trend: a later sale makes the house "older", which lowers its price. A market effect needs its own column (YrSold), and should be checked first: Ames prices were flat 2006–2010 (yearly leftovers within ±0.02), not +5% a year. *HP: YearBuilt, YrSold.*
 
 **Least squares and outliers.** Minimizing *squared* error lets one far-off row pull the line: an error of $463k squared outweighs hundreds of ordinary rows, and a row at the far end of the x-axis tilts the line most. Two houses of 1,460 moved the price-per-sq-ft slope by 7%. *HP: Ids 524, 1299.*
 

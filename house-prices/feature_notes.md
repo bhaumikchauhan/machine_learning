@@ -2,7 +2,7 @@
 
 Decisions and reasoning behind the features in [house_prices.py](house_prices.py). Task: predict `SalePrice` for 1,459 test houses from 79 columns. 1,460 training houses. Kaggle scores the RMSE between log(predicted price) and log(actual price).
 
-Status: in progress. Going through the columns one at a time, in the order of `data_description.txt`. No model or baseline yet.
+Status: in progress. Columns Id to HouseStyle were gone through one at a time, in the order of `data_description.txt`. That was too slow for 79 columns, so the approach changed (2026-10-26): a small baseline first (see [Baseline](#baseline)), then the remaining columns in groups, with a quick check per column and CV to decide.
 
 Graphs are made by [data_analysis.py](data_analysis.py) (`uv run python data_analysis.py`) and saved to `plots/`.
 
@@ -202,6 +202,63 @@ Style of dwelling: 1Story, 1.5Fin / 1.5Unf (second level finished / unfinished),
 - 2.5Fin has no test houses. "How much upstairs" comes back more precisely with 2ndFlrSF.
 - **Decision:** drop.
 
+### OverallQual: one-hot, levels 1–3 merged, level 5 as reference
+
+Overall material and finish, 1 (very poor) to 10 (very excellent). None missing. On its own it explains 67% of the log-price spread, the most of any column (`plots/column_overview.png`).
+- Raw steps in mean log price are fairly even from 4 to 10 (+0.19 to +0.30 per level, about 25%). After size, age and lot size (a fit without OverallQual) they're uneven: 4: +0.21, 5–7: +0.06, +0.04, +0.02, 8–9: +0.14, +0.18, 10: +0.06.
+- Levels 1, 2, 3 have 2, 3 and 20 training houses and nearly the same leftover (−0.29, −0.28, −0.32): merged.
+- **Decision:** one-hot over 1–3, 4, 5, 6, 7, 8, 9, 10, with 5 (397 houses, the middle) as the reference: 7 columns.
+- **Risk:** the penalty pulls each weight towards the reference, hardest on small groups, and here the small groups are at the far ends (10: 16 houses, 9: 43), so the most expensive houses get pulled towards the middle. A number column keeps the trend for them but forces equal steps. **To compare in CV:** number vs one-hot. It's the strongest column, so this comparison matters more than most.
+
+### Age at sale: YrSold − YearRemodAdd
+
+YearRemodAdd is the remodel date, the same as YearBuilt if never remodelled. None missing.
+- **YearRemodAdd starts at 1950:** 361 houses show 1950, 339 of them built before 1950 (remodels before 1950 apparently weren't recorded). In train, these 166 houses (median built 1928) average $118k ± $6k; genuine 1950 houses never remodelled $111k ± $11k. The floor does little harm.
+- Pre-1950 houses remodelled after 1950 average $148k against $118k for those that weren't: remodelling matters, which YearBuilt can't see.
+- **Age at sale, not "today − year":** in a linear model, today − year is the year flipped, so the predictions are the same. Age at sale describes the house when sold.
+- **No market trend to model:** prices were flat 2006–2010 (median $164k / $166k / $165k / $162k / $155k; yearly leftovers within ±0.02). A trend would need YrSold as its own column anyway: with age alone, a later sale makes the house "older".
+- **Decision:** `age = YrSold − YearRemodAdd`, as a number. YearBuilt overlaps heavily (1,560 of 2,919 houses never remodelled); left for later.
+
+### GrLivArea: log(GrLivArea)
+
+Above-ground living area. None missing. Skew 1.01 raw, −0.07 after log; explains 52.6% (raw) vs 54.4% (log) of the log-price spread. Mean log price per size band rises less for big houses, which is what log area gives: with raw area, every extra 1,000 sq ft multiplies the price by the same factor, whatever the size.
+- Test Id 2550 has 5,095 sq ft, beyond every training house once 524 and 1299 are removed (largest 4,476); log area extrapolates more gently.
+- **Decision:** log(GrLivArea), then standardized.
+
+### ExterQual: one-hot, TA as reference
+
+Quality of the exterior material: Ex, Gd, TA (typical), Fa. Po doesn't occur. None missing.
+- `train.csv`: Fa 14 ($88k), TA 906 ($144k), Gd 488 ($232k), Ex 50 ($375k). `test.csv`: 21 / 892 / 491 / 55.
+- Raw steps in mean log price are even (+0.53, +0.47, +0.48), but that's mostly OverallQual rising with it (median quality 4 / 5 / 7 / 9). After quality, size, age and lot size, the leftovers are −0.13 ± 0.13 / −0.01 / +0.01 / +0.12 ± 0.05: uneven steps (+0.12, +0.02, +0.10). The model's weights work on top of OverallQual, so those are the steps that count.
+- **Decision:** one-hot with TA as the reference: `exter_qual_fa`, `exter_qual_gd`, `exter_qual_ex`. Fa (14 houses, range just reaching 0) keeps its column, to see how far the penalty shrinks it; whether it helps is a CV question.
+
+### GarageCars: one-hot 0 / 1 / 2 / 3+, 2 as reference
+
+Garage size in cars. Test Id 2577 has no value: GarageType says Detchd but every other garage field is empty, so it's treated as no garage (GarageCars 0; GarageType to "no garage" too when the garage columns are added).
+- `train.csv`: 0: 81 ($103k), 1: 369 ($128k), 2: 823 ($184k), 3: 180 ($310k), 4: 5 ($193k). `test.csv`: 76 (+ 2577) / 407 / 770 / 193 / 11, and one 5-car house (Id 1829: 1,184 sq ft detached, OverallQual 5, 1,072 sq ft living area).
+- Leftover after quality, size, age and lot size: −0.14 ± 0.05 / −0.02 / +0.01 / +0.07 ± 0.02 / +0.12 ± 0.08. Having a garage at all is the big step (+0.12); raw steps are biggest at 2 → 3 (+0.50), because 3-car houses are mostly quality 8.
+- **Not target encoding:** it gives one weight on the raw group means, so it keeps the raw shape of the steps (biggest at 2 → 3), not the shape left after quality (biggest at 0 → 1).
+- **4 cars merged with 3:** ranges +0.04 to +0.20 and +0.05 to +0.09 overlap; their raw price gap comes from quality.
+- **Decision:** `garage_none`, `garage_1`, `garage_3plus` (3, 4 and 5 cars); 2 is the reference. The 5-car test house goes in 3+.
+
+## Baseline
+
+A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
+
+| Column | Encoding |
+|---|---|
+| MSSubClass | target encoding, out-of-fold and blended (`TargetEncoder`) |
+| Neighborhood | one-hot, NAmes as reference, Blueste with no column (23 columns) |
+| LotArea | log, standardized |
+| LotShape | one-hot, Reg as reference, IR2 + IR3 merged (2 columns) |
+| OverallQual | one-hot, 1–3 merged, 5 as reference (7 columns) |
+| Age at sale | YrSold − YearRemodAdd, standardized |
+| GrLivArea | log, standardized |
+| ExterQual | one-hot, TA as reference (3 columns) |
+| GarageCars | one-hot 0 / 1 / 2 / 3+, 2 as reference (3 columns); Id 2577 → 0 |
+
+None of these has missing values apart from GarageCars for Id 2577.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -225,7 +282,9 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- Keep rule for this problem: to be written before the first comparison.
+- Keep rule for this problem: to be written once the baseline's fold noise is known, before the first comparison.
+- Prune the CV list below: keep only comparisons that could plausibly change the score. Candidate to keep: OverallQual number vs one-hot.
+- Compare OverallQual as a number against one-hot, with cross-validation.
 - Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.

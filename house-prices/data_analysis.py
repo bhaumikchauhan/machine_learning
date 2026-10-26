@@ -5,6 +5,7 @@ import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 
@@ -456,6 +457,48 @@ def plot_vs_mssubclass(train, test, column, names, file_name):
     save(fig, file_name)
 
 
+def plot_column_overview(train, test, skip):
+    # Share of log-price spread explained by each column on its own: squared correlation for numbers
+    # (missing filled with the median), group means for categories (missing as its own group).
+    houses = train[~train['Id'].isin(OUTLIER_IDS)]
+    log_price = np.log(houses['SalePrice'])
+    rows = []
+    for column in houses.columns.drop(skip):
+        values = houses[column]
+        if pd.api.types.is_numeric_dtype(values):
+            share = values.fillna(values.median()).corr(log_price) ** 2
+        else:
+            group_mean = log_price.groupby(values.fillna('NA')).transform('mean')
+            share = 1 - ((log_price - group_mean) ** 2).sum() / ((log_price - log_price.mean()) ** 2).sum()
+        rows.append((column, share, pd.api.types.is_numeric_dtype(values),
+                     train[column].isna().sum(), test[column].isna().sum()))
+    rows.sort(key=lambda row: row[1])
+    fig, ax = new_figure(11, 15)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    for y, (column, share, numeric, missing_train, missing_test) in enumerate(rows):
+        ax.barh(y, share, height=0.7, color=BLUE if numeric else ORANGE)
+        if missing_train or missing_test:
+            ax.text(share + 0.005, y, f"missing {missing_train} / {missing_test}", va='center',
+                    color=INK_SECONDARY, fontsize=7.5)
+    ax.set_yticks(range(len(rows)), [row[0] for row in rows], fontsize=8)
+    ax.set_ylim(-0.6, len(rows) - 0.4)
+    ax.set_xlim(0, 0.8)
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0%}")
+    ax.legend(handles=[Patch(color=BLUE, label='number'), Patch(color=ORANGE, label='category')],
+              loc='lower right', frameon=False, labelcolor=INK_SECONDARY)
+    ax.set_xlabel('share of log-price spread explained by the column alone (missing: train / test)',
+                  color=INK_SECONDARY)
+    ax.set_title('Columns not analysed yet, train.csv without Ids 524, 1299', loc='left', color=INK,
+                 fontsize=11)
+    save(fig, 'column_overview.png')
+
+
+ANALYSED_COLUMNS = ['Id', 'MSSubClass', 'MSZoning', 'LotFrontage', 'LotArea', 'Street', 'Alley', 'LotShape',
+                    'LandContour', 'Utilities', 'LotConfig', 'LandSlope', 'Neighborhood', 'Condition1',
+                    'Condition2', 'BldgType', 'HouseStyle']
+
+
 CONDITION_NAMES = {
     'Norm': 'Norm\nnothing nearby', 'Artery': 'Artery\narterial st.', 'Feedr': 'Feedr\nfeeder st.',
     'RRNn': 'RRNn\nnear N-S rail', 'RRAn': 'RRAn\nnext to N-S rail', 'RRNe': 'RRNe\nnear E-W rail',
@@ -508,6 +551,7 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LandSlope', {'Gtl': 'Gtl\ngentle', 'Mod': 'Mod\nmoderate',
                                                   'Sev': 'Sev\nsevere'})],
                            'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
+    plot_column_overview(train, test, ANALYSED_COLUMNS + ['SalePrice'])
     plot_price_by_category(train, [('BldgType', BLDG_TYPE_NAMES)], 'bldg_type.png',
                            'Sale price by BldgType, train.csv without Ids 524, 1299')
     plot_vs_mssubclass(train, test, 'BldgType', BLDG_TYPE_NAMES, 'bldg_type_vs_mssubclass.png')
