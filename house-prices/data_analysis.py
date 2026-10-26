@@ -419,6 +419,9 @@ if __name__ == '__main__':
                                                   'CulDSac': 'CulDSac\ncul-de-sac', 'FR2': 'FR2\nfrontage 2 sides',
                                                   'FR3': 'FR3\nfrontage 3 sides'})],
                            'lot_config.png', 'Sale price by LotConfig, train.csv without Ids 524, 1299')
+    plot_price_by_category(train, [('LandSlope', {'Gtl': 'Gtl\ngentle', 'Mod': 'Mod\nmoderate',
+                                                  'Sev': 'Sev\nsevere'})],
+                           'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
     plot_fr3_houses(train, test)
     plot_lot_area(train)
     plot_living_area_outliers(train)

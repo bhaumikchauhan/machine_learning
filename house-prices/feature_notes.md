@@ -126,6 +126,15 @@ Position of the lot: Inside, Corner, CulDSac (cul-de-sac), FR2 / FR3 (frontage o
 - **FR3** (see `plots/fr3_houses.png`): the 4 training houses are 532 (1920, single-family, $128k), 1266 (1999, townhouse, $184k), 334 (2004, townhouse, $207k) and 1360 (2004, single-family, OverallQual 9, $315k). Their median rests on 4 spread-out houses (uncertain by roughly ±$80k). Train and test together, FR2 and FR3 are almost identical: median year built 1994 / 1996, lot 9,600 / 9,445 sq ft, living area 1,422 / 1,407 sq ft. The 10 test FR3 houses range from 1910 to 2006.
 - **Decision:** one-hot with Inside as the reference: `lot_config_corner`, `lot_config_culdsac`, `lot_config_fr2_fr3` (FR2 and FR3 merged, 51 training houses). Main reason: FR3's gap rests on 4 houses and FR3 looks like FR2 on everything checked. Part of those 4 houses' prices is explained by other columns (one is OverallQual 9, two are new townhouses), but that's an expectation to see in the weights, not a fact yet.
 
+### LandSlope: one 0/1 column, Mod and Sev merged; CV to compare
+
+Slope of the property: Gtl (gentle), Mod (moderate), Sev (severe). See `plots/land_slope.png`.
+- `train.csv`: Gtl 1,380 (95%, mean $180k ± $4k), Mod 65 ($197k ± $23k), Sev 13 ($204k ± $48k; median lot 28,698 sq ft). `test.csv`: 1,396 / 60 / 3.
+- **Mod and Sev can't be told apart:** the gap between their means ($8k) is far smaller than the uncertainty of the Sev mean (±$48k). A Sev weight would be learned from 13 houses, for 3 test houses. Merged: 78 houses, $198k ± $21k.
+- **Overlap with LandContour** (train + test): Gtl is 96% Lvl; Mod is 78% non-level (Lvl 28, Bnk 26, HLS 39, Low 32); Sev is 88% non-level (Lvl 2, Bnk 1, HLS 2, Low 11). The new information is mostly in the 30 lots that are sloped but marked level; elsewhere the column splits credit with the LandContour columns.
+- **Decision:** `land_slope_sloped` (Mod or Sev = 1, Gtl = 0, the reference).
+- **To compare in CV:** with and without `land_slope_sloped`.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -153,5 +162,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
+- Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`, `BldgType`. Check when we reach them.
 - Group similar columns (garage, basement, pool) instead of going one by one.

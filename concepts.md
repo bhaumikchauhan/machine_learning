@@ -14,7 +14,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Ordered categories.** A single 0, 1, 2, 3 column with one weight forces *equal steps* between neighbouring values. Use it only when the effect really moves in equal steps; having an order isn't enough. *HP: LotShape (steps +$43k, +$32k, −$6k).*
 
-**Merging rare categories.** A weight learned from very few rows mostly learns those rows. Merge a rare value with its most similar neighbour, after checking they really are similar. *HP: IR2 + IR3, FR2 + FR3.*
+**Merging rare categories.** A weight learned from very few rows mostly learns those rows. Merge a rare value with its most similar neighbour, after checking they really are similar. *HP: IR2 + IR3, FR2 + FR3, Mod + Sev slope.*
 
 **Target encoding.** Replace each category with the mean of the label for that category (one column instead of many). Because it's built from the label, it leaks unless done carefully (next three entries). `TargetEncoder` in scikit-learn does both fixes. *HP: MSSubClass.*
 
@@ -48,7 +48,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Uncertainty of a rate.** An observed rate p from n rows varies around the true rate by about ±2 × √(p(1 − p) / n) (95% of samples). Halving it takes 4 times the rows. It fails for tiny n or p = 0 or 1 (3 of 3 gives ±0); then compute directly: 3 of 3 survivors is still 12.5% likely at a true rate of 50%. *T: min_samples_leaf.*
 
-**Uncertainty of a mean.** ±2 × (spread) / √n. Code 20 (536 houses): ±$6.8k. Code 40 (4 houses): ±$76k. Six gravel-road houses: about ±$50k. *HP: MSSubClass, Street.*
+**Uncertainty of a mean.** *When to use it:* whenever a decision rests on a group's mean or on the gap between two groups' means: whether a category is reliable enough for its own weight, whether two categories can be merged, whether a gap is real or chance. *What it tells:* if the gap between two groups is smaller than their uncertainty, the data can't tell them apart, so a separate weight would mostly learn noise; merge them (or don't trust the gap). If the gap is several times the uncertainty, it's probably real (though it can still come from other causes). Severe vs moderate slope: gap $8k, Sev uncertainty ±$48k, so merged. Small groups have large uncertainty, which is why they're the ones to merge or blend. *How:* ±2 × sd / √n, where sd is the spread of single rows around the mean. Averaging n independent rows divides the variance by n, so the sd of the mean (the *standard error*) is sd / √n; the mean of a sample is roughly normally distributed, so about 95% of samples land within 2 standard errors of the true mean. Severe slope: sd $86.7k, n = 13 → $86.7k / 3.61 = $24k → ±$48k. Rough for small n (the 2 should be about 2.2 at n = 13, and the sd itself is uncertain). The rate formula is the same idea: a rate is the mean of 0/1 values, whose sd is √(p(1 − p)). Code 20 (536 houses): ±$6.8k. Code 40 (4 houses): ±$76k. Six gravel-road houses: about ±$50k. *HP: MSSubClass, Street, LandSlope.*
 
 **Other causes (confounding).** A gap between groups may come from what the group members have in common, not from the column itself: irregular lots sell for more because they're newer and bigger, cabins went with 1st class. Another column may already carry it. *T: Cabin, Ticket. HP: Street, LotShape, LandContour, LotConfig.*
 
@@ -64,7 +64,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Least squares and outliers.** Minimizing *squared* error lets one far-off row pull the line: an error of $463k squared outweighs hundreds of ordinary rows, and a row at the far end of the x-axis tilts the line most. Two houses of 1,460 moved the price-per-sq-ft slope by 7%. *HP: Ids 524, 1299.*
 
-**Overlapping (correlated) columns.** They don't cause underfitting. The model can't tell which column deserves the credit, so it splits the weight between them, sometimes unstably. Predictions usually stay fine; the weights become hard to read. Ridge spreads the credit. Overlap is a keep-or-drop question, not an encoding question. *HP: LotShape.*
+**Overlapping (correlated) columns.** They don't cause underfitting. The model can't tell which column deserves the credit, so it splits the weight between them, sometimes unstably. Predictions usually stay fine; the weights become hard to read. Ridge spreads the credit. Overlap is a keep-or-drop question, not an encoding question. *HP: LotShape, LandSlope vs LandContour.*
 
 **Near-constant columns.** A column that is one value for 99.6% of rows can only change the predictions of the few rare rows. A single weight learned from 6 rows can still overfit them; coding the common value as 0 keeps that away from everyone else. If no test row has the rare value, the column can't help at all: drop it. *HP: Street, Utilities.*
 
