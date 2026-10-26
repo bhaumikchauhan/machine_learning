@@ -401,6 +401,32 @@ def plot_fr3_houses(train, test):
     save(fig, 'fr3_houses.png')
 
 
+def plot_neighborhoods(train, test):
+    houses = train[~train['Id'].isin(OUTLIER_IDS)]
+    order = houses.groupby('Neighborhood')['SalePrice'].median().sort_values().index
+    test_counts = test['Neighborhood'].value_counts()
+    fig, ax = new_figure(11, 10)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    for y, name in enumerate(order):
+        prices = houses.loc[houses['Neighborhood'] == name, 'SalePrice']
+        jitter = [((i * 37) % 41 - 20) / 70 for i in range(len(prices))]  # fixed spread, no random draw
+        ax.scatter(prices, [y + j for j in jitter], s=8, color=BLUE, alpha=0.35, linewidth=0)
+        ax.plot([prices.median()] * 2, [y - 0.38, y + 0.38], color=INK, linewidth=2)
+        ax.text(760000, y, f"n={len(prices)} / {test_counts.get(name, 0)}", va='center', color=INK_SECONDARY,
+                fontsize=8)
+    ax.axvline(houses['SalePrice'].median(), color=ORANGE, linewidth=1, linestyle='--')
+    ax.text(houses['SalePrice'].median() + 5000, len(order) - 0.4, 'overall median', color=ORANGE, fontsize=8)
+    ax.set_yticks(range(len(order)), order)
+    ax.set_ylim(-0.6, len(order) - 0.1)
+    ax.set_xlim(0, 840000)
+    ax.xaxis.set_major_formatter(lambda v, _: f"${v / 1000:.0f}k")
+    ax.set_xlabel('SalePrice (black line: median; right: houses in train / test)', color=INK_SECONDARY)
+    ax.set_title('Sale price by Neighborhood, sorted by median, train.csv without Ids 524, 1299',
+                 loc='left', color=INK, fontsize=11)
+    save(fig, 'neighborhoods.png')
+
+
 if __name__ == '__main__':
     train = pd.read_csv(TRAIN_CSV)
     test = pd.read_csv(TEST_CSV)
@@ -422,6 +448,7 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LandSlope', {'Gtl': 'Gtl\ngentle', 'Mod': 'Mod\nmoderate',
                                                   'Sev': 'Sev\nsevere'})],
                            'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
+    plot_neighborhoods(train, test)
     plot_fr3_houses(train, test)
     plot_lot_area(train)
     plot_living_area_outliers(train)

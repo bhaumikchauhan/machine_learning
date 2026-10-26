@@ -135,6 +135,30 @@ Slope of the property: Gtl (gentle), Mod (moderate), Sev (severe). See `plots/la
 - **Decision:** `land_slope_sloped` (Mod or Sev = 1, Gtl = 0, the reference).
 - **To compare in CV:** with and without `land_slope_sloped`.
 
+### Neighborhood: one-hot, NAmes as reference, Blueste priced like the reference
+
+Physical location within Ames: 25 neighbourhoods, none missing, all of them in both train and test. See `plots/neighborhoods.png`.
+- Median price from $88k (MeadowV) to $315k (NridgHt), a factor of 3.6. Log-price spread within a neighbourhood is typically 0.2–0.3, against 0.40 overall: the neighbourhood explains a good part of the price.
+- Part of each gap is age and quality: NridgHt median year built 2006, OverallQual 8; IDOTRR 1922, OldTown 1920. Part is location: Crawfor is old (1938) and still $201k. The weights will be the location effect left over after YearBuilt, OverallQual and the rest.
+- Small neighbourhoods (train / test; overall mean $181k):
+
+  | Neighbourhood | Train | Test | Mean | Gap | Uncertainty | Gap vs uncertainty |
+  |---|---|---|---|---|---|---|
+  | Blueste | 2 | 8 | $138k | −$43k | ±$27k | 2 houses: unreliable |
+  | NPkVill | 9 | 14 | $143k | −$38k | ±$6k | real |
+  | Veenker | 11 | 13 | $239k | +$58k | ±$44k | doubtful |
+  | BrDale | 16 | 14 | $104k | −$77k | ±$7k | real |
+  | MeadowV | 17 | 20 | $99k | −$82k | ±$11k | real |
+  | Blmngtn | 17 | 11 | $195k | +$14k | ±$15k | could be chance |
+
+- **Decision:** one-hot, each neighbourhood its own column, because the gaps are large and uneven, so each needs its own weight. About 22 columns for 1,458 houses is affordable. Blmngtn keeps its column: an uncertain gap gives a small weight, and the penalty shrinks it.
+- **Reference: NAmes** (the most common, 225 houses, mean $146k). With a penalty, each weight is pulled towards 0, i.e. each neighbourhood's prediction towards the reference's price level, small groups most (roughly the blending formula with the reference as the anchor). NAmes sits on the cheap side, so expensive small groups get pulled down.
+- **To compare in CV:** NAmes against CollgCr (150 houses, mean $198k, close to the overall mean) as the reference.
+- **Leftover check** (does "the other columns will handle it" hold?): a simple fit of log price on OverallQual, log GrLivArea, YearBuilt and log LotArea, without Neighborhood, then the mean leftover (actual − predicted log price) per neighbourhood: NAmes +0.02 ± 0.02, Blueste +0.07 ± 0.04 (2 houses), Veenker +0.12 ± 0.07, Blmngtn +0.05 ± 0.05, Crawfor +0.16 ± 0.04.
+- **Blueste: no column** (priced like NAmes). 2 houses, and its leftover can't be told apart from NAmes.
+- **Veenker: its own column.** After quality, size, age and lot size, it still sold for about 10% more than NAmes, beyond its uncertainty; without a column its 13 test houses would be under-priced by about that. The penalty decides how far to pull its 11 noisy houses towards NAmes. (Score impact either way is small: about +0.0003 RMSE.)
+- **Columns:** one per neighbourhood except NAmes and Blueste: 23.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -163,5 +187,7 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
+- Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
+- Whether to scale the 0/1 columns: decide when writing the pipeline (it changes how hard the penalty pulls on small groups).
 - Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`, `BldgType`. Check when we reach them.
 - Group similar columns (garage, basement, pool) instead of going one by one.
