@@ -427,6 +427,30 @@ def plot_neighborhoods(train, test):
     save(fig, 'neighborhoods.png')
 
 
+BLDG_TYPE_NAMES = {'1Fam': '1Fam\nsingle-family', '2fmCon': '2fmCon\n2-family conv.', 'Duplex': 'Duplex',
+                   'Twnhs': 'Twnhs\ntownhouse inside', 'TwnhsE': 'TwnhsE\ntownhouse end'}
+
+
+def plot_bldg_type_vs_mssubclass(train, test):
+    houses = pd.concat([train, test])
+    counts = pd.crosstab(houses['MSSubClass'], houses['BldgType'])[list(BLDG_TYPE_NAMES)]
+    fig, ax = new_figure(9, 8)
+    ax.grid(axis='y', visible=False)
+    for x, bldg_type in enumerate(counts.columns):
+        for y, code in enumerate(counts.index):
+            n = counts.loc[code, bldg_type]
+            if n == 0:
+                continue
+            ax.scatter(x, y, s=n * 2.5, color=BLUE, alpha=0.3, linewidth=0)
+            ax.text(x, y, n, ha='center', va='center', color=INK, fontsize=8)
+    ax.set_xticks(range(len(counts.columns)), [BLDG_TYPE_NAMES[c] for c in counts.columns])
+    ax.set_yticks(range(len(counts.index)), [f"{c} {MSSUBCLASS_NAMES[c]}" for c in counts.index])
+    ax.set_xlim(-0.6, len(counts.columns) - 0.4)
+    ax.set_ylim(len(counts.index) - 0.5, -0.5)
+    ax.set_title('Houses by MSSubClass and BldgType, train.csv + test.csv', loc='left', color=INK, fontsize=11)
+    save(fig, 'bldg_type_vs_mssubclass.png')
+
+
 CONDITION_NAMES = {
     'Norm': 'Norm\nnothing nearby', 'Artery': 'Artery\narterial st.', 'Feedr': 'Feedr\nfeeder st.',
     'RRNn': 'RRNn\nnear N-S rail', 'RRAn': 'RRAn\nnext to N-S rail', 'RRNe': 'RRNe\nnear E-W rail',
@@ -479,6 +503,9 @@ if __name__ == '__main__':
     plot_price_by_category(train, [('LandSlope', {'Gtl': 'Gtl\ngentle', 'Mod': 'Mod\nmoderate',
                                                   'Sev': 'Sev\nsevere'})],
                            'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
+    plot_price_by_category(train, [('BldgType', BLDG_TYPE_NAMES)], 'bldg_type.png',
+                           'Sale price by BldgType, train.csv without Ids 524, 1299')
+    plot_bldg_type_vs_mssubclass(train, test)
     plot_conditions(train, test)
     plot_neighborhoods(train, test)
     plot_fr3_houses(train, test)

@@ -184,6 +184,14 @@ Proximity to conditions: Artery (arterial street), Feedr (feeder street), RRNn /
   - Each column is 1 if the condition is in Condition1 **or** Condition2, so the order between them doesn't matter.
 - **To compare in CV:** Feedr and PosN merged into the reference against their own columns.
 
+### BldgType: dropped (MSSubClass already says it)
+
+Type of dwelling: 1Fam (single-family), 2fmCon (two-family conversion), Duplex, Twnhs (townhouse inside unit), TwnhsE (townhouse end unit). The data spells them `2fmCon`, `Duplex`, `Twnhs`; `data_description.txt` says `2FmCon`, `Duplx`, `TwnhsI`. See `plots/bldg_type.png` and `plots/bldg_type_vs_mssubclass.png`.
+- `train.csv`: 1Fam 1,218 (mean $186k), 2fmCon 31 ($128k), Duplex 52 ($134k), Twnhs 43 ($136k), TwnhsE 114 ($182k). `test.csv`: 1,205 / 31 / 57 / 53 / 113. None missing.
+- **Almost a copy of MSSubClass** (train + test): Duplex is exactly code 90 (109 houses); 60 of the 62 2fmCon are code 190; 322 of the 323 townhouses are the PUD codes 120–180; codes 20–85 are single-family apart from 3 houses.
+- **The only new information** is inside vs end unit within a PUD code (code 160: 71 inside, 56 end). After quality, size, age, lot size and the MSSubClass group, their leftovers are the same (−0.003 and −0.001). The raw $46k Twnhs/TwnhsE gap comes from the codes: end units are mostly code 120 (1-story, median built 2003), inside units mostly code 160. (For Duplex and 2fmCon, a leftover of 0 after MSSubClass is automatic, since they sit inside one code; it's the mapping itself that shows they add nothing.)
+- **Decision:** drop. Holds whether MSSubClass ends up target-encoded or one-hot: both carry each code's price level.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -215,5 +223,5 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
 - Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
 - Whether to scale the 0/1 columns: decide when writing the pipeline (it changes how hard the penalty pulls on small groups).
-- Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`, `BldgType`. Check when we reach them.
+- Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`. Check when we reach them. (`BldgType`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.
