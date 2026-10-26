@@ -431,10 +431,15 @@ BLDG_TYPE_NAMES = {'1Fam': '1Fam\nsingle-family', '2fmCon': '2fmCon\n2-family co
                    'Twnhs': 'Twnhs\ntownhouse inside', 'TwnhsE': 'TwnhsE\ntownhouse end'}
 
 
-def plot_bldg_type_vs_mssubclass(train, test):
+HOUSE_STYLE_NAMES = {'1Story': '1Story', '1.5Fin': '1.5Fin', '1.5Unf': '1.5Unf', '2Story': '2Story',
+                     '2.5Fin': '2.5Fin', '2.5Unf': '2.5Unf', 'SFoyer': 'SFoyer\nsplit foyer',
+                     'SLvl': 'SLvl\nsplit level'}
+
+
+def plot_vs_mssubclass(train, test, column, names, file_name):
     houses = pd.concat([train, test])
-    counts = pd.crosstab(houses['MSSubClass'], houses['BldgType'])[list(BLDG_TYPE_NAMES)]
-    fig, ax = new_figure(9, 8)
+    counts = pd.crosstab(houses['MSSubClass'], houses[column])[list(names)]
+    fig, ax = new_figure(max(9, 1.5 * len(names)), 8)
     ax.grid(axis='y', visible=False)
     for x, bldg_type in enumerate(counts.columns):
         for y, code in enumerate(counts.index):
@@ -443,12 +448,12 @@ def plot_bldg_type_vs_mssubclass(train, test):
                 continue
             ax.scatter(x, y, s=n * 2.5, color=BLUE, alpha=0.3, linewidth=0)
             ax.text(x, y, n, ha='center', va='center', color=INK, fontsize=8)
-    ax.set_xticks(range(len(counts.columns)), [BLDG_TYPE_NAMES[c] for c in counts.columns])
+    ax.set_xticks(range(len(counts.columns)), [names[c] for c in counts.columns])
     ax.set_yticks(range(len(counts.index)), [f"{c} {MSSUBCLASS_NAMES[c]}" for c in counts.index])
     ax.set_xlim(-0.6, len(counts.columns) - 0.4)
     ax.set_ylim(len(counts.index) - 0.5, -0.5)
-    ax.set_title('Houses by MSSubClass and BldgType, train.csv + test.csv', loc='left', color=INK, fontsize=11)
-    save(fig, 'bldg_type_vs_mssubclass.png')
+    ax.set_title(f"Houses by MSSubClass and {column}, train.csv + test.csv", loc='left', color=INK, fontsize=11)
+    save(fig, file_name)
 
 
 CONDITION_NAMES = {
@@ -505,7 +510,10 @@ if __name__ == '__main__':
                            'land_slope.png', 'Sale price by LandSlope, train.csv without Ids 524, 1299')
     plot_price_by_category(train, [('BldgType', BLDG_TYPE_NAMES)], 'bldg_type.png',
                            'Sale price by BldgType, train.csv without Ids 524, 1299')
-    plot_bldg_type_vs_mssubclass(train, test)
+    plot_vs_mssubclass(train, test, 'BldgType', BLDG_TYPE_NAMES, 'bldg_type_vs_mssubclass.png')
+    plot_price_by_category(train, [('HouseStyle', HOUSE_STYLE_NAMES)], 'house_style.png',
+                           'Sale price by HouseStyle, train.csv without Ids 524, 1299')
+    plot_vs_mssubclass(train, test, 'HouseStyle', HOUSE_STYLE_NAMES, 'house_style_vs_mssubclass.png')
     plot_conditions(train, test)
     plot_neighborhoods(train, test)
     plot_fr3_houses(train, test)

@@ -192,6 +192,16 @@ Type of dwelling: 1Fam (single-family), 2fmCon (two-family conversion), Duplex, 
 - **The only new information** is inside vs end unit within a PUD code (code 160: 71 inside, 56 end). After quality, size, age, lot size and the MSSubClass group, their leftovers are the same (−0.003 and −0.001). The raw $46k Twnhs/TwnhsE gap comes from the codes: end units are mostly code 120 (1-story, median built 2003), inside units mostly code 160. (For Duplex and 2fmCon, a leftover of 0 after MSSubClass is automatic, since they sit inside one code; it's the mapping itself that shows they add nothing.)
 - **Decision:** drop. Holds whether MSSubClass ends up target-encoded or one-hot: both carry each code's price level.
 
+### HouseStyle: dropped (MSSubClass mostly says it)
+
+Style of dwelling: 1Story, 1.5Fin / 1.5Unf (second level finished / unfinished), 2Story, 2.5Fin / 2.5Unf, SFoyer (split foyer), SLvl (split level). See `plots/house_style.png` and `plots/house_style_vs_mssubclass.png`.
+- `train.csv`: 1Story 726 (mean $176k), 1.5Fin 154 ($143k), 1.5Unf 14 ($110k), 2Story 443 ($210k), 2.5Fin 8 ($220k), 2.5Unf 11 ($157k), SFoyer 37 ($135k), SLvl 65 ($167k). `test.csv`: 745 / 160 / 5 / 427 / 0 / 13 / 46 / 63. None missing.
+- After quality, size, age and lot size, the raw gaps mostly disappear (leftovers −0.08 to +0.06, mostly within their uncertainty): two-story houses are bigger and newer.
+- **Overlap:** most codes fix the style (code 20: 1Story for 1,077 of 1,079; 60: 2Story for 572 of 575; 80 always SLvl; 85 always SFoyer). Codes 90 (duplex) and 190 (two-family conversion) describe the kind of building, and their houses come in every style: there HouseStyle is new information.
+- **Within-code check:** the 62 training houses whose style isn't their code's usual one have a leftover after MSSubClass of +0.015 ± 0.041; subgroups are small with mixed signs (code 90 SFoyer +0.10 on 9 houses, code 90 1.5Fin −0.09 on 4, code 190 1Story +0.09 on 6). Noise, not a pattern.
+- 2.5Fin has no test houses. "How much upstairs" comes back more precisely with 2ndFlrSF.
+- **Decision:** drop.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -223,5 +233,5 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
 - Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
 - Whether to scale the 0/1 columns: decide when writing the pipeline (it changes how hard the penalty pulls on small groups).
-- Columns that may overlap with MSSubClass: `HouseStyle`, `YearBuilt`. Check when we reach them. (`BldgType`: dropped.)
+- Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.
