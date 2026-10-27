@@ -282,6 +282,41 @@ Total basement area (= BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF). Added first after t
 - The prediction got "passes" right but the size 8 times too small (0.78, not 0.1): unlike ExterQual, basement area is information the model didn't have. The version was wrong: the mild skew didn't need a log.
 - **MSSubClass 180's leftover didn't change** (+11 before and after; 85: +6 → +7, 90: −7, 160: −5 → −4). So basement space wasn't the explanation for 180; the reason is still unknown.
 
+### OverallCond: four versions against not adding it
+
+Condition of the house, 1–9. None missing. Top of the ranking of unused columns by share of the current model's leftover explained (8.7%; see the open items).
+
+| OverallCond | Houses | Test | Mean price | Median age at sale | Leftover (×100) |
+|---|---|---|---|---|---|
+| 1 | 1 | 6 | $61k | 59 | −12 |
+| 2 | 5 | 5 | $142k | 44 | −16 ± 23 |
+| 3 | 25 | 25 | $102k | 52 | −22 ± 9 |
+| 4 | 57 | 44 | $120k | 53 | −9 ± 5 |
+| 5 | 819 | 824 | $203k | 9 | −1 ± 1 |
+| 6 | 252 | 279 | $154k | 37 | +3 ± 2 |
+| 7 | 205 | 185 | $158k | 16 | +5 ± 2 |
+| 8 | 72 | 72 | $156k | 8 | +2 ± 3 |
+| 9 | 22 | 19 | $216k | 5 | +6 ± 6 |
+
+- **Raw prices are misleading:** level 5 has the highest mean, because new houses are mostly rated 5 (median age 9). The leftover shows the real order, with big steps at the bottom and small ones from 5 up.
+- **The user's assumptions, written before running (2026-10-28):** a number column won't fit (steps unequal); the small levels (1, 2, 3, 9) carry signal and would lose it if merged; Ridge keeps their weights from overfitting.
+- **Review of those assumptions:** levels 1 and 2 can't be told apart from 3 (−12 and −16 ± 23 vs −22 ± 9), nor 9 from 7 and 8; level 1 has 1 house in train but 6 in test. At alpha ≈ 3 a level keeps about n / (n + 3) of its weight: level 1 25%, level 2 62%, level 9 88%. Target encoding stores the raw means, whose shape is wrong here (level 5 highest), as with GarageCars.
+- **Versions:** number (scaled); target encoding of the levels; one-hot with 1–3 merged (5 as the reference, 6 columns); one-hot unmerged (5 as the reference, 8 columns). Each against not adding it, then the more complex versions against the simpler ones.
+- **Result:**
+
+  | Version | RMSE | Comparison | Gain (×100) | Folds won | Passes? |
+  |---|---|---|---|---|---|
+  | Not added | 0.1374 | | | | |
+  | Number | 0.1312 | vs not added | 0.62 | 98% | yes |
+  | Target encoding | 0.1372 | vs not added | 0.02 | 70% | no |
+  | One-hot, 1–3 merged | 0.1302 | vs not added | 0.72 | 96% | yes |
+  | | | vs number | 0.10 | 76% | no |
+  | One-hot, unmerged | 0.1307 | vs not added | 0.67 | 96% | yes |
+  | | | vs one-hot merged | −0.05 | 24% | no |
+
+  **Decision: one number column** (`OverallCondNumber`, scaled). One-hot with 1–3 merged was slightly better, but missed the 80% (76%), so the simpler version stays. The current model scores **0.1312 ± 0.0091**.
+- **Assumptions checked:** "a number column won't fit": wrong, it captures almost all of the gain. "Merging the small levels loses their signal": wrong, merging 1–3 beat unmerged. Target encoding added almost nothing (0.02), as expected from the raw shape.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

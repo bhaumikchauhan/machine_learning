@@ -14,14 +14,15 @@ N_REPEATS = 10
 # columns no decision has been taken on yet
 UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
-                       'OverallQualNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars', 'TotalBsmtSF']
+                       'OverallQualNumber', 'OverallCondNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars',
+                       'TotalBsmtSF']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
 MIN_RMSE_GAIN = 0.001
 
 # OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
-NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber']
+NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -107,6 +108,16 @@ def overall_qual_number(X_train, X_test):
     return X_train, X_test
 
 
+def overall_cond_versions(X_train, X_test):
+    # OverallCond in three forms, to compare: a number, its levels as labels (one-hot unmerged, target encoding)
+    # and labels with 1-3 merged (level 1 has 1 house in train but 6 in test)
+    for X in (X_train, X_test):
+        X['OverallCondNumber'] = X['OverallCond']
+        X['OverallCondLevel'] = X['OverallCond'].astype(str)
+        X['OverallCondMerged'] = X['OverallCond'].replace({1: 3, 2: 3}).astype(str)
+    return X_train, X_test
+
+
 def age_create(X_train, X_test):
     # Create a new feature 'Age' as the difference between YrSold and YearRemodAdd.
     X_train['Age'] = X_train['YrSold'] - X_train['YearRemodAdd']
@@ -169,6 +180,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = lot_area_log(X_train, X_test)
     X_train, X_test = overall_qual_number(X_train, X_test)
     X_train, X_test = overall_qual_merge(X_train, X_test, use_overall_qual_number)
+    X_train, X_test = overall_cond_versions(X_train, X_test)
     X_train, X_test = age_create(X_train, X_test)
     X_train, X_test = gr_liv_area_log(X_train, X_test)
     X_train, X_test = garage_cars_modification(X_train, X_test)
