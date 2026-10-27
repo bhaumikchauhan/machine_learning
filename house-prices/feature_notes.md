@@ -211,6 +211,24 @@ Overall material and finish, 1 (very poor) to 10 (very excellent). None missing.
 - **Risk:** the penalty pulls each weight towards the reference, hardest on small groups, and here the small groups are at the far ends (10: 16 houses, 9: 43), so the most expensive houses get pulled towards the middle. A number column keeps the trend for them but forces equal steps. **To compare in CV:** number vs one-hot. It's the strongest column, so this comparison matters more than most.
 - **Prediction, written before running (2026-10-27):** the number column (levels 1 and 2 set to 3, keeping the 1–3 merge) beats one-hot by 0.2 (×100), because the raw steps from 4 to 10 are fairly even (+21% to +35% per level).
 - **Result:** number 0.1457 vs one-hot 0.1453: the number column is worse by 0.05 (×100) and wins only 28% of folds. Fails the keep rule; **one-hot stays**. The prediction was wrong in direction.
+- **Why the prediction was wrong:** it was based on the raw steps (mean log price per level), which ignore the other columns. The model's weights measure something else: the step **for two houses that are equal in every other column** (same size, neighbourhood, age, exterior, garage, ...).
+
+  | OverallQual | Raw step | Step left in the model | Model weight (log price vs level 5) |
+  |---|---|---|---|
+  | 1–3 → 4 | +25% to +67% | +22% | −0.28 → −0.08 |
+  | 4 → 5 | +25% | +8% | −0.08 → 0 |
+  | 5 → 6 | +21% | +7% | 0 → +0.06 |
+  | 6 → 7 | +29% | +7% | +0.06 → +0.13 |
+  | 7 → 8 | +32% | +11% | +0.13 → +0.24 |
+  | 8 → 9 | +35% | +14% | +0.24 → +0.37 |
+  | 9 → 10 | +27% | +11% | +0.37 → +0.47 |
+
+  (Weights from the baseline fitted on all 1,458 training houses; step % = e^(weight difference) − 1.)
+  - **The other columns take most of each raw step.** Better-quality houses are also bigger, newer, in better neighbourhoods, with better exteriors and bigger garages. In the raw means, all of that is counted as "quality". In the model, GrLivArea, Neighborhood, ExterQual, GarageCars and Age each take their own share, so only 7–22% per level is left for quality itself, against 21–35% raw.
+  - **What's left is uneven:** a big step out of the lowest group (+22%), small steps in the middle (+7–8% from 4 to 7), and bigger steps again at the top (+11–14% from 7 to 10). The raw steps looked even only because the other columns' shares happened to fill in the uneven parts.
+  - **A number column can't follow that.** With one weight, every level gets the same % step: a straight line on the log-price scale. Fitting one slope through these steps (roughly 10% each) overshoots the middle and undershoots both ends, so houses at levels 3–4 and 8–10 are mispriced. One-hot gives each level its own weight and can follow the curve. That's why it won 72% of the folds.
+  - **The penalty didn't decide it.** At the alpha RidgeCV picks (about 0.6), even level 10 (16 houses) keeps about 96% of its weight, so the worry that one-hot would pull the top levels towards the middle didn't matter here.
+  - **Lesson (same as ExterQual):** judge a column's shape by what's left after the other columns (the leftover check, or the model's weights), not by its raw means.
 
 ### Age at sale: YrSold − YearRemodAdd
 
