@@ -42,6 +42,11 @@ A row number, with no information about the house. Goes in the list of columns n
 
 **Code 150** (1 house in `test.csv`, none in `train.csv`): n = 0, so the formula gives the overall mean.
 
+**CV comparison (2026-10-28), with TotalBsmtSF in the model:** one-hot (20 as the reference, 14 columns) vs target encoding. No prediction written.
+- Why it might matter: target encoding's one weight came out at 0.066, so it adds at most ±4 (×100) per code, while four codes have leftovers outside their uncertainty after the other columns (180: +11 ± 5, 85: +6 ± 3, 90: −7 ± 5, 160: −5 ± 3). Blending and out-of-fold barely change the encoded values, except code 40 (4 houses).
+- **Result:** one-hot 0.1367 vs target encoding 0.1375: gain 0.08 (×100), wins 72% of folds. Fails both parts of the keep rule (needs 0.1 and 80%), if narrowly. **Target encoding stays.**
+- In some folds code 40 (4 houses) is missing from the training part; one-hot then prices it like code 20 (scikit-learn's "unknown categories" warning).
+
 ### MSZoning: one-hot
 
 General zoning of the sale. 8 zones in `data_description.txt`, 5 in the data (the data writes Commercial as `C (all)`). See `plots/mszoning_counts.png`.
@@ -335,8 +340,7 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- CV list below, one comparison at a time (OverallQual number vs one-hot: done, one-hot stays). Next with baseline columns: MSSubClass, LotShape, Neighborhood reference.
-- Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.
+- CV list below, one comparison at a time. Done: OverallQual (one-hot stays), MSSubClass (target encoding stays). Next with baseline columns: LotShape, Neighborhood reference.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.

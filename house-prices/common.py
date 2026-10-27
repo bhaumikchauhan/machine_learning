@@ -165,22 +165,28 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = total_bsmt_sf_modification(X_train, X_test)
     return X_train, y, X_test
 
-def build_pipeline(numeric_columns=None, passthrough_columns=()):
+def build_pipeline(numeric_columns=None, passthrough_columns=(), one_hot_references=None, target_columns=None):
     # Everything learned from the data (scaler means, one-hot levels, target means, alpha) sits in here,
     # so cross_validate refits all of it on each training part and the held-out part stays unseen.
-    # numeric_columns: scaled columns (default NUMERIC_COLUMNS); passthrough_columns: 0/1 columns used as they are.
+    # numeric_columns: scaled columns; passthrough_columns: 0/1 columns used as they are;
+    # one_hot_references: column -> reference level; target_columns: target-encoded columns.
+    # Each defaults to the current model.
     if numeric_columns is None:
         numeric_columns = NUMERIC_COLUMNS
+    if one_hot_references is None:
+        one_hot_references = ONE_HOT_REFERENCES
+    if target_columns is None:
+        target_columns = TARGET_ENCODED_COLUMNS
     preprocess = ColumnTransformer([
         ('scale', StandardScaler(), numeric_columns),
         ('flags', 'passthrough', list(passthrough_columns)),
         # a level missing from a training part (or new in test) gets all zeros, i.e. priced like the reference
-        ('one_hot', OneHotEncoder(drop=list(ONE_HOT_REFERENCES.values()), handle_unknown='ignore',
-                                  sparse_output=False), list(ONE_HOT_REFERENCES)),
+        ('one_hot', OneHotEncoder(drop=list(one_hot_references.values()), handle_unknown='ignore',
+                                  sparse_output=False), list(one_hot_references)),
         # out-of-fold and blended mean log price per code; an unseen code (150 in test) gets the overall mean
         # Pylance infers cv: int from the default; sklearn accepts a splitter too (and wants one for the seed)
         ('target', TargetEncoder(cv=KFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)),  # pyright: ignore[reportArgumentType]
-         TARGET_ENCODED_COLUMNS),
+         list(target_columns)),
     ])
     return Pipeline([('preprocess', preprocess), ('model', RidgeCV(alphas=ALPHAS))])
 
@@ -189,8 +195,9 @@ def repeated_folds():
     # Not stratified: stratifying needs classes, and SalePrice is continuous.
     return RepeatedKFold(n_splits=N_FOLDS, n_repeats=N_REPEATS, random_state=RANDOM_SEED)
 
-def cross_validate_model(X, y, numeric_columns=None, passthrough_columns=()):
-    pipeline = build_pipeline(numeric_columns, passthrough_columns)
+def cross_validate_model(X, y, **pipeline_columns):
+    # pipeline_columns: any of build_pipeline's arguments, to change the columns of the current model
+    pipeline = build_pipeline(**pipeline_columns)
     # the ColumnTransformer drops any column it isn't given, so X can hold extra columns
     columns = [c for _, _, cols in pipeline.named_steps['preprocess'].transformers for c in cols]
     print("Fitting on:", columns)
