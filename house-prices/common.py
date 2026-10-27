@@ -182,6 +182,13 @@ def basement_finished(X_train, X_test):
         X['BsmtFinishedShare'] = (X['BsmtFinishedSF'] / X['TotalBsmtSF'].where(X['TotalBsmtSF'] > 0)).fillna(0)
     return X_train, X_test
 
+def ms_zoning_fill(X_train, X_test):
+    # the 4 test houses with no zone, filled from location (feature_notes.md):
+    # 2905 is in Mitchel (RL); 1916, 2217, 2251 are in IDOTRR, which has no RL house (RM, its most common zone)
+    X_test.loc[X_test['Id'] == 2905, 'MSZoning'] = 'RL'
+    X_test.loc[X_test['Id'].isin([1916, 2217, 2251]), 'MSZoning'] = 'RM'
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -198,6 +205,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = lot_shape_merge(X_train, X_test)
     X_train, X_test = total_bsmt_sf_modification(X_train, X_test)
     X_train, X_test = basement_finished(X_train, X_test)
+    X_train, X_test = ms_zoning_fill(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=(), one_hot_references=None, target_columns=None):

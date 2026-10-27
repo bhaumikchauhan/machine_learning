@@ -66,6 +66,10 @@ General zoning of the sale. 8 zones in `data_description.txt`, 5 in the data (th
   - Small minority zones do occur elsewhere (14 of 25 neighbourhoods have more than one zone, for example NridgHt RL 165 / RM 1), so the strong part of the reason is the 0 of 90, not that minorities are rare.
   - Affects 3 of 1,459 test predictions.
 
+**CV result (2026-10-28):** one-hot (RL as the reference, 4 columns) vs not added: RMSE 0.1229 vs 0.1247, gain **0.18** (×100) but wins only **72%** of folds. Fails part 2. **Not added.**
+- **Where the gain comes from:** 82% of it from the 10 commercial-zone houses (C), 18% from RM, almost nothing from the rest. Each fold holds about 2 of the 10, so folds without them barely gain. This is the case part 2 of the rule exists for: a gain carried by a handful of houses.
+- A single "commercial zone" 0/1 column would target those houses, but that idea comes from looking at this result, so a test of it would be weak (picked to fit what was just seen). Not tried.
+
 ### LotFrontage: two candidates, decided by cross-validation
 
 Feet of street connected to the lot. 21 to 313, median 69, half between 59 and 80. Correlation with SalePrice 0.35: a positive but loose trend. See `plots/lot_frontage.png`.
