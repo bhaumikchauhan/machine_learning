@@ -101,7 +101,7 @@ Type of alley access. **An empty cell is not missing data:** `data_description.t
 - **Decision:** two 0/1 columns, `alley_gravel` and `alley_paved`. No alley gets no column of its own: it is the reference, with both columns 0, so its houses get no Alley weight, as for paved Street. Each weight then means "difference from a house with no alley".
 - Implementation: turn the empty cells into an explicit "None" value first, so they aren't treated as missing. With scikit-learn's `OneHotEncoder`, the reference is set with `drop=`.
 
-### LotShape: one-hot, Reg as reference, IR2 and IR3 merged; CV to compare
+### LotShape: dropped (CV: adds nothing)
 
 General shape of the lot, with a natural order: Reg (regular), IR1 (slightly irregular), IR2 (moderately irregular), IR3 (irregular). See `plots/lot_shape.png`.
 - `train.csv`: Reg 925 (median $146k), IR1 483 ($189k), IR2 41 ($221k), IR3 9 ($215k). `test.csv`: 934 / 484 / 35 / 6.
@@ -110,6 +110,7 @@ General shape of the lot, with a natural order: Reg (regular), IR1 (slightly irr
 - **Overlapping columns don't cause underfitting** (a model too simple for the pattern). They make the model unsure which column deserves the credit, so it splits the weight between them, sometimes unstably. Predictions usually stay fine; the weights become hard to read. Ridge spreads the credit. Overlap is a keep-or-drop question, not an encoding question.
 - **Decision:** one-hot with Reg as the reference: `lot_shape_ir1`, and `lot_shape_ir2_ir3` (IR2 and IR3 merged, 50 houses), so no weight is learned from 9 houses.
 - **To compare in CV:** ordered (0–3), this one-hot version, and dropping LotShape.
+- **CV result (2026-10-28, with TotalBsmtSF in the model; simpler version as current):** dropped 0.1375; ordered 0.1374 (gain 0.00, wins 64%); one-hot 0.1375 (gain 0.00, wins 54%). Neither passes. **Decision: dropped.** As suspected above, LotShape mostly repeats what Age, LotArea and GrLivArea already say.
 
 ### LandContour: one-hot, Lvl as reference
 
@@ -315,6 +316,7 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 
 - **Compare fold by fold.** The folds' own spread (±0.94 ×100) is mostly which hard houses land in a fold, which hits both models alike. The fold-by-fold difference varies far less (±0.12 in a test without ExterQual).
 - **Why 0.1:** ExterQual mostly repeats OverallQual and adds 0.05; a column with new information should clear at least twice that. Smaller consistent gains add up, and part 2 guards against luck.
+- **The simpler version is always the current one** (added 2026-10-28, before the LotShape run): fewer columns first (dropped, then one number column, then one-hot), so every extra column has to earn its place, as a new column does. Reason: keep the model simple; close calls go to the simpler version. This applies to earlier comparisons too: OverallQual was run the other way round (one-hot as current), so it gets re-run with the number column as current.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
 ## Scaling
@@ -340,9 +342,8 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- CV list below, one comparison at a time. Done: OverallQual (one-hot stays), MSSubClass (target encoding stays). Next with baseline columns: LotShape, Neighborhood reference.
+- CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). Next: re-run OverallQual with the number column as current (simpler-version convention), then the Neighborhood reference.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
-- Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
 - Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.

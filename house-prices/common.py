@@ -13,7 +13,7 @@ N_FOLDS = 5
 N_REPEATS = 10
 # columns no decision has been taken on yet
 UNDECIDED_COLUMNS = []
-COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea', 'LotShape',
+COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'OverallQual', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars', 'TotalBsmtSF']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
@@ -22,7 +22,8 @@ MIN_RMSE_GAIN = 0.001
 
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF']
 # one-hot column -> reference level (the level that gets no column of its own)
-ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'LotShape': 'Reg', 'OverallQual': 'Average',
+# LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
+ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'OverallQual': 'Average',
                       'ExterQual': 'TA', 'GarageCars': '2'}
 TARGET_ENCODED_COLUMNS = ['MSSubClass']
 # RidgeCV tries every alpha on each training part and keeps the best one (61 values from 0.001 to 1000).
@@ -134,6 +135,13 @@ def garage_cars_to_str(X_train, X_test):
     X_test['GarageCars'] = X_test['GarageCars'].astype(str)
     return X_train, X_test
 
+def lot_shape_ordered(X_train, X_test):
+    # LotShape as one ordered number (Reg 0, IR1 1, IR2 2, IR3 3), to compare against one-hot; made before the merge
+    order = {'Reg': 0, 'IR1': 1, 'IR2': 2, 'IR3': 3}
+    X_train['LotShapeOrdered'] = X_train['LotShape'].map(order)
+    X_test['LotShapeOrdered'] = X_test['LotShape'].map(order)
+    return X_train, X_test
+
 def lot_shape_merge(X_train, X_test):
     # Merge LotShape values 'IR2', 'IR3' into a single category 'IR' since they dont have much examples
     # and other reason mentioned in feature_notes.md.
@@ -161,6 +169,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = age_create(X_train, X_test)
     X_train, X_test = gr_liv_area_log(X_train, X_test)
     X_train, X_test = garage_cars_modification(X_train, X_test)
+    X_train, X_test = lot_shape_ordered(X_train, X_test)
     X_train, X_test = lot_shape_merge(X_train, X_test)
     X_train, X_test = total_bsmt_sf_modification(X_train, X_test)
     return X_train, y, X_test

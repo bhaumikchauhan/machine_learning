@@ -19,12 +19,9 @@ def main():
     X_test = common.get_kaggle_test_data_from_csv()
     X_train, y, X_test = common.feature_engineering(X, y, X_test)
 
-    current = fold_rmse(X_train, y)
-    # candidate: MSSubClass one-hot with 20 (536 houses, the largest code) as the reference, instead of target encoding
-    one_hot_mssubclass = fold_rmse(X_train, y, one_hot_references={**common.ONE_HOT_REFERENCES, 'MSSubClass': '20'},
-                                   target_columns=[])
-    print("MSSubClass one-hot vs target encoding:")
-    common.keep_rule(current, one_hot_mssubclass)
+    # MSSubClass one-hot vs target encoding was compared on 2026-10-28: target encoding stays.
+    # LotShape (one-hot, ordered, dropped) was compared on 2026-10-28: dropped.
+    fold_rmse(X_train, y)
 
 
 if __name__ == '__main__':

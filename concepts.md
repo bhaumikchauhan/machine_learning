@@ -100,7 +100,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Compare fold by fold (paired).** Like two runners timed on the same 50 routes: hilly routes slow both, so judge by who wins on each route, not by how much each runner's times vary. A fold's score depends mostly on which hard houses landed in it, and that hits both models alike. So compare the two models' scores fold by fold: the differences vary far less than the scores themselves. *HP: fold scores ±0.94 (×100), fold-by-fold difference ±0.12.*
 
-**Repeating columns add little.** A column's gain is what it adds that the model doesn't already know. A column that explains a lot on its own can add almost nothing if another column already says it. *HP: ExterQual ranks top 3 alone, but adds 0.05 (×100) on top of OverallQual. TotalBsmtSF, information the model didn't have, adds 0.78.*
+**Repeating columns add little.** A column's gain is what it adds that the model doesn't already know. A column that explains a lot on its own can add almost nothing if another column already says it. *HP: ExterQual ranks top 3 alone, but adds 0.05 (×100) on top of OverallQual. TotalBsmtSF, information the model didn't have, adds 0.78. LotShape adds 0.00: irregular lots are mostly newer and bigger, which Age, LotArea and GrLivArea already say.*
 
 **Test set once.** The held-out test set is scored once, at the end. Choosing models on it makes it a second validation set and its score optimistic. *T.*
 
