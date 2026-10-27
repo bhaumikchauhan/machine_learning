@@ -209,6 +209,8 @@ Overall material and finish, 1 (very poor) to 10 (very excellent). None missing.
 - Levels 1, 2, 3 have 2, 3 and 20 training houses and nearly the same leftover (−0.29, −0.28, −0.32): merged.
 - **Decision:** one-hot over 1–3, 4, 5, 6, 7, 8, 9, 10, with 5 (397 houses, the middle) as the reference: 7 columns.
 - **Risk:** the penalty pulls each weight towards the reference, hardest on small groups, and here the small groups are at the far ends (10: 16 houses, 9: 43), so the most expensive houses get pulled towards the middle. A number column keeps the trend for them but forces equal steps. **To compare in CV:** number vs one-hot. It's the strongest column, so this comparison matters more than most.
+- **Prediction, written before running (2026-10-27):** the number column (levels 1 and 2 set to 3, keeping the 1–3 merge) beats one-hot by 0.2 (×100), because the raw steps from 4 to 10 are fairly even (+21% to +35% per level).
+- **Result:** number 0.1457 vs one-hot 0.1453: the number column is worse by 0.05 (×100) and wins only 28% of folds. Fails the keep rule; **one-hot stays**. The prediction was wrong in direction.
 
 ### Age at sale: YrSold − YearRemodAdd
 
@@ -301,8 +303,7 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- Prune the CV list below: keep only comparisons that could plausibly change the score. Candidate to keep: OverallQual number vs one-hot.
-- Compare OverallQual as a number against one-hot, with cross-validation.
+- CV list below, one comparison at a time (OverallQual number vs one-hot: done, one-hot stays). Next with baseline columns: MSSubClass, LotShape, Neighborhood reference.
 - Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare LotShape ordered (0–3), one-hot (IR1, IR2+IR3) and dropped, with cross-validation.

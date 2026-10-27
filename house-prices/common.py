@@ -17,6 +17,8 @@ COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea', 'LotShape',
                        'OverallQual', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
+# keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
+MIN_RMSE_GAIN = 0.001
 
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea']
 # one-hot column -> reference level (the level that gets no column of its own)
@@ -25,8 +27,7 @@ ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'LotShape': 'Reg', 'OverallQual':
 TARGET_ENCODED_COLUMNS = ['MSSubClass']
 # RidgeCV tries every alpha on each training part and keeps the best one (61 values from 0.001 to 1000).
 ALPHAS = np.logspace(-3, 3, 61)
-
-
+USE_OVERALL_QUAL_NUMBER = True
 
 def get_train_data_from_csv():
     return pd.read_csv("kaggle\\input\\competitions\\house-prices-advanced-regression-techniques\\train.csv")
@@ -78,15 +79,28 @@ def ids_remove_outlier(X, y):
     y = y.drop(outlier_indices)
     return X, y
 
-def overall_qual_merge(X_train, X_test):
+def overall_qual_merge(X_train, X_test, use_overall_qual_number):
+
+    if not use_overall_qual_number:
     # Merge OverallQual values 1, 2, 3 into a single category 'Low'
     # and others into descriptive categories for better interpretability.
-    X_train['OverallQual'] = X_train['OverallQual'].replace({1: 'Low', 2: 'Low', 3: 'Low',
+        X_train['OverallQual'] = X_train['OverallQual'].replace({1: 'Low', 2: 'Low', 3: 'Low',
                              4: "Below Average", 5: "Average", 6: "Above Average",
                              7: "Good", 8: "Very Good", 9: "Excellent", 10: "Very Excellent"})
-    X_test['OverallQual'] = X_test['OverallQual'].replace({1: 'Low', 2: 'Low', 3: 'Low',
+        X_test['OverallQual'] = X_test['OverallQual'].replace({1: 'Low', 2: 'Low', 3: 'Low',
                                      4: "Below Average", 5: "Average", 6: "Above Average",
                                      7: "Good", 8: "Very Good", 9: "Excellent", 10: "Very Excellent"})
+        ONE_HOT_REFERENCES['OverallQual'] = 'Average'
+        if 'OverallQual' in NUMERIC_COLUMNS:
+            NUMERIC_COLUMNS.remove('OverallQual')
+        
+    else:
+        #override qual 1 and 2 with 3, since they are very rare and don't have enough examples to learn from
+        X_train['OverallQual'] = X_train['OverallQual'].replace({1: 3, 2: 3})
+        X_test['OverallQual'] = X_test['OverallQual'].replace({1: 3, 2: 3})
+        if 'OverallQual' not in NUMERIC_COLUMNS:
+            NUMERIC_COLUMNS.append('OverallQual')
+        ONE_HOT_REFERENCES.pop('OverallQual', None)
     return X_train, X_test
 
 
@@ -127,13 +141,13 @@ def lot_shape_merge(X_train, X_test):
     X_test['LotShape'] = X_test['LotShape'].replace({'IR2': 'IR', 'IR3': 'IR'})
     return X_train, X_test
 
-def feature_engineering(X_train, y, X_test):
+def feature_engineering(X_train, y, X_test, use_overall_qual_number):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
     X_train, X_test = ms_sub_class_to_str(X_train, X_test)
     X_train, X_test = neighbourhood_update_blueste(X_train, X_test)
     X_train, X_test = lot_area_log(X_train, X_test)
-    X_train, X_test = overall_qual_merge(X_train, X_test)
+    X_train, X_test = overall_qual_merge(X_train, X_test, use_overall_qual_number)
     X_train, X_test = age_create(X_train, X_test)
     X_train, X_test = gr_liv_area_log(X_train, X_test)
     X_train, X_test = garage_cars_modification(X_train, X_test)
@@ -167,7 +181,15 @@ def cross_validate_model(X, y):
     alphas = [model.named_steps['model'].alpha_ for model in scores['estimator']]
     print(f"Chosen alpha over {len(alphas)} folds: min {min(alphas):.3g}, "
           f"median {np.median(alphas):.3g}, max {max(alphas):.3g}")
-    # sklearn reports the negative RMSE (higher is better); flip it back to RMSE
-    fold_rmse = -scores['test_neg_root_mean_squared_error']
-    print(f"RMSE: {fold_rmse.mean():.4f} (+/- {fold_rmse.std():.4f})")
     return scores
+
+def keep_rule(current_rmse, candidate_rmse):
+    # Both arrays come from the same 50 folds (fixed seed, same rows in the same order),
+    # so position k holds the same houses in both: compare them fold by fold.
+    gain = current_rmse.mean() - candidate_rmse.mean()
+    win_share = (candidate_rmse < current_rmse).mean()
+    keep = gain >= MIN_RMSE_GAIN and win_share >= MIN_FOLD_WIN_SHARE
+    print(f"Mean gain: {gain * 100:.2f} x100 (need >= {MIN_RMSE_GAIN * 100:.1f}), "
+          f"folds won: {win_share:.0%} (need >= {MIN_FOLD_WIN_SHARE:.0%})")
+    print("Keep the candidate." if keep else "Keep the current version.")
+    return keep
