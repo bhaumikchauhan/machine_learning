@@ -14,13 +14,13 @@ N_REPEATS = 10
 # columns no decision has been taken on yet
 UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea', 'LotShape',
-                       'OverallQual', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars']
+                       'OverallQual', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars', 'TotalBsmtSF']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
 MIN_RMSE_GAIN = 0.001
 
-NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea']
+NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF']
 # one-hot column -> reference level (the level that gets no column of its own)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'LotShape': 'Reg', 'OverallQual': 'Average',
                       'ExterQual': 'TA', 'GarageCars': '2'}
@@ -141,7 +141,17 @@ def lot_shape_merge(X_train, X_test):
     X_test['LotShape'] = X_test['LotShape'].replace({'IR2': 'IR', 'IR3': 'IR'})
     return X_train, X_test
 
-def feature_engineering(X_train, y, X_test, use_overall_qual_number):
+def total_bsmt_sf_modification(X_train, X_test):
+    # test Id 2121 has every basement column empty: no basement, so 0 sq ft
+    X_test.loc[X_test['Id'] == 2121, 'TotalBsmtSF'] = 0
+    for X in (X_train, X_test):
+        # log for houses with a basement; log(0) doesn't exist, so houses without one get 0 here
+        # and the NoBasement column takes their step (its weight absorbs whatever value they get)
+        X['TotalBsmtSFLog'] = np.log(X['TotalBsmtSF'].where(X['TotalBsmtSF'] > 0, 1))
+        X['NoBasement'] = (X['TotalBsmtSF'] == 0).astype(int)
+    return X_train, X_test
+
+def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
     X_train, X_test = ms_sub_class_to_str(X_train, X_test)
@@ -152,13 +162,18 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number):
     X_train, X_test = gr_liv_area_log(X_train, X_test)
     X_train, X_test = garage_cars_modification(X_train, X_test)
     X_train, X_test = lot_shape_merge(X_train, X_test)
+    X_train, X_test = total_bsmt_sf_modification(X_train, X_test)
     return X_train, y, X_test
 
-def build_pipeline():
+def build_pipeline(numeric_columns=None, passthrough_columns=()):
     # Everything learned from the data (scaler means, one-hot levels, target means, alpha) sits in here,
     # so cross_validate refits all of it on each training part and the held-out part stays unseen.
+    # numeric_columns: scaled columns (default NUMERIC_COLUMNS); passthrough_columns: 0/1 columns used as they are.
+    if numeric_columns is None:
+        numeric_columns = NUMERIC_COLUMNS
     preprocess = ColumnTransformer([
-        ('scale', StandardScaler(), NUMERIC_COLUMNS),
+        ('scale', StandardScaler(), numeric_columns),
+        ('flags', 'passthrough', list(passthrough_columns)),
         # a level missing from a training part (or new in test) gets all zeros, i.e. priced like the reference
         ('one_hot', OneHotEncoder(drop=list(ONE_HOT_REFERENCES.values()), handle_unknown='ignore',
                                   sparse_output=False), list(ONE_HOT_REFERENCES)),
@@ -174,9 +189,12 @@ def repeated_folds():
     # Not stratified: stratifying needs classes, and SalePrice is continuous.
     return RepeatedKFold(n_splits=N_FOLDS, n_repeats=N_REPEATS, random_state=RANDOM_SEED)
 
-def cross_validate_model(X, y):
-    print("Fitting on:", COLUMNS_FOR_FITTING)
-    scores = cross_validate(build_pipeline(), X[COLUMNS_FOR_FITTING], y, cv=repeated_folds(),
+def cross_validate_model(X, y, numeric_columns=None, passthrough_columns=()):
+    pipeline = build_pipeline(numeric_columns, passthrough_columns)
+    # the ColumnTransformer drops any column it isn't given, so X can hold extra columns
+    columns = [c for _, _, cols in pipeline.named_steps['preprocess'].transformers for c in cols]
+    print("Fitting on:", columns)
+    scores = cross_validate(pipeline, X[columns], y, cv=repeated_folds(),
                             scoring=['neg_root_mean_squared_error'], return_estimator=True)
     alphas = [model.named_steps['model'].alpha_ for model in scores['estimator']]
     print(f"Chosen alpha over {len(alphas)} folds: min {min(alphas):.3g}, "

@@ -261,6 +261,20 @@ Garage size in cars. Test Id 2577 has no value: GarageType says Detchd but every
 - **4 cars merged with 3:** ranges +0.04 to +0.20 and +0.05 to +0.09 overlap; their raw price gap comes from quality.
 - **Decision:** `garage_none`, `garage_1`, `garage_3plus` (3, 4 and 5 cars); 2 is the reference. The 5-car test house goes in 3+.
 
+### TotalBsmtSF: added after the baseline; raw vs log + NoBasement decided by CV
+
+Total basement area (= BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF). Added first after the baseline, because MSSubClass 180's leftover (+11) looked like basement space the model couldn't see: 7 of its 10 houses are split-foyer, 630 sq ft above ground plus a 630 sq ft basement.
+- **Kept separate from GrLivArea**, not summed: a basement sq ft isn't worth the same as an above-ground sq ft, and a sum would force one weight for both.
+- Test Id 2121 is missing, with every basement column empty: no basement, so 0 (as with Id 2577's garage).
+- No basement (0 sq ft): 37 in train, 42 in test (with 2121). They average about 40% below houses with a basement.
+- Skew raw 0.51 (mild), log −0.38; correlation with log price raw 0.65, log 0.61 (houses with a basement only). Largest: train 3,206 (Id 333), test 5,095 (Id 2550).
+- **log(0) doesn't exist, and replacing 0 by 1 doesn't fix it:** log 1 = 0 against 5.7 for 300 sq ft and 8.0 for 3,000, so one weight would price "no basement" as a huge drop, set by how prices change between basement sizes. So the log version comes with a `NoBasement` 0/1 column, which takes the no-basement step.
+- **Two versions, compared by CV:** (a) raw, scaled; (b) log (0 for no basement), scaled, plus `NoBasement`.
+- **Prediction, written before running (2026-10-27):** adding the basement passes the keep rule, with a gain of about 0.1 (×100); log + NoBasement beats raw.
+- **Result:** raw: RMSE 0.1375, gain **0.78** (×100) over the baseline, wins 100% of folds. Log + NoBasement: 0.1378, gain 0.74, wins 100%. Log + NoBasement vs raw: −0.03, wins 34%: fails. **Decision: TotalBsmtSF raw, scaled.** The new current model scores **0.1375 ± 0.0097**.
+- The prediction got "passes" right but the size 8 times too small (0.78, not 0.1): unlike ExterQual, basement area is information the model didn't have. The version was wrong: the mild skew didn't need a log.
+- **MSSubClass 180's leftover didn't change** (+11 before and after; 85: +6 → +7, 90: −7, 160: −5 → −4). So basement space wasn't the explanation for 180; the reason is still unknown.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
