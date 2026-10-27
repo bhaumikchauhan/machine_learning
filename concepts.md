@@ -40,6 +40,8 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Log transform.** For a lopsided (skewed) column, log turns equal *ratios* into equal steps (5k → 10k is the same step as 50k → 100k). It spreads out the bulk of the data and stops a few huge values from driving a straight-line fit. It changes the shape; scaling doesn't. *HP: LotArea.*
 
+**Log of the target.** A model minimizes squared error on whatever y it's given. On raw prices, a $50k miss counts the same on a $100k and a $500k house, so expensive houses dominate the fit; on log prices, errors are relative (a 10% miss counts the same everywhere). Fitting log(y) also matches a metric scored on log prices, turns multiplicative effects (quality adds a %, not a fixed $) into additive ones a linear model can learn, reduces skew, and can never predict a negative price. Predict, then exp() back for the submission. *HP: SalePrice.*
+
 **Scaling.** Changes a column's units, never its shape. Standardization (`StandardScaler`): (x − mean) / sd, the usual choice for linear models. Min-max (`MinMaxScaler`): to 0–1, sensitive to one extreme value. "Normalization" can mean either; scikit-learn's `Normalizer` is different again (each *row* to length 1). Order: transform, then scale. *HP: LotArea.*
 
 **Why scale.** A penalty (Ridge, Lasso) charges every weight's size equally. A column in thousands needs a tiny weight and a 0/1 column a big one for the same effect, so the penalty would hit them unequally. Plain least squares, with no penalty, gives the same predictions with or without scaling: change the units and the best weight changes to match (weight 10 per sq ft = weight 10,000 per thousand sq ft). *HP: LotArea.*
@@ -99,6 +101,10 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 **Test set once.** The held-out test set is scored once, at the end. Choosing models on it makes it a second validation set and its score optimistic. *T.*
 
 **Keep rule, written first.** Decide the rule for keeping a feature (minimum gain, share of folds won) *before* looking at the result, and write down any change to it without referring to the result. Adjusting the rule after seeing the result is how you fool yourself. For a targeted feature that can only fix a few errors, consistency across folds is the better test than a fixed gain. *T.*
+
+**Pipeline inside CV.** Anything learned from data (a scaler's mean, the one-hot levels, target-encoding means, a chosen alpha) must be learned from the training part of each fold only. Put every such step in one `Pipeline` (with a `ColumnTransformer` to send each column to its own step) and pass the pipeline to `cross_validate`, which copies it and refits all of it per fold. Fixed rules that need no data (log, merging levels, filling one known Id) can be done once beforehand. Don't stratify the folds for a continuous target: stratifying needs classes. *HP: baseline.*
+
+**Tuning inside CV (nested).** `RidgeCV` tries a list of alphas on the training part it's given (with a fast leave-one-out shortcut) and keeps the best. Inside a pipeline inside `cross_validate`, each outer fold picks its own alpha without seeing its validation part, so the outer score stays honest. Picking alpha on the outer CV score itself and reporting that same score would be optimistic. Check that the chosen alphas aren't at the edge of the list; if they are, widen it. *HP: baseline, alpha 0.4–0.8 from 0.001–1000.*
 
 **Outlier removal and CV.** Removing hard rows from the validation folds too makes scores look better just because the hard rows are gone. To measure whether removing them helps, remove them from the training part of each fold only. *HP: Ids 524, 1299.*
 

@@ -259,6 +259,14 @@ A small first model, to get a CV score and its fold-to-fold noise before any com
 
 None of these has missing values apart from GarageCars for Id 2577.
 
+**Expected CV RMSE, written before running:** 0.13. (First guess 0.30; revised because a plain least-squares fit on OverallQual, log GrLivArea, YearBuilt and log LotArea already leaves a spread of 0.161, and the baseline has those plus more. Predicting the mean for every house gives about 0.40.)
+
+**Result (2026-10-27):** CV RMSE **0.1453 ± 0.0094** (mean ± standard deviation over 50 folds: 5-fold, repeated 10 times, seed 42, on all 1,458 houses; no hold-out split, since Kaggle's test set is the final test). Worse than the 0.13 expected.
+- Everything learned from the data (scaler, one-hot levels, target means, alpha) is inside one `Pipeline`, refitted on each training part.
+- Alpha is chosen by `RidgeCV` inside each training part, from 61 values between 0.001 and 1000: it picked 0.40 to 0.79 (median 0.63), well inside the range. That is a weak penalty: a group of n houses keeps about n / (n + alpha) of its weight, so even Fa (14 houses) keeps 96%.
+- Unknown one-hot levels (missing from a training part, or new in test) are encoded as all zeros, i.e. priced like the reference. MSSubClass 150 appears in test only, so `TargetEncoder` gives it the overall mean.
+- Test Ids 2296 and 2550 have negative ages (−1, −2: remodelled after the sale was recorded). Harmless for a linear model; left as they are.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
@@ -291,6 +299,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
 - Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
-- Whether to scale the 0/1 columns: decide when writing the pipeline (it changes how hard the penalty pulls on small groups).
+- Whether to scale the 0/1 columns: in the baseline they aren't scaled (only LotArea, Age and GrLivArea are). At the alpha RidgeCV picks (about 0.6) the pull on small groups is small either way; revisit if alpha grows as columns are added.
 - Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.
