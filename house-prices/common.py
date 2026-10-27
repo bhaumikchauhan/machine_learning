@@ -14,17 +14,17 @@ N_REPEATS = 10
 # columns no decision has been taken on yet
 UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
-                       'OverallQual', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars', 'TotalBsmtSF']
+                       'OverallQualNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars', 'TotalBsmtSF']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
 MIN_RMSE_GAIN = 0.001
 
-NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF']
+# OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
+NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
-ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'OverallQual': 'Average',
-                      'ExterQual': 'TA', 'GarageCars': '2'}
+ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
 TARGET_ENCODED_COLUMNS = ['MSSubClass']
 # RidgeCV tries every alpha on each training part and keeps the best one (61 values from 0.001 to 1000).
 ALPHAS = np.logspace(-3, 3, 61)
@@ -91,17 +91,19 @@ def overall_qual_merge(X_train, X_test, use_overall_qual_number):
         X_test['OverallQual'] = X_test['OverallQual'].replace({1: 'Low', 2: 'Low', 3: 'Low',
                                      4: "Below Average", 5: "Average", 6: "Above Average",
                                      7: "Good", 8: "Very Good", 9: "Excellent", 10: "Very Excellent"})
-        ONE_HOT_REFERENCES['OverallQual'] = 'Average'
-        if 'OverallQual' in NUMERIC_COLUMNS:
-            NUMERIC_COLUMNS.remove('OverallQual')
-        
     else:
         #override qual 1 and 2 with 3, since they are very rare and don't have enough examples to learn from
         X_train['OverallQual'] = X_train['OverallQual'].replace({1: 3, 2: 3})
         X_test['OverallQual'] = X_test['OverallQual'].replace({1: 3, 2: 3})
-        if 'OverallQual' not in NUMERIC_COLUMNS:
-            NUMERIC_COLUMNS.append('OverallQual')
-        ONE_HOT_REFERENCES.pop('OverallQual', None)
+    # which columns the model uses is set by NUMERIC_COLUMNS / ONE_HOT_REFERENCES or build_pipeline's arguments
+    return X_train, X_test
+
+
+def overall_qual_number(X_train, X_test):
+    # OverallQual as one number column, levels 1 and 2 set to 3 (1-3 merged), to compare against one-hot;
+    # made before overall_qual_merge turns OverallQual into labels
+    X_train['OverallQualNumber'] = X_train['OverallQual'].replace({1: 3, 2: 3})
+    X_test['OverallQualNumber'] = X_test['OverallQual'].replace({1: 3, 2: 3})
     return X_train, X_test
 
 
@@ -165,6 +167,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = ms_sub_class_to_str(X_train, X_test)
     X_train, X_test = neighbourhood_update_blueste(X_train, X_test)
     X_train, X_test = lot_area_log(X_train, X_test)
+    X_train, X_test = overall_qual_number(X_train, X_test)
     X_train, X_test = overall_qual_merge(X_train, X_test, use_overall_qual_number)
     X_train, X_test = age_create(X_train, X_test)
     X_train, X_test = gr_liv_area_log(X_train, X_test)

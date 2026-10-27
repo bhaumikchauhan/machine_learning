@@ -21,6 +21,7 @@ def main():
 
     # MSSubClass one-hot vs target encoding was compared on 2026-10-28: target encoding stays.
     # LotShape (one-hot, ordered, dropped) was compared on 2026-10-28: dropped.
+    # OverallQual re-run with the simpler version as current on 2026-10-28: number column replaces one-hot.
     fold_rmse(X_train, y)
 
 

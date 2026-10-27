@@ -208,7 +208,7 @@ Style of dwelling: 1Story, 1.5Fin / 1.5Unf (second level finished / unfinished),
 - 2.5Fin has no test houses. "How much upstairs" comes back more precisely with 2ndFlrSF.
 - **Decision:** drop.
 
-### OverallQual: one-hot, levels 1–3 merged, level 5 as reference
+### OverallQual: one number column, levels 1–3 merged (since 2026-10-28; first one-hot)
 
 Overall material and finish, 1 (very poor) to 10 (very excellent). None missing. On its own it explains 67% of the log-price spread, the most of any column (`plots/column_overview.png`).
 - Raw steps in mean log price are fairly even from 4 to 10 (+0.19 to +0.30 per level, about 25%). After size, age and lot size (a fit without OverallQual) they're uneven: 4: +0.21, 5–7: +0.06, +0.04, +0.02, 8–9: +0.14, +0.18, 10: +0.06.
@@ -235,6 +235,7 @@ Overall material and finish, 1 (very poor) to 10 (very excellent). None missing.
   - **A number column can't follow that.** With one weight, every level gets the same % step: a straight line on the log-price scale. Fitting one slope through these steps (roughly 10% each) overshoots the middle and undershoots both ends, so houses at levels 3–4 and 8–10 are mispriced. One-hot gives each level its own weight and can follow the curve. That's why it won 72% of the folds.
   - **The penalty didn't decide it.** At the alpha RidgeCV picks (about 0.6), even level 10 (16 houses) keeps about 96% of its weight, so the worry that one-hot would pull the top levels towards the middle didn't matter here.
   - **Lesson (same as ExterQual):** judge a column's shape by what's left after the other columns (the leftover check, or the model's weights), not by its raw means.
+- **Re-run (2026-10-28), with the simpler version as current** (new keep-rule convention) and on the current model (TotalBsmtSF added, LotShape dropped): number (current) 0.1374 vs one-hot 0.1375: one-hot's gain −0.00 (×100), wins 52% of folds. Fails. **Decision: one number column** (`OverallQualNumber`, 1 and 2 set to 3, scaled). One-hot's earlier edge (0.05) is gone now that basement area is in the model; the explanation above describes the earlier model.
 
 ### Age at sale: YrSold − YearRemodAdd
 
@@ -342,7 +343,7 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). Next: re-run OverallQual with the number column as current (simpler-version convention), then the Neighborhood reference.
+- CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Next: the Neighborhood reference.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.

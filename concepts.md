@@ -110,6 +110,10 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Tuning inside CV (nested).** `RidgeCV` tries a list of alphas on the training part it's given (with a fast leave-one-out shortcut) and keeps the best. Inside a pipeline inside `cross_validate`, each outer fold picks its own alpha without seeing its validation part, so the outer score stays honest. Picking alpha on the outer CV score itself and reporting that same score would be optimistic. Check that the chosen alphas aren't at the edge of the list; if they are, widen it. *HP: baseline, alpha 0.4–0.8 from 0.001–1000.*
 
+**A decision depends on the other columns.** A comparison is made on a particular model; when columns are added or dropped, the result can change. Comparisons made before a big change may need re-running. *HP: OverallQual one-hot beat a number column by 0.05 (×100); with TotalBsmtSF added, the edge was gone (0.00) and the simpler number column was kept.*
+
+**Simpler version as current.** In a comparison, the version with fewer columns is the current one, so close calls go to the simpler model and every extra column has to earn its place, like a new column does. *HP: keep rule.*
+
 **Outlier removal and CV.** Removing hard rows from the validation folds too makes scores look better just because the hard rows are gone. To measure whether removing them helps, remove them from the training part of each fold only. *HP: Ids 524, 1299.*
 
 **When to stop.** Signals: clearly above a simple baseline; much of the remaining error is chance (same inputs, different outcome); different models agree; gains below the fold noise; and validation wear: every comparison made on the same rows makes the CV score a little more optimistic (multiple comparisons). *T.*
