@@ -15,14 +15,15 @@ N_REPEATS = 10
 UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'OverallQualNumber', 'OverallCondNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars',
-                       'TotalBsmtSF']
+                       'TotalBsmtSF', 'BsmtFinishedSF']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
 MIN_RMSE_GAIN = 0.001
 
 # OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
-NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber']
+NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
+                   'BsmtFinishedSF']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -172,6 +173,15 @@ def total_bsmt_sf_modification(X_train, X_test):
         X['NoBasement'] = (X['TotalBsmtSF'] == 0).astype(int)
     return X_train, X_test
 
+def basement_finished(X_train, X_test):
+    # test Id 2121 has no basement, so no finished or unfinished area
+    X_test.loc[X_test['Id'] == 2121, ['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF']] = 0
+    for X in (X_train, X_test):
+        # two forms to compare: finished area in sq ft, and the finished share of the basement (0 if no basement)
+        X['BsmtFinishedSF'] = X['BsmtFinSF1'] + X['BsmtFinSF2']
+        X['BsmtFinishedShare'] = (X['BsmtFinishedSF'] / X['TotalBsmtSF'].where(X['TotalBsmtSF'] > 0)).fillna(0)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -187,6 +197,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = lot_shape_ordered(X_train, X_test)
     X_train, X_test = lot_shape_merge(X_train, X_test)
     X_train, X_test = total_bsmt_sf_modification(X_train, X_test)
+    X_train, X_test = basement_finished(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=(), one_hot_references=None, target_columns=None):

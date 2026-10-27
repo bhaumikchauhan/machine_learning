@@ -317,6 +317,14 @@ Condition of the house, 1–9. None missing. Top of the ranking of unused column
   **Decision: one number column** (`OverallCondNumber`, scaled). One-hot with 1–3 merged was slightly better, but missed the 80% (76%), so the simpler version stays. The current model scores **0.1312 ± 0.0091**.
 - **Assumptions checked:** "a number column won't fit": wrong, it captures almost all of the gain. "Merging the small levels loses their signal": wrong, merging 1–3 beat unmerged. Target encoding added almost nothing (0.02), as expected from the raw shape.
 
+### Finished basement area: BsmtFinSF1 + BsmtFinSF2, added
+
+How much of the basement is finished. The current model (with TotalBsmtSF) treats every basement sq ft alike; its leftover (×100) by finished share: no basement +2 ± 4 (37 houses), all unfinished −5 ± 1 (430), 1–50% −1 ± 2 (258), 51–99% +3 ± 1 (652), 100% +5 ± 3 (81).
+- Test Id 2121 (no basement) has no areas: 0. 167 houses have a second finished part (BsmtFinSF2).
+- Finished area in sq ft is the same information as BsmtUnfSF once TotalBsmtSF is in (finished = total − unfinished), so only one of them.
+- **Versions** (one column each, scaled): finished area `BsmtFinishedSF`; finished share `BsmtFinishedShare` (0 if no basement).
+- **Result (2026-10-28):** area 0.1247 (gain 0.65 ×100, wins 98%); share 0.1249 (gain 0.62, wins 100%). Both pass; same number of columns, so the lower RMSE: **finished area added.** The current model scores **0.1247 ± 0.0091**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
@@ -353,6 +361,7 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 - **Compare fold by fold.** The folds' own spread (±0.94 ×100) is mostly which hard houses land in a fold, which hits both models alike. The fold-by-fold difference varies far less (±0.12 in a test without ExterQual).
 - **Why 0.1:** ExterQual mostly repeats OverallQual and adds 0.05; a column with new information should clear at least twice that. Smaller consistent gains add up, and part 2 guards against luck.
 - **The simpler version is always the current one** (added 2026-10-28, before the LotShape run): fewer columns first (dropped, then one number column, then one-hot), so every extra column has to earn its place, as a new column does. Reason: keep the model simple; close calls go to the simpler version. This applies to earlier comparisons too: OverallQual was run the other way round (one-hot as current), so it gets re-run with the number column as current.
+- **Same number of columns** (added 2026-10-28, before the finished-basement run): each version is tested against not adding it; if more than one passes, the one with the lower mean RMSE is kept. Reason: neither is simpler, so there's no reason to give one the benefit of the doubt.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
 ## Scaling
