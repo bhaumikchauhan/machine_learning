@@ -82,7 +82,7 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **The reference category under a penalty.** Without a penalty, the choice of reference changes only what the weights mean; predictions are identical. With a penalty (Ridge), every one-hot weight is pulled towards 0, and 0 means "priced like the reference", so each group's prediction is pulled towards the reference's level, roughly (n × group mean + λ × reference mean) / (n + λ): the blending formula, with the reference as the anchor and λ as m. Big groups barely move; small groups move a lot, towards whichever group is the reference. Choose a large, typical group, or keep a column for every value (with a penalty there's no "dummy variable trap"), so that the pull goes towards the intercept instead of one particular group. *HP: Neighborhood.*
 
-**Underfitting (bias) vs overfitting (variance).** Underfitting: too simple for the pattern, so training and validation are both low and close together. Overfitting: learns the training rows' quirks, so training is high and validation clearly lower. Diagnose by comparing them. Regularization fights overfitting; for an underfitting model it can only help by being weakened. *T: logistic regression (0.830 training, 0.827 validation).*
+**Underfitting (bias) vs overfitting (variance).** Underfitting: too simple for the pattern, so training and validation are both low and close together. Overfitting: learns the training rows' quirks, so training is high and validation clearly lower. Diagnose by comparing them. Regularization fights overfitting; for an underfitting model it can only help by being weakened. *T: logistic regression (0.830 training, 0.827 validation). HP: the 4-column straight line has RMSE 0.1609 on its own houses and 0.1611 in CV (4 weights, no gap); the baseline has 0.1402 and 0.1453 (about 40 weights, small gap). The gap grows with the number of weights relative to the number of rows.*
 
 **Feature ceiling.** When rows with identical inputs have different outcomes, no model can get them all right. Titanic's 11 features made 43 passenger types and capped accuracy at 0.838. When different model types stop at the same score, the limit is the information in the features. *T: error analysis.*
 
@@ -97,6 +97,10 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 ## Evaluation
 
 **Cross-validation.** Split the working data into folds; each fold takes a turn as validation while the others train. Repeating it with different shuffles (10 × 5 = 50 folds) averages out lucky folds. A fixed seed means two versions are compared on the same folds. Fold-to-fold scores varied by about ±0.03, so small gains in one run may be luck. *T.*
+
+**Compare fold by fold (paired).** Like two runners timed on the same 50 routes: hilly routes slow both, so judge by who wins on each route, not by how much each runner's times vary. A fold's score depends mostly on which hard houses landed in it, and that hits both models alike. So compare the two models' scores fold by fold: the differences vary far less than the scores themselves. *HP: fold scores ±0.94 (×100), fold-by-fold difference ±0.12.*
+
+**Repeating columns add little.** A column's gain is what it adds that the model doesn't already know. A column that explains a lot on its own can add almost nothing if another column already says it. *HP: ExterQual ranks top 3 alone, but adds 0.05 (×100) on top of OverallQual.*
 
 **Test set once.** The held-out test set is scored once, at the end. Choosing models on it makes it a second validation set and its score optimistic. *T.*
 

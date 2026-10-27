@@ -265,7 +265,18 @@ None of these has missing values apart from GarageCars for Id 2577.
 - Everything learned from the data (scaler, one-hot levels, target means, alpha) is inside one `Pipeline`, refitted on each training part.
 - Alpha is chosen by `RidgeCV` inside each training part, from 61 values between 0.001 and 1000: it picked 0.40 to 0.79 (median 0.63), well inside the range. That is a weak penalty: a group of n houses keeps about n / (n + alpha) of its weight, so even Fa (14 houses) keeps 96%.
 - Unknown one-hot levels (missing from a training part, or new in test) are encoded as all zeros, i.e. priced like the reference. MSSubClass 150 appears in test only, so `TargetEncoder` gives it the overall mean.
+- **Why not 0.13:** the 4-column straight line scores 0.1609 on its own houses and 0.1611 in CV, so the 0.161 was a fair starting point. The baseline scores 0.1402 on its own houses and 0.1453 in CV: a small gap, so little overfitting. The extra columns and the more flexible form bought 0.016, about half the 0.03 assumed. The limit is what these 9 columns know, not the fit.
 - Test Ids 2296 and 2550 have negative ages (−1, −2: remodelled after the sale was recorded). Harmless for a linear model; left as they are.
+
+## Keep rule
+
+Written 2026-10-27, before the first comparison. A change (new column, other encoding) is kept only if, on the same 50 folds as the model it's compared with:
+1. **the mean RMSE improves by at least 0.001** (0.1 on the ×100 scale), and
+2. **it wins on at least 80% of the folds** (40 of 50).
+
+- **Compare fold by fold.** The folds' own spread (±0.94 ×100) is mostly which hard houses land in a fold, which hits both models alike. The fold-by-fold difference varies far less (±0.12 in a test without ExterQual).
+- **Why 0.1:** ExterQual mostly repeats OverallQual and adds 0.05; a column with new information should clear at least twice that. Smaller consistent gains add up, and part 2 guards against luck.
+- Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
 ## Scaling
 
@@ -290,7 +301,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- Keep rule for this problem: to be written once the baseline's fold noise is known, before the first comparison.
 - Prune the CV list below: keep only comparisons that could plausibly change the score. Candidate to keep: OverallQual number vs one-hot.
 - Compare OverallQual as a number against one-hot, with cross-validation.
 - Compare option 1 (one-hot) against option 2 (target encoding) for MSSubClass with cross-validation, once a baseline exists.

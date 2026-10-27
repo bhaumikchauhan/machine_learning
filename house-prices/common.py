@@ -149,7 +149,8 @@ def build_pipeline():
         ('one_hot', OneHotEncoder(drop=list(ONE_HOT_REFERENCES.values()), handle_unknown='ignore',
                                   sparse_output=False), list(ONE_HOT_REFERENCES)),
         # out-of-fold and blended mean log price per code; an unseen code (150 in test) gets the overall mean
-        ('target', TargetEncoder(cv=KFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)),
+        # Pylance infers cv: int from the default; sklearn accepts a splitter too (and wants one for the seed)
+        ('target', TargetEncoder(cv=KFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)),  # pyright: ignore[reportArgumentType]
          TARGET_ENCODED_COLUMNS),
     ])
     return Pipeline([('preprocess', preprocess), ('model', RidgeCV(alphas=ALPHAS))])
