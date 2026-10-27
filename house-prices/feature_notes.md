@@ -383,6 +383,7 @@ The current model (CV RMSE 0.1236 ± 0.0089), fitted on all 1,458 training house
 - **Clipped to the training range:** each numeric test value is capped at the training minimum and maximum before predicting, so the straight lines stop at the edge of the data. Changes 3 houses: Id 2550 $1,095,537 → $694,923 (basement 5,095 → 3,206, finished 4,010 → 2,306, living area 5,095 → 4,476 sq ft, age −2 → 0), Id 2377 $380,697 → $374,150 (finished 2,461 → 2,306), Id 2296 $283,586 → $283,046 (age −1 → 0).
 - Not overfitting: the model scores 0.1198 on its own houses against 0.1236 in CV. It's extrapolation: beyond the training range, a linear model just continues its lines.
 - **Expected Kaggle score, written before uploading:** about 0.128 if Id 2550 sold for about $185k like the two removed houses (ln(695 / 185) = 1.32, adding 1.32² / 1,459 ≈ 0.0012 to the mean squared error), about 0.124 if it didn't.
+- **Kaggle score: 0.13669**, worse than both expectations. Possible causes, not separable from one score: Id 2550 (+0.004 to +0.009 if it sold low and is among the scored houses), noise (folds of 292 houses varied by ±0.009), validation wear from about 15 comparisons on the same folds (+0.001 to +0.002). CV stays the guide for choosing; one Kaggle score is too noisy to choose by, and choosing by it would make the test set a second validation set.
 
 ## Scaling
 
