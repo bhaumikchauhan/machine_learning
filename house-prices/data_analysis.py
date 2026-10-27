@@ -9,7 +9,9 @@ from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 
-from house_prices import TEST_CSV, TRAIN_CSV
+from sklearn.model_selection import KFold, cross_val_predict
+
+import common
 
 PLOTS_DIR = 'plots'
 
@@ -530,9 +532,62 @@ def plot_conditions(train, test):
     save(fig, 'conditions.png')
 
 
+# Raw columns already decided: used by the current model (directly or through a derived column), or dropped.
+DECIDED_COLUMNS = ['Id', 'MSSubClass', 'Neighborhood', 'LotArea', 'OverallQual', 'OverallCond',
+                   'YearRemodAdd', 'YrSold', 'GrLivArea', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'ExterQual',
+                   'GarageCars', 'TotalBsmtSF', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'LotShape', 'Utilities',
+                   'BldgType', 'HouseStyle']
+
+
+def plot_leftover_ranking(train, skip, top=20):
+    # Rank columns by the share of the current model's leftover they explain: what each would add that the model
+    # doesn't know yet. Leftover = log price - out-of-fold prediction. Numbers in 10 equal-count bands, categories
+    # by value, missing as its own group; the share is adjusted for the number of groups.
+    X, y = common.retrieve_X_And_y()
+    X_train, y, _ = common.feature_engineering(X, y, common.get_kaggle_test_data_from_csv())
+    prediction = cross_val_predict(common.build_pipeline(), X_train, y,
+                                   cv=KFold(common.N_FOLDS, shuffle=True, random_state=common.RANDOM_SEED))
+    leftover = pd.Series(y.values - prediction, index=X_train.index)
+    houses = train.loc[X_train.index]
+    n = len(leftover)
+    total = ((leftover - leftover.mean()) ** 2).sum()
+    rows = []
+    for column in houses.columns.drop(skip):
+        values = houses[column]
+        if pd.api.types.is_numeric_dtype(values) and values.nunique() > 12:
+            bands = pd.qcut(values.rank(method='first'), 10, labels=False)
+            groups = pd.Series(bands, index=values.index).astype(float).fillna(-1).astype(str)
+        else:
+            # astype(object) first: in pandas 3, astype(str) keeps missing values missing
+            groups = values.astype(object).where(values.notna(), 'missing').astype(str)
+        k = groups.nunique()
+        explained = 1 - ((leftover - leftover.groupby(groups).transform('mean')) ** 2).sum() / total
+        rows.append((column, 1 - (1 - explained) * (n - 1) / (n - k), values.isna().sum()))
+    rows = sorted(rows, key=lambda row: row[1], reverse=True)[:top][::-1]
+    fig, ax = new_figure(10, 7)
+    ax.grid(axis='y', visible=False)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    for y_pos, (column, share, missing) in enumerate(rows):
+        ax.barh(y_pos, share, height=0.7, color=BLUE)
+        ax.text(share + 0.001, y_pos, f"{share:.1%}" + (f"  (missing {missing})" if missing else ''), va='center',
+                color=INK_SECONDARY, fontsize=8)
+    ax.set_yticks(range(len(rows)), [row[0] for row in rows], fontsize=9)
+    ax.set_ylim(-0.6, len(rows) - 0.4)
+    ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(0.01))
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0%}")
+    ax.set_xlabel("share of the current model's leftover explained (adjusted for the number of groups)",
+                  color=INK_SECONDARY)
+    ax.set_title(f"Unused columns: what they would add to the current model (top {top}), train.csv without "
+                 "Ids 524, 1299", loc='left', color=INK, fontsize=11)
+    save(fig, 'leftover_ranking.png')
+    for column, share, missing in rows[::-1]:
+        print(f"{column:15s} {share:6.1%}")
+
+
 if __name__ == '__main__':
-    train = pd.read_csv(TRAIN_CSV)
-    test = pd.read_csv(TEST_CSV)
+    train = common.get_train_data_from_csv()
+    test = common.get_kaggle_test_data_from_csv()
+    plot_leftover_ranking(train, DECIDED_COLUMNS + ['SalePrice'])
     plot_price_by_category(train, [('Street', {'Grvl': 'Grvl\ngravel', 'Pave': 'Pave\npaved'}),
                                    ('Alley', {None: 'empty\n(no alley access)', 'Grvl': 'Grvl\ngravel',
                                               'Pave': 'Pave\npaved'})],
