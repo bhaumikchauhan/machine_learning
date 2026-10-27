@@ -25,6 +25,7 @@ def main():
     # OverallCond (number, target encoding, one-hot merged / unmerged) was compared on 2026-10-28: number added.
     # Finished basement (area in sq ft vs share) was compared on 2026-10-28: area added.
     # MSZoning one-hot vs not added was compared on 2026-10-28: not added (wins only 72% of folds).
+    # Functional (one 0/1 column for any deduction) vs not added was compared on 2026-10-28: added.
     fold_rmse(X_train, y)
 
 

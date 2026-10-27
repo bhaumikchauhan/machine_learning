@@ -329,6 +329,13 @@ How much of the basement is finished. The current model (with TotalBsmtSF) treat
 - **Versions** (one column each, scaled): finished area `BsmtFinishedSF`; finished share `BsmtFinishedShare` (0 if no basement).
 - **Result (2026-10-28):** area 0.1247 (gain 0.65 ×100, wins 98%); share 0.1249 (gain 0.62, wins 100%). Both pass; same number of columns, so the lower RMSE: **finished area added.** The current model scores **0.1247 ± 0.0091**.
 
+### Functional: one 0/1 column, any deduction, added
+
+Home functionality: Typ (typical) down to Sal (salvage only). 1,358 of 1,458 training houses are Typ; leftover (×100) by level: Typ 0 ± 1, Min1 −5 ± 4 (31 houses), Min2 −2 ± 5 (34), Mod −9 ± 12 (15), Maj1 −7 ± 7 (14), Maj2 −25 ± 7 (5), Sev −53 (1); no Sal.
+- Test Ids 2217 and 2474 (both IDOTRR) are missing: filled with Typ, as data_description.txt says ("Assume typical unless deductions are warranted"). 2474 has OverallCond 1, so it may well have deductions; this affects 2 test predictions only, not the CV score.
+- **Version (user's choice):** `FunctionalDeduction`, 1 for any level below Typ (100 houses in train, 100 in test), not scaled.
+- **Result (2026-10-28):** RMSE 0.1236 vs 0.1247, gain 0.12 (×100), wins exactly 80% of folds (40 of 50). Passes, at the edge of both parts. **Added.** The current model scores **0.1236 ± 0.0089**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
