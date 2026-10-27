@@ -3,6 +3,7 @@
 # Predict SalePrice. Scored by RMSE between log(predicted price) and log(actual price).
 
 
+import numpy as np
 import pandas as pd
 import common
 
@@ -11,6 +12,24 @@ def fold_rmse(X_train, y, **pipeline_columns):
     rmse = -scores['test_neg_root_mean_squared_error']
     print(f"RMSE: {rmse.mean():.4f} (+/- {rmse.std():.4f})\n")
     return rmse
+
+def create_submission(path='submission.csv'):
+    # the current model, fitted on all 1,458 training houses; it predicts log price, so exp() turns it back to $
+    X, y = common.retrieve_X_And_y()
+    X_test = common.get_kaggle_test_data_from_csv()
+    X_train, y, X_test = common.feature_engineering(X, y, X_test)
+    pipeline = common.build_pipeline().fit(X_train, y)
+    # clip each numeric test value to the training range, so the straight lines stop at the edge of the data
+    # (Id 2550 is far beyond it: 5,095 sq ft basement against a training max of 3,206)
+    for column in common.NUMERIC_COLUMNS:
+        X_test[column] = X_test[column].clip(X_train[column].min(), X_train[column].max())
+    prices = np.exp(pipeline.predict(X_test))
+    submission = pd.DataFrame({'Id': X_test['Id'], 'SalePrice': prices})
+    submission.to_csv(path, index=False)
+    print(f"Saved {path}: {len(submission)} rows, missing {submission['SalePrice'].isna().sum()}, "
+          f"median ${np.median(prices):,.0f}, min ${prices.min():,.0f}, max ${prices.max():,.0f}")
+    print(f"Id 2550 (like the two removed outliers): ${prices[X_test['Id'].values == 2550][0]:,.0f}")
+    return submission
 
 def main():
     # Comparisons done on 2026-10-27 (feature_notes.md): OverallQual one-hot stays;
@@ -31,3 +50,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    #create_submission()  # Kaggle submission, trained on all training houses

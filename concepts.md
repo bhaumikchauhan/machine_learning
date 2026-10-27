@@ -114,6 +114,8 @@ Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](hous
 
 **Simpler version as current.** In a comparison, the version with fewer columns is the current one, so close calls go to the simpler model and every extra column has to earn its place, like a new column does. *HP: keep rule.*
 
+**Extrapolation is not overfitting.** Overfitting: the model learned quirks of its training rows, seen as a clear gap between the error on its own rows and in CV. Extrapolation: a row outside the training range; a linear model continues its straight lines where there's no data to say whether they still hold (timing a runner up to 10 km and assuming the same pace for a marathon). A guard: clip each numeric test value to the training range before predicting. *HP: Id 2550, basement 5,095 sq ft vs training max 3,206, predicted $1.1M, $695k clipped; own houses 0.1198 vs CV 0.1236, so no overfitting.*
+
 **Outlier removal and CV.** Removing hard rows from the validation folds too makes scores look better just because the hard rows are gone. To measure whether removing them helps, remove them from the training part of each fold only. *HP: Ids 524, 1299.*
 
 **When to stop.** Signals: clearly above a simple baseline; much of the remaining error is chance (same inputs, different outcome); different models agree; gains below the fold noise; and validation wear: every comparison made on the same rows makes the CV score a little more optimistic (multiple comparisons). *T.*

@@ -375,6 +375,15 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 - **Same number of columns** (added 2026-10-28, before the finished-basement run): each version is tested against not adding it; if more than one passes, the one with the lower mean RMSE is kept. Reason: neither is simpler, so there's no reason to give one the benefit of the doubt.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
+## Submissions
+
+### Submission 1 (2026-10-28): `submission.csv`
+
+The current model (CV RMSE 0.1236 ± 0.0089), fitted on all 1,458 training houses, predictions turned back with exp().
+- **Clipped to the training range:** each numeric test value is capped at the training minimum and maximum before predicting, so the straight lines stop at the edge of the data. Changes 3 houses: Id 2550 $1,095,537 → $694,923 (basement 5,095 → 3,206, finished 4,010 → 2,306, living area 5,095 → 4,476 sq ft, age −2 → 0), Id 2377 $380,697 → $374,150 (finished 2,461 → 2,306), Id 2296 $283,586 → $283,046 (age −1 → 0).
+- Not overfitting: the model scores 0.1198 on its own houses against 0.1236 in CV. It's extrapolation: beyond the training range, a linear model just continues its lines.
+- **Expected Kaggle score, written before uploading:** about 0.128 if Id 2550 sold for about $185k like the two removed houses (ln(695 / 185) = 1.32, adding 1.32² / 1,459 ≈ 0.0012 to the mean squared error), about 0.124 if it didn't.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
