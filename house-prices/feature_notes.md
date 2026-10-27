@@ -343,10 +343,9 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 
 ## Open items
 
-- CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Next: the Neighborhood reference.
+- CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Neighborhood reference skipped (2026-10-28): at alpha ≈ 3 a neighbourhood of n houses keeps about n / (n + 3) of its weight (77% at 10 houses, over 90% for most), so the reference barely matters, and each comparison wears the CV score a little. Next: add more columns.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
-- Compare NAmes against CollgCr as the Neighborhood reference, with cross-validation.
 - Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
 - Whether to scale the 0/1 columns: in the baseline they aren't scaled (only LotArea, Age and GrLivArea are). At the alpha RidgeCV picks (about 0.6) the pull on small groups is small either way; revisit if alpha grows as columns are added.
 - Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
