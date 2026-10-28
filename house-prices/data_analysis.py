@@ -536,7 +536,7 @@ def plot_conditions(train, test):
 DECIDED_COLUMNS = ['Id', 'MSSubClass', 'Neighborhood', 'LotArea', 'OverallQual', 'OverallCond',
                    'YearRemodAdd', 'YrSold', 'GrLivArea', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'ExterQual',
                    'GarageCars', 'TotalBsmtSF', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'LotShape', 'Utilities',
-                   'BldgType', 'HouseStyle']
+                   'BldgType', 'HouseStyle', 'MSZoning', 'Functional', 'SaleCondition']
 
 
 def plot_leftover_ranking(train, skip, top=20):
