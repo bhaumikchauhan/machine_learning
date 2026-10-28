@@ -215,6 +215,14 @@ def central_air_flag(X_train, X_test):
         X['NoCentralAir'] = (X['CentralAir'] == 'N').astype(int)
     return X_train, X_test
 
+def exterior_flags(X_train, X_test):
+    # wood siding and brick face get a 0/1 column each; every other material (and test Id 2152, missing)
+    # is priced like vinyl siding, the reference
+    for X in (X_train, X_test):
+        X['ExteriorWoodSiding'] = (X['Exterior1st'] == 'Wd Sdng').astype(int)
+        X['ExteriorBrickFace'] = (X['Exterior1st'] == 'BrkFace').astype(int)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -235,6 +243,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = functional_deduction(X_train, X_test)
     X_train, X_test = sale_condition_flags(X_train, X_test)
     X_train, X_test = central_air_flag(X_train, X_test)
+    X_train, X_test = exterior_flags(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):

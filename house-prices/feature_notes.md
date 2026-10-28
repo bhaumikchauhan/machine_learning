@@ -350,6 +350,12 @@ None missing. No central air: 95 houses in train, 101 in test, median age 56, le
 - **Version:** `NoCentralAir`, 1 for no central air, not scaled (the only sensible version for a yes/no column).
 - **Result (2026-10-28):** RMSE 0.1193 vs 0.1211, gain 0.19 (×100), wins 96% of folds. **Added.** The current model scores **0.1193 ± 0.0079**.
 
+### Exterior1st: not added
+
+Exterior material, 15 values in train. Leftover of the current model (×100), clearly away from 0 only for wood siding (Wd Sdng, 206 houses, −3 ± 2) and brick face (BrkFace, 50, +7 ± 4); vinyl siding (VinylSd, 515) 0 ± 1; the rest within their ±. Five rare materials (BrkComm, Stone, AsphShn, CBlock, ImStucc) have 1–2 houses each; BrkComm's −18 is ± 73. Test Id 2152 is missing (Exterior2nd too). Exterior2nd matches Exterior1st for 85% of houses: left for later.
+- **Version (user's choice, merging rule as for SaleCondition):** `ExteriorWoodSiding` and `ExteriorBrickFace`; everything else, and Id 2152, priced like VinylSd. The rare materials were first given a column for BrkComm's −18, then merged: 2 houses with ± 73 aren't evidence.
+- **Result (2026-10-28):** RMSE 0.1184 vs 0.1193, gain **0.08** (×100), wins 82% of folds. Fails part 1 (needs 0.1). **Not added.** Variants picked after this result (brick face alone, for example) would be weak tests; not tried.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

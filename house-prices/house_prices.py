@@ -48,6 +48,8 @@ def main():
     # SaleCondition (Partial + abnormal, Family with Normal or with Abnorml) was compared on 2026-10-28:
     # added, Family with Abnorml.
     # CentralAir (one 0/1 column for no central air) vs not added was compared on 2026-10-28: added.
+    # Exterior1st (0/1 columns for wood siding and brick face) vs not added was compared on 2026-10-28:
+    # not added (gain 0.08 x100).
     fold_rmse(X_train, y)
 
 
