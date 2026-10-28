@@ -357,6 +357,21 @@ Exterior material, 15 values in train. Leftover of the current model (×100), cl
 - **Version (user's choice, merging rule as for SaleCondition):** `ExteriorWoodSiding` and `ExteriorBrickFace`; everything else, and Id 2152, priced like VinylSd. The rare materials were first given a column for BrkComm's −18, then merged: 2 houses with ± 73 aren't evidence.
 - **Result (2026-10-28):** RMSE 0.1184 vs 0.1193, gain **0.08** (×100), wins 82% of folds. Fails part 1 (needs 0.1). **Not added.** Variants picked after this result (brick face alone, for example) would be weak tests; not tried.
 
+### The remaining columns, in groups (plan fixed 2026-10-28, before testing any group)
+
+Single columns were reaching the limit of the keep rule (Exterior1st 0.08, the 3 condition columns 0.07), so the remaining ~40 columns are tested in fixed groups, each group as one candidate against the current model:
+
+| Group | Columns |
+|---|---|
+| Garage | GarageType, GarageFinish, GarageArea, GarageQual, GarageCond, GarageYrBlt |
+| Basement rest | BsmtQual, BsmtCond, BsmtExposure, BsmtFullBath, BsmtHalfBath |
+| Rooms | FullBath, HalfBath, BedroomAbvGr, KitchenAbvGr, KitchenQual, TotRmsAbvGrd, Fireplaces, FireplaceQu |
+| Outside | WoodDeckSF, OpenPorchSF, EnclosedPorch, 3SsnPorch, ScreenPorch, PoolArea, Fence |
+| Lot (mostly decided) | LotFrontage, Street, Alley, LandContour, LotConfig, LandSlope |
+| Other | Foundation, Heating, HeatingQC, Electrical, RoofStyle, MasVnrArea, PavedDrive, YearBuilt, SaleType, MoSold |
+
+**Default encodings within a group:** areas and counts as numbers (scaled); quality scales (Ex, Gd, TA, Fa, Po) as one number (5 to 1, scaled); categories as 0/1 columns, with the user's merging rule (values whose leftover can't be told apart from the reference's are merged into it). Decisions a default doesn't cover are made per group, before its run.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
