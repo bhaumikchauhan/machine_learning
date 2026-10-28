@@ -538,7 +538,8 @@ DECIDED_COLUMNS = ['Id', 'MSSubClass', 'Neighborhood', 'LotArea', 'OverallQual',
                    'GarageCars', 'TotalBsmtSF', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'LotShape', 'Utilities',
                    'BldgType', 'HouseStyle', 'MSZoning', 'Functional', 'SaleCondition',
                    'CentralAir', 'Exterior1st', 'Condition1', 'Condition2', 'GarageType', 'GarageFinish',
-                   'GarageArea', 'GarageQual', 'GarageCond', 'GarageYrBlt']
+                   'GarageArea', 'GarageQual', 'GarageCond', 'GarageYrBlt', 'BsmtQual', 'BsmtCond',
+                   'BsmtExposure', 'BsmtFullBath', 'BsmtHalfBath']
 
 
 def plot_leftover_ranking(train, skip, top=20):

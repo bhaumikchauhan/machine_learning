@@ -52,6 +52,7 @@ def main():
     # not added (gain 0.08 x100).
     # Conditions (3 columns, or 5 with Feedr and PosN) were compared on 2026-10-28: 5 columns added.
     # Garage group (area, quality, condition, year, built-in) vs not added was compared on 2026-10-28: added.
+    # Basement group (quality, condition, bathrooms, good exposure) vs not added was compared on 2026-10-28: added.
     fold_rmse(X_train, y)
 
 

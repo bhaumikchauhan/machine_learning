@@ -18,7 +18,8 @@ COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'TotalBsmtSF', 'BsmtFinishedSF', 'FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily',
                        'NoCentralAir', 'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW',
                        'ConditionFeeder', 'ConditionParkNear', 'GarageArea', 'GarageQualNumber',
-                       'GarageCondNumber', 'GarageYear', 'GarageBuiltIn']
+                       'GarageCondNumber', 'GarageYear', 'GarageBuiltIn', 'BsmtQualNumber', 'BsmtCondNumber',
+                       'BsmtFullBath', 'BsmtHalfBath', 'BsmtExposureGood']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -26,11 +27,12 @@ MIN_RMSE_GAIN = 0.001
 
 # OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
-                   'BsmtFinishedSF', 'GarageArea', 'GarageQualNumber', 'GarageCondNumber', 'GarageYear']
+                   'BsmtFinishedSF', 'GarageArea', 'GarageQualNumber', 'GarageCondNumber', 'GarageYear',
+                   'BsmtQualNumber', 'BsmtCondNumber', 'BsmtFullBath', 'BsmtHalfBath']
 # 0/1 columns, used as they are (not scaled)
 PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir',
                        'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW', 'ConditionFeeder',
-                       'ConditionParkNear', 'GarageBuiltIn']
+                       'ConditionParkNear', 'GarageBuiltIn', 'BsmtExposureGood']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -256,6 +258,21 @@ def garage_group(X_train, X_test):
         X['GarageBuiltIn'] = (X['GarageType'] == 'BuiltIn').astype(int)
     return X_train, X_test
 
+def basement_group(X_train, X_test):
+    # test 2121 and 2189 have no basement and no bathroom counts
+    X_test.loc[X_test['Id'].isin([2121, 2189]), ['BsmtFullBath', 'BsmtHalfBath']] = 0
+    # a basement exists but one value is missing: the most common value
+    X_test.loc[X_test['Id'].isin([2218, 2219]), 'BsmtQual'] = 'TA'
+    X_test.loc[X_test['Id'].isin([2041, 2186, 2525]), 'BsmtCond'] = 'TA'
+    for X in (X_train, X_test):
+        # no basement: 0 (TotalBsmtSF = 0 already marks these houses)
+        X['BsmtQualNumber'] = X['BsmtQual'].map(QUALITY_SCALE).fillna(0)
+        X['BsmtCondNumber'] = X['BsmtCond'].map(QUALITY_SCALE).fillna(0)
+        # of the exposures only good is clearly off (+4 +/- 2); a missing exposure (train 949, test 1488 and 2349)
+        # counts as No, the most common
+        X['BsmtExposureGood'] = (X['BsmtExposure'] == 'Gd').astype(int)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -279,6 +296,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = exterior_flags(X_train, X_test)
     X_train, X_test = condition_flags(X_train, X_test)
     X_train, X_test = garage_group(X_train, X_test)
+    X_train, X_test = basement_group(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):

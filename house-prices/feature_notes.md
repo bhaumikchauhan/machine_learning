@@ -382,6 +382,16 @@ Leftover of the current model (×100) per value, reference = the largest value:
 - **Fills, decided before the run:** no garage (81 train, 76 test): quality, condition and area 0, year = YearBuilt (GarageCars' "0" column gives them their own step). Test Id 2593: GarageYrBlt 2207 → 2007 (typo). Test Id 2127 (detached, 360 sq ft, 1 car, but no finish, quality, condition or year): quality and condition TA, year = YearBuilt. Test Id 2577: no garage, as before (area 0).
 - **Result (2026-10-28):** the 5 columns as one candidate: RMSE 0.1168 vs 0.1180, gain 0.12 (×100), wins 88% of folds. **Added.** The current model scores **0.1168 ± 0.0083**.
 
+#### Basement group: added
+
+Leftover of the current model (×100) per value, reference = the largest value:
+- **BsmtQual** (basement height): Ex +3 ± 2 (119 houses) clearly off; TA −1 ± 1, Gd 0 ± 1, Fa +1 ± 4. → one number, `BsmtQualNumber` (Ex 5 … Fa 2, no basement 0).
+- **BsmtCond:** mostly TA (1,309); Fa −5 ± 5, Gd −1 ± 2. → `BsmtCondNumber`, same scale.
+- **BsmtExposure** (reference No, 953): only Gd is clearly off (+4 ± 2, 132 houses); Av +1 ± 2, Mn 0 ± 2. → `BsmtExposureGood`.
+- **BsmtFullBath, BsmtHalfBath** as numbers; leftovers all about 0.
+- **Fills, decided before the run (most common value):** test 2121, 2189 (no basement): bathrooms 0. Test 2218, 2219: BsmtQual TA. Test 2041, 2186, 2525: BsmtCond TA. Train 949, test 1488, 2349: BsmtExposure No.
+- **Result (2026-10-28):** the 5 columns as one candidate: RMSE 0.1157 vs 0.1168, gain 0.12 (×100), wins 84% of folds. **Added.** The current model scores **0.1157 ± 0.0084**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
