@@ -135,6 +135,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Extrapolation is not overfitting.** Overfitting: the model learned quirks of its training rows, seen as a clear gap between the error on its own rows and in CV. Extrapolation: a row outside the training range; a linear model continues its straight lines where there's no data to say whether they still hold (timing a runner up to 10 km and assuming the same pace for a marathon). A guard: clip each numeric test value to the training range before predicting. *HP: Id 2550, basement 5,095 sq ft vs training max 3,206, predicted $1.1M, $695k clipped; own houses 0.1198 vs CV 0.1236, so no overfitting.*
 
+**Compare with the base rate.** In a selection (the worst-predicted houses, say), a value being common is only a pattern if it's more common than in all the data. *HP error analysis: RL is 67% of the 15 worst houses but 79% of all houses, so no pattern; commercial zone (C) is 27% of the worst but 0.7% of all, and abnormal sales 47% against 7%: patterns.*
+
 **Outlier removal and CV.** Removing hard rows from the validation folds too makes scores look better just because the hard rows are gone. To measure whether removing them helps, remove them from the training part of each fold only. *HP: Ids 524, 1299.*
 
 **When to stop.** Signals: clearly above a simple baseline; much of the remaining error is chance (same inputs, different outcome); different models agree; gains below the fold noise; and validation wear: every comparison made on the same rows makes the CV score a little more optimistic (multiple comparisons). *T.*
