@@ -4,6 +4,25 @@ Concepts that came up while working on the problems in this repo, each in a few 
 
 Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md).
 
+## The leftover
+
+**What it is.** The part of a house's price that the current model gets wrong: log(actual price) − log(predicted price), ×100 ≈ % above (+) or below (−) the prediction. The prediction comes from a model trained *without* that house (out-of-fold, as in a CV fold), so the model can't have memorized it.
+- **One house** (HP, Id 494, brick face exterior): predicted $144,546, sold $155,000. Leftover = log(155,000) − log(144,546) = 0.07, so **+7**: sold about 7% above the prediction.
+- **A group** (all 50 brick face houses): each house has its own leftover (+9, +17, −82, −4, +4, 0, +12, +24, …). The group's **average** is +7: on average brick face houses sell about 7% above the prediction. The **±** is how much that average could move with a different 50 houses: 2 × spread ÷ √n = 2 × 15.7 ÷ √50 ≈ ±4.
+- **Average about 0:** the model already prices the group right. **Clearly away from 0** (beyond its ±): the model keeps mispricing the group in one direction, and a column for it can fix that.
+
+**Why the average, even though single houses can be badly wrong.** A 0/1 column for a group has one weight, so it moves every house in the group by the same amount. It can't fix the −82 house without moving the +17 house too. Two houses in one group, leftovers +50 and −50:
+
+| Shift the column applies | House A | House B | Total squared error |
+|---|---|---|---|
+| 0 | +50 | −50 | 2,500 + 2,500 = **5,000** |
+| +10 | +40 | −60 | 1,600 + 3,600 = 5,200 |
+| −10 | +60 | −40 | 3,600 + 1,600 = 5,200 |
+
+Any shift makes one house better and the other worse by more; the best shift is the group's average. So the **average** says what a column *for that group* can fix. The spread *inside* the group needs a *different* column: one that differs between the houses of the group. Finding those is what the leftover ranking does (`plot_leftover_ranking`, `plots/leftover_ranking.png`).
+
+**The pool example.** At $100 per sq ft, three houses without a pool (1,000–1,500 sq ft) sell for about their prediction (leftover ≈ $0); three with a pool (2,000–3,000 sq ft) sell for about $8k above it. Raw, pool houses cost $135k more, but that's mostly size: in a model that already has size, a pool column's weight is about $8k. A column's value is judged by what's left after the others, not by its raw pattern. *HP: ExterQual, OverallQual, MSSubClass, every column since.*
+
 ## Encoding
 
 **Labels stored as numbers.** A column of numbers can still be categories: MSSubClass 20, 60, 120 are dwelling types, and 60 isn't "three times" 20. Using it as a number (scaled or not) forces one straight line through the codes. Treat it as a category. *HP: MSSubClass.*
