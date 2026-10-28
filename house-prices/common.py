@@ -17,7 +17,8 @@ COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'OverallQualNumber', 'OverallCondNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars',
                        'TotalBsmtSF', 'BsmtFinishedSF', 'FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily',
                        'NoCentralAir', 'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW',
-                       'ConditionFeeder', 'ConditionParkNear']
+                       'ConditionFeeder', 'ConditionParkNear', 'GarageArea', 'GarageQualNumber',
+                       'GarageCondNumber', 'GarageYear', 'GarageBuiltIn']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -25,11 +26,11 @@ MIN_RMSE_GAIN = 0.001
 
 # OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
-                   'BsmtFinishedSF']
+                   'BsmtFinishedSF', 'GarageArea', 'GarageQualNumber', 'GarageCondNumber', 'GarageYear']
 # 0/1 columns, used as they are (not scaled)
 PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir',
                        'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW', 'ConditionFeeder',
-                       'ConditionParkNear']
+                       'ConditionParkNear', 'GarageBuiltIn']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -236,6 +237,25 @@ def condition_flags(X_train, X_test):
             X[column] = (X['Condition1'].isin(values) | X['Condition2'].isin(values)).astype(int)
     return X_train, X_test
 
+QUALITY_SCALE = {'Ex': 5, 'Gd': 4, 'TA': 3, 'Fa': 2, 'Po': 1}
+
+def garage_group(X_train, X_test):
+    # test Id 2127 has a garage (detached, 360 sq ft, 1 car) but no quality, condition or year: TA and its YearBuilt
+    X_test.loc[X_test['Id'] == 2127, ['GarageQual', 'GarageCond']] = 'TA'
+    # test Id 2593: GarageYrBlt 2207 is a typo for 2007
+    X_test.loc[X_test['Id'] == 2593, 'GarageYrBlt'] = 2007
+    # test Id 2577 is treated as no garage (see GarageCars)
+    X_test.loc[X_test['Id'] == 2577, 'GarageArea'] = 0
+    for X in (X_train, X_test):
+        # no garage: quality and condition 0; GarageCars' "0" column gives these houses their own step
+        X['GarageQualNumber'] = X['GarageQual'].map(QUALITY_SCALE).fillna(0)
+        X['GarageCondNumber'] = X['GarageCond'].map(QUALITY_SCALE).fillna(0)
+        # no garage has no year: the house's YearBuilt
+        X['GarageYear'] = X['GarageYrBlt'].fillna(X['YearBuilt'])
+        # of the garage types only built-in is clearly off (+3 +/- 2); GarageFinish gets no column
+        X['GarageBuiltIn'] = (X['GarageType'] == 'BuiltIn').astype(int)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -258,6 +278,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = central_air_flag(X_train, X_test)
     X_train, X_test = exterior_flags(X_train, X_test)
     X_train, X_test = condition_flags(X_train, X_test)
+    X_train, X_test = garage_group(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):

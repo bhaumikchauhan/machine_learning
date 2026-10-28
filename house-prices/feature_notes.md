@@ -372,6 +372,16 @@ Single columns were reaching the limit of the keep rule (Exterior1st 0.08, the 3
 
 **Default encodings within a group:** areas and counts as numbers (scaled); quality scales (Ex, Gd, TA, Fa, Po) as one number (5 to 1, scaled); categories as 0/1 columns, with the user's merging rule (values whose leftover can't be told apart from the reference's are merged into it). Decisions a default doesn't cover are made per group, before its run.
 
+#### Garage group: added
+
+Leftover of the current model (×100) per value, reference = the largest value:
+- **GarageType** (reference Attchd, 869): only BuiltIn is clearly off (+3 ± 2, 87 houses); Detchd 0 ± 1, Basment 0 ± 9, CarPort −10 ± 11, 2Types −10 ± 9, no garage 0 ± 4. → `GarageBuiltIn`.
+- **GarageFinish** (reference Unf, 605): RFn 0 ± 1, Fin +1 ± 1 against Unf −1 ± 1; the ranges touch. → no column.
+- **GarageQual, GarageCond:** quality scale as one number (Ex 5 … Po 1, no garage 0): `GarageQualNumber`, `GarageCondNumber`. Mostly TA.
+- **GarageArea** as a number (correlation 0.89 with GarageCars, already in the model). **GarageYrBlt** as a number, `GarageYear`; equal to YearBuilt for 75% of houses.
+- **Fills, decided before the run:** no garage (81 train, 76 test): quality, condition and area 0, year = YearBuilt (GarageCars' "0" column gives them their own step). Test Id 2593: GarageYrBlt 2207 → 2007 (typo). Test Id 2127 (detached, 360 sq ft, 1 car, but no finish, quality, condition or year): quality and condition TA, year = YearBuilt. Test Id 2577: no garage, as before (area 0).
+- **Result (2026-10-28):** the 5 columns as one candidate: RMSE 0.1168 vs 0.1180, gain 0.12 (×100), wins 88% of folds. **Added.** The current model scores **0.1168 ± 0.0083**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
