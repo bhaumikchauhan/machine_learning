@@ -411,6 +411,14 @@ The encodings decided column by column at the start (Street, Alley, LandContour,
 - **Versions:** A = the 10 columns vs not added; B = A + filled LotFrontage, against the version in place.
 - **Result (2026-10-28):** A: RMSE 0.1138, gain 0.02 (×100), wins 54%. A failed, so B against not added: gain 0.01, wins 52%. **Neither added.** These lot details mostly repeat what LotArea, Neighborhood and age already say; this settles the LotFrontage (fill vs drop) and LandSlope (keep vs drop) items: dropped.
 
+#### Other group: added (3 of its 10 columns)
+
+Leftover of the current model (×100), reference = the largest value:
+- **No columns** by the merging rule: Foundation (PConc +1 ± 1, CBlock 0 ± 1, BrkTil −3 ± 3, rest within their ±), Electrical, RoofStyle, PavedDrive (N −2 ± 4, P −4 ± 5). Heating (only Wall, 4 houses, +8 ± 6, and OthW, 2, −13 ± 3) and SaleType (only Con, 2 houses, +12 ± 3; New ≈ SalePartial, already in): too few houses, as with BrkComm in Exterior1st.
+- **MoSold left out:** every month within ±2, and a month isn't a scale (12 → 1 is one month apart, not 11).
+- **Numbers:** `HeatingQCNumber` (Ex +1 ± 1, Gd and TA −1 ± 1), MasVnrArea (missing for 8 train, 15 test houses, whose veneer type is missing too: 0), YearBuilt (houses built before 1900: −5 to −6; correlation −0.59 with Age).
+- **Result (2026-10-28):** the 3 columns as one candidate: RMSE 0.1118 vs 0.1138, gain 0.21 (×100), wins 96% of folds. **Added.** The current model scores **0.1118 ± 0.0089**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

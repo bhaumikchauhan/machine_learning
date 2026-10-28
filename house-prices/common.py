@@ -20,7 +20,8 @@ COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'ConditionFeeder', 'ConditionParkNear', 'GarageArea', 'GarageQualNumber',
                        'GarageCondNumber', 'GarageYear', 'GarageBuiltIn', 'BsmtQualNumber', 'BsmtCondNumber',
                        'BsmtFullBath', 'BsmtHalfBath', 'BsmtExposureGood', 'FullBath', 'HalfBath', 'BedroomAbvGr',
-                       'KitchenAbvGr', 'KitchenQualNumber', 'TotRmsAbvGrd', 'Fireplaces', 'FireplaceQuNumber']
+                       'KitchenAbvGr', 'KitchenQualNumber', 'TotRmsAbvGrd', 'Fireplaces', 'FireplaceQuNumber',
+                       'HeatingQCNumber', 'MasVnrArea', 'YearBuilt']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -31,7 +32,7 @@ NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNum
                    'BsmtFinishedSF', 'GarageArea', 'GarageQualNumber', 'GarageCondNumber', 'GarageYear',
                    'BsmtQualNumber', 'BsmtCondNumber', 'BsmtFullBath', 'BsmtHalfBath',
                    'FullBath', 'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'KitchenQualNumber', 'TotRmsAbvGrd',
-                   'Fireplaces', 'FireplaceQuNumber']
+                   'Fireplaces', 'FireplaceQuNumber', 'HeatingQCNumber', 'MasVnrArea', 'YearBuilt']
 # 0/1 columns, used as they are (not scaled)
 PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir',
                        'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW', 'ConditionFeeder',
@@ -304,6 +305,13 @@ def lot_group(X_train, X_test):
         X['LotFrontageFilled'] = X['LotFrontage'].fillna(estimate)
     return X_train, X_test
 
+def other_group(X_train, X_test):
+    for X in (X_train, X_test):
+        X['HeatingQCNumber'] = X['HeatingQC'].map(QUALITY_SCALE)
+        # missing veneer area (8 train, 15 test houses) comes with a missing veneer type: no veneer
+        X['MasVnrArea'] = X['MasVnrArea'].fillna(0)
+    return X_train, X_test
+
 LOT_FLAGS = ['StreetGravel', 'AlleyGravel', 'AlleyPaved', 'LandContourBanked', 'LandContourHillside',
              'LandContourLow', 'LotConfigCorner', 'LotConfigCulDSac', 'LotConfigFR2FR3', 'LandSlopeSloped']
 
@@ -333,6 +341,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = basement_group(X_train, X_test)
     X_train, X_test = rooms_group(X_train, X_test)
     X_train, X_test = lot_group(X_train, X_test)
+    X_train, X_test = other_group(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):
