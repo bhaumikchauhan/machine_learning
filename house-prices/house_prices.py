@@ -54,6 +54,7 @@ def main():
     # Garage group (area, quality, condition, year, built-in) vs not added was compared on 2026-10-28: added.
     # Basement group (quality, condition, bathrooms, good exposure) vs not added was compared on 2026-10-28: added.
     # Rooms group (8 room columns) vs not added was compared on 2026-10-28: added.
+    # Outside group (deck, porch and pool areas) vs not added was compared on 2026-10-28: not added (gain 0.00).
     fold_rmse(X_train, y)
 
 

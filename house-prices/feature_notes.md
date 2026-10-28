@@ -399,6 +399,12 @@ Leftover of the current model (×100), clear signals only: KitchenQual Ex +4 ± 
 - **Fill:** test Id 1556 (a kitchen, no KitchenQual): TA. Test has 4 houses with 4 full baths (training max 3): clipped at submission.
 - **Result (2026-10-28):** the 8 columns as one candidate: RMSE 0.1138 vs 0.1157, gain 0.18 (×100), wins exactly 80% of folds. **Added.** The current model scores **0.1138 ± 0.0086**.
 
+#### Outside group: not added
+
+Leftover of the current model (×100), houses with vs without each: WoodDeckSF (697 houses) 0 ± 1 vs 0 ± 1; OpenPorchSF (802) 0 vs 0; EnclosedPorch (208) 0 vs 0; 3SsnPorch (24) +2 ± 5; ScreenPorch (116) +2 ± 2; PoolArea (6) +11 ± 14. Fence: every type within its ± of no fence, so no columns by the merging rule. None missing.
+- **Encodings (defaults):** the 6 areas as numbers, scaled.
+- **Result (2026-10-28):** RMSE 0.1138 vs 0.1138, gain 0.00 (×100), wins 66% of folds. **Not added.** As the leftovers suggested, size, quality and neighbourhood already cover what decks and porches say.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
