@@ -336,6 +336,14 @@ Home functionality: Typ (typical) down to Sal (salvage only). 1,358 of 1,458 tra
 - **Version (user's choice):** `FunctionalDeduction`, 1 for any level below Typ (100 houses in train, 100 in test), not scaled.
 - **Result (2026-10-28):** RMSE 0.1236 vs 0.1247, gain 0.12 (×100), wins exactly 80% of folds (40 of 50). Passes, at the edge of both parts. **Added.** The current model scores **0.1236 ± 0.0089**.
 
+### SaleCondition: two 0/1 columns (Partial, abnormal)
+
+Condition of sale. None missing. Leftover of the current model (×100): Normal 0 ± 1 (1,198 houses), Partial +4 ± 3 (123; 120 of them SaleType New), Abnorml −7 ± 4 (101; trade, foreclosure, short sale), Family −7 ± 10 (20), Alloca −1 ± 15 (12), AdjLand 0 ± 14 (4).
+- **Merging (user's rule):** values whose leftover can't be told apart from Normal's are merged into Normal, the reference: Alloca, AdjLand. Partial and Abnorml get a 0/1 column each.
+- **Family** can't be told apart from Normal (0) or from Abnorml (−7, the same mean), and is, like Abnorml, not an open-market sale. Two versions, both tested (same number of columns, so the lower RMSE if both pass): Family with Normal, Family with Abnorml. **The user's expectation, written before running:** Family belongs with Abnorml.
+- Caution for the test set: Partial gets a small premium in the model, because the two Partial houses that sold far below the trend (524, 1299) were removed; adding it pushes Id 2550's prediction up.
+- **Result (2026-10-28):** Family with Normal 0.1215 (gain 0.21 ×100, wins 86%); Family with Abnorml 0.1211 (gain 0.24, wins 88%). Both pass; the lower RMSE is kept: **`SalePartial` and `SaleAbnormalOrFamily` added** (not scaled). The user's expectation was right. The current model scores **0.1211 ± 0.0086**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

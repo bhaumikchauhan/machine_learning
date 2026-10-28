@@ -15,7 +15,7 @@ N_REPEATS = 10
 UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'OverallQualNumber', 'OverallCondNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars',
-                       'TotalBsmtSF', 'BsmtFinishedSF', 'FunctionalDeduction']
+                       'TotalBsmtSF', 'BsmtFinishedSF', 'FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -25,7 +25,7 @@ MIN_RMSE_GAIN = 0.001
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
                    'BsmtFinishedSF']
 # 0/1 columns, used as they are (not scaled)
-PASSTHROUGH_COLUMNS = ['FunctionalDeduction']
+PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -199,6 +199,15 @@ def functional_deduction(X_train, X_test):
         X['FunctionalDeduction'] = (X['Functional'] != 'Typ').astype(int)
     return X_train, X_test
 
+def sale_condition_flags(X_train, X_test):
+    # Partial (not finished when assessed, i.e. new homes) and abnormal sales get a 0/1 column each;
+    # Alloca and AdjLand are priced like Normal. Family is either with Normal or with Abnorml (both compared).
+    for X in (X_train, X_test):
+        X['SalePartial'] = (X['SaleCondition'] == 'Partial').astype(int)
+        X['SaleAbnormal'] = (X['SaleCondition'] == 'Abnorml').astype(int)
+        X['SaleAbnormalOrFamily'] = X['SaleCondition'].isin(['Abnorml', 'Family']).astype(int)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -217,6 +226,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = basement_finished(X_train, X_test)
     X_train, X_test = ms_zoning_fill(X_train, X_test)
     X_train, X_test = functional_deduction(X_train, X_test)
+    X_train, X_test = sale_condition_flags(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):

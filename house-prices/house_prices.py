@@ -45,6 +45,8 @@ def main():
     # Finished basement (area in sq ft vs share) was compared on 2026-10-28: area added.
     # MSZoning one-hot vs not added was compared on 2026-10-28: not added (wins only 72% of folds).
     # Functional (one 0/1 column for any deduction) vs not added was compared on 2026-10-28: added.
+    # SaleCondition (Partial + abnormal, Family with Normal or with Abnorml) was compared on 2026-10-28:
+    # added, Family with Abnorml.
     fold_rmse(X_train, y)
 
 
