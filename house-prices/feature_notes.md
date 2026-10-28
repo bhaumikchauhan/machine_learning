@@ -344,6 +344,12 @@ Condition of sale. None missing. Leftover of the current model (×100): Normal 0
 - Caution for the test set: Partial gets a small premium in the model, because the two Partial houses that sold far below the trend (524, 1299) were removed; adding it pushes Id 2550's prediction up.
 - **Result (2026-10-28):** Family with Normal 0.1215 (gain 0.21 ×100, wins 86%); Family with Abnorml 0.1211 (gain 0.24, wins 88%). Both pass; the lower RMSE is kept: **`SalePartial` and `SaleAbnormalOrFamily` added** (not scaled). The user's expectation was right. The current model scores **0.1211 ± 0.0086**.
 
+### CentralAir: one 0/1 column, no central air, added
+
+None missing. No central air: 95 houses in train, 101 in test, median age 56, leftover −7 ± 4 (×100); central air: 1,363, +1 ± 1.
+- **Version:** `NoCentralAir`, 1 for no central air, not scaled (the only sensible version for a yes/no column).
+- **Result (2026-10-28):** RMSE 0.1193 vs 0.1211, gain 0.19 (×100), wins 96% of folds. **Added.** The current model scores **0.1193 ± 0.0079**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

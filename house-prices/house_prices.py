@@ -47,6 +47,7 @@ def main():
     # Functional (one 0/1 column for any deduction) vs not added was compared on 2026-10-28: added.
     # SaleCondition (Partial + abnormal, Family with Normal or with Abnorml) was compared on 2026-10-28:
     # added, Family with Abnorml.
+    # CentralAir (one 0/1 column for no central air) vs not added was compared on 2026-10-28: added.
     fold_rmse(X_train, y)
 
 
