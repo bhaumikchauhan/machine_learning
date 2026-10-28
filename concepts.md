@@ -103,7 +103,7 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Underfitting (bias) vs overfitting (variance).** Underfitting: too simple for the pattern, so training and validation are both low and close together. Overfitting: learns the training rows' quirks, so training is high and validation clearly lower. Diagnose by comparing them. Regularization fights overfitting; for an underfitting model it can only help by being weakened. *T: logistic regression (0.830 training, 0.827 validation). HP: the 4-column straight line has RMSE 0.1609 on its own houses and 0.1611 in CV (4 weights, no gap); the baseline has 0.1402 and 0.1453 (about 40 weights, small gap). The gap grows with the number of weights relative to the number of rows.*
 
-**Feature ceiling.** When rows with identical inputs have different outcomes, no model can get them all right. Titanic's 11 features made 43 passenger types and capped accuracy at 0.838. When different model types stop at the same score, the limit is the information in the features. *T: error analysis.*
+**Feature ceiling.** When rows with identical inputs have different outcomes, no model can get them all right. Titanic's 11 features made 43 passenger types and capped accuracy at 0.838. When different model types stop at the same score, the limit is the information in the features. *T: error analysis. HP error analysis: abnormal sales ("trade, foreclosure, short sale" in one value) are right on average once they have a column (leftover −0.3), but spread twice as much as normal sales (sd 19 against 9); the data can't tell a foreclosure sold at half price from a trade at market price, so those errors stay.*
 
 ## Trees
 

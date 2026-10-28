@@ -461,6 +461,15 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 - **Each candidate is compared with the version actually in place** (written 2026-10-28, as done for LotShape): if a simpler version fails, it never becomes current, so the next, bigger version is compared with what is still in place, not with the failed one. Made explicit after the Conditions run, where the 5-column version had wrongly been set up against the failed 3-column one; chosen before computing the corrected comparison.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
+## Error analysis (2026-10-29)
+
+`error_analysis.py`: each training house predicted by the average of its 10 out-of-fold predictions (one per CV repeat), current model (CV 0.1118).
+- **The 15 worst houses** (1% of the houses) carry **26% of the squared error**; without them the RMSE would be 0.0962 instead of 0.1116. 13 of the 15 are overpriced (leftover −38 to −77), 2 underpriced (689: +38, 971: +46).
+- **Compared with the base rate:** abnormal sales are 47% of the 15 (7% of all houses), commercial zone (C) 27% (0.7%), Normal sales only 20% (82%). RL is 67% against 79% overall: no pattern.
+- **Abnormal sales:** with `SaleAbnormalOrFamily` in the model their average leftover is −0.3 (Family −0.5), but the spread is twice that of normal sales (sd 19.4 against 9.4; 8 of 101 below −30). One 0/1 column can fix the average, not the spread; Abnorml lumps trade, foreclosure and short sale, and nothing in the data tells them apart: a feature ceiling. A separate Family column would get a weight of about 0.
+- **Commercial zone:** the same 10 houses that failed MSZoning; `ZoneCommercial` tested post-hoc and failed too (74% of folds, see MSZoning).
+- **Conclusion:** the largest remaining errors are unusual sales whose price the columns can't explain. Not looked at further: the 2 underpriced houses (too few for a pattern).
+
 ## Submissions
 
 ### Submission 1 (2026-10-28): `submission.csv`
