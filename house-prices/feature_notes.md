@@ -193,6 +193,7 @@ Proximity to conditions: Artery (arterial street), Feedr (feeder street), RRNn /
   - `condition_artery`, `condition_rr_ns_adjacent` (RRAn), `condition_rr_ew` (RRAe + RRNe: the same east-west railroad; RRNe has only 2 training houses).
   - Each column is 1 if the condition is in Condition1 **or** Condition2, so the order between them doesn't matter.
 - **To compare in CV:** Feedr and PosN merged into the reference against their own columns.
+- **CV result (2026-10-28):** 3 columns vs not added: 0.1186 vs 0.1193, gain 0.07 (×100), wins 80%: fails part 1. 5 columns (+ `ConditionFeeder`, `ConditionParkNear`) vs not added: 0.1180, gain 0.13, wins 84%: passes. (First wrongly compared against the failed 3-column version, 0.06 and 76%; corrected by the "version actually in place" rule before the corrected numbers were computed.) **Decision: the 5 columns added**, not scaled. The current model scores **0.1180 ± 0.0080**.
 
 ### BldgType: dropped (MSSubClass already says it)
 
@@ -393,6 +394,7 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 - **Why 0.1:** ExterQual mostly repeats OverallQual and adds 0.05; a column with new information should clear at least twice that. Smaller consistent gains add up, and part 2 guards against luck.
 - **The simpler version is always the current one** (added 2026-10-28, before the LotShape run): fewer columns first (dropped, then one number column, then one-hot), so every extra column has to earn its place, as a new column does. Reason: keep the model simple; close calls go to the simpler version. This applies to earlier comparisons too: OverallQual was run the other way round (one-hot as current), so it gets re-run with the number column as current.
 - **Same number of columns** (added 2026-10-28, before the finished-basement run): each version is tested against not adding it; if more than one passes, the one with the lower mean RMSE is kept. Reason: neither is simpler, so there's no reason to give one the benefit of the doubt.
+- **Each candidate is compared with the version actually in place** (written 2026-10-28, as done for LotShape): if a simpler version fails, it never becomes current, so the next, bigger version is compared with what is still in place, not with the failed one. Made explicit after the Conditions run, where the 5-column version had wrongly been set up against the failed 3-column one; chosen before computing the corrected comparison.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
 ## Submissions
@@ -431,7 +433,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 - CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Neighborhood reference skipped (2026-10-28): at alpha ≈ 3 a neighbourhood of n houses keeps about n / (n + 3) of its weight (77% at 10 houses, over 90% for most), so the reference barely matters, and each comparison wears the CV score a little. Next: add more columns.
 - Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
 - Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
-- Compare Feedr and PosN merged into the condition reference against their own columns, with cross-validation.
 - Whether to scale the 0/1 columns: in the baseline they aren't scaled (only LotArea, Age and GrLivArea are). At the alpha RidgeCV picks (about 0.6) the pull on small groups is small either way; revisit if alpha grows as columns are added.
 - Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.

@@ -16,7 +16,8 @@ UNDECIDED_COLUMNS = []
 COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'OverallQualNumber', 'OverallCondNumber', 'Age', 'GrLivArea', 'ExterQual', 'GarageCars',
                        'TotalBsmtSF', 'BsmtFinishedSF', 'FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily',
-                       'NoCentralAir']
+                       'NoCentralAir', 'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW',
+                       'ConditionFeeder', 'ConditionParkNear']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -26,7 +27,9 @@ MIN_RMSE_GAIN = 0.001
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
                    'BsmtFinishedSF']
 # 0/1 columns, used as they are (not scaled)
-PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir']
+PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir',
+                       'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW', 'ConditionFeeder',
+                       'ConditionParkNear']
 # one-hot column -> reference level (the level that gets no column of its own)
 # LotShape was dropped on 2026-10-28: it added nothing (feature_notes.md)
 ONE_HOT_REFERENCES = {'Neighborhood': 'NAmes', 'ExterQual': 'TA', 'GarageCars': '2'}
@@ -223,6 +226,16 @@ def exterior_flags(X_train, X_test):
         X['ExteriorBrickFace'] = (X['Exterior1st'] == 'BrkFace').astype(int)
     return X_train, X_test
 
+def condition_flags(X_train, X_test):
+    # Condition1 and Condition2 are a set of up to two conditions: each column is 1 if the condition is in either.
+    # Norm, Feedr, RRNn, PosN and PosA are the reference; Feedr and PosN also get columns, to compare.
+    flags = {'ConditionArtery': ['Artery'], 'ConditionRailNSAdjacent': ['RRAn'],
+             'ConditionRailEW': ['RRAe', 'RRNe'], 'ConditionFeeder': ['Feedr'], 'ConditionParkNear': ['PosN']}
+    for X in (X_train, X_test):
+        for column, values in flags.items():
+            X[column] = (X['Condition1'].isin(values) | X['Condition2'].isin(values)).astype(int)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -244,6 +257,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = sale_condition_flags(X_train, X_test)
     X_train, X_test = central_air_flag(X_train, X_test)
     X_train, X_test = exterior_flags(X_train, X_test)
+    X_train, X_test = condition_flags(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):
