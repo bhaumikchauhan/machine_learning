@@ -55,6 +55,8 @@ def main():
     # Basement group (quality, condition, bathrooms, good exposure) vs not added was compared on 2026-10-28: added.
     # Rooms group (8 room columns) vs not added was compared on 2026-10-28: added.
     # Outside group (deck, porch and pool areas) vs not added was compared on 2026-10-28: not added (gain 0.00).
+    # Lot group (10 decided 0/1 columns, with or without filled LotFrontage) was compared on 2026-10-28:
+    # not added (gain 0.02 and 0.01).
     fold_rmse(X_train, y)
 
 

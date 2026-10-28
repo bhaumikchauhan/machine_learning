@@ -285,6 +285,28 @@ def rooms_group(X_train, X_test):
         X['FireplaceQuNumber'] = X['FireplaceQu'].map(QUALITY_SCALE).fillna(0)
     return X_train, X_test
 
+def lot_group(X_train, X_test):
+    # 0/1 columns decided column by column (feature_notes.md); the reference values get no column
+    flags = {'StreetGravel': ('Street', ['Grvl']), 'AlleyGravel': ('Alley', ['Grvl']),
+             'AlleyPaved': ('Alley', ['Pave']), 'LandContourBanked': ('LandContour', ['Bnk']),
+             'LandContourHillside': ('LandContour', ['HLS']), 'LandContourLow': ('LandContour', ['Low']),
+             'LotConfigCorner': ('LotConfig', ['Corner']), 'LotConfigCulDSac': ('LotConfig', ['CulDSac']),
+             'LotConfigFR2FR3': ('LotConfig', ['FR2', 'FR3']), 'LandSlopeSloped': ('LandSlope', ['Mod', 'Sev'])}
+    for X in (X_train, X_test):
+        for column, (source, values) in flags.items():
+            X[column] = X[source].isin(values).astype(int)
+    # LotFrontage missing means "not recorded": fill with (typical frontage / sqrt(LotArea) for the LotConfig)
+    # x sqrt(LotArea). Input columns only, so train and test are used together. LotArea is already a log here.
+    both = pd.concat([X_train, X_test])
+    ratio = (both['LotFrontage'] / np.sqrt(np.exp(both['LotArea']))).groupby(both['LotConfig']).median()
+    for X in (X_train, X_test):
+        estimate = X['LotConfig'].map(ratio) * np.sqrt(np.exp(X['LotArea']))
+        X['LotFrontageFilled'] = X['LotFrontage'].fillna(estimate)
+    return X_train, X_test
+
+LOT_FLAGS = ['StreetGravel', 'AlleyGravel', 'AlleyPaved', 'LandContourBanked', 'LandContourHillside',
+             'LandContourLow', 'LotConfigCorner', 'LotConfigCulDSac', 'LotConfigFR2FR3', 'LandSlopeSloped']
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -310,6 +332,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = garage_group(X_train, X_test)
     X_train, X_test = basement_group(X_train, X_test)
     X_train, X_test = rooms_group(X_train, X_test)
+    X_train, X_test = lot_group(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):

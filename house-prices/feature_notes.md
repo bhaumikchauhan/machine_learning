@@ -405,6 +405,12 @@ Leftover of the current model (×100), houses with vs without each: WoodDeckSF (
 - **Encodings (defaults):** the 6 areas as numbers, scaled.
 - **Result (2026-10-28):** RMSE 0.1138 vs 0.1138, gain 0.00 (×100), wins 66% of folds. **Not added.** As the leftovers suggested, size, quality and neighbourhood already cover what decks and porches say.
 
+#### Lot group: not added
+
+The encodings decided column by column at the start (Street, Alley, LandContour, LotConfig, LandSlope sections): 10 0/1 columns. LotFrontage filled with (median frontage / √LotArea for the LotConfig, train and test together) × √LotArea, as a number.
+- **Versions:** A = the 10 columns vs not added; B = A + filled LotFrontage, against the version in place.
+- **Result (2026-10-28):** A: RMSE 0.1138, gain 0.02 (×100), wins 54%. A failed, so B against not added: gain 0.01, wins 52%. **Neither added.** These lot details mostly repeat what LotArea, Neighborhood and age already say; this settles the LotFrontage (fill vs drop) and LandSlope (keep vs drop) items: dropped.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.
@@ -479,8 +485,6 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 ## Open items
 
 - CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Neighborhood reference skipped (2026-10-28): at alpha ≈ 3 a neighbourhood of n houses keeps about n / (n + 3) of its weight (77% at 10 houses, over 90% for most), so the reference barely matters, and each comparison wears the CV score a little. Next: add more columns.
-- Compare filling LotFrontage (LotConfig ratio × √LotArea) against dropping it, with cross-validation.
-- Compare keeping `land_slope_sloped` against dropping it (overlap with LandContour), with cross-validation.
 - Whether to scale the 0/1 columns: in the baseline they aren't scaled (only LotArea, Age and GrLivArea are). At the alpha RidgeCV picks (about 0.6) the pull on small groups is small either way; revisit if alpha grows as columns are added.
 - Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.

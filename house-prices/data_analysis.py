@@ -541,7 +541,8 @@ DECIDED_COLUMNS = ['Id', 'MSSubClass', 'Neighborhood', 'LotArea', 'OverallQual',
                    'GarageArea', 'GarageQual', 'GarageCond', 'GarageYrBlt', 'BsmtQual', 'BsmtCond',
                    'BsmtExposure', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath', 'BedroomAbvGr',
                    'KitchenAbvGr', 'KitchenQual', 'TotRmsAbvGrd', 'Fireplaces', 'FireplaceQu', 'WoodDeckSF',
-                   'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC', 'Fence']
+                   'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC', 'Fence',
+                   'LotFrontage', 'Street', 'Alley', 'LandContour', 'LotConfig', 'LandSlope']
 
 
 def plot_leftover_ranking(train, skip, top=20):
