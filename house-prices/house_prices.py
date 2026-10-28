@@ -58,6 +58,7 @@ def main():
     # Lot group (10 decided 0/1 columns, with or without filled LotFrontage) was compared on 2026-10-28:
     # not added (gain 0.02 and 0.01).
     # Other group (HeatingQC, MasVnrArea, YearBuilt) vs not added was compared on 2026-10-28: added.
+    # ZoneCommercial (post-hoc, after error analysis) vs not added was compared on 2026-10-29: not added (74% of folds).
     fold_rmse(X_train, y)
 
 

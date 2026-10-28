@@ -69,6 +69,8 @@ General zoning of the sale. 8 zones in `data_description.txt`, 5 in the data (th
 **CV result (2026-10-28):** one-hot (RL as the reference, 4 columns) vs not added: RMSE 0.1229 vs 0.1247, gain **0.18** (×100) but wins only **72%** of folds. Fails part 2. **Not added.**
 - **Where the gain comes from:** 82% of it from the 10 commercial-zone houses (C), 18% from RM, almost nothing from the rest. Each fold holds about 2 of the 10, so folds without them barely gain. This is the case part 2 of the rule exists for: a gain carried by a handful of houses.
 - A single "commercial zone" 0/1 column would target those houses, but that idea comes from looking at this result, so a test of it would be weak (picked to fit what was just seen). Not tried.
+- **Revisited after error analysis (2026-10-29):** 4 of the 10 commercial-zone houses are among the 15 worst-predicted training houses (all IDOTRR, overpriced by 46–77). That's the same 10 houses seen again, not new evidence. The user chose to test `ZoneCommercial` (1 for C) anyway; written before running: **a post-hoc candidate**, so even a pass is weaker evidence than for the other columns, and the keep rule applies unchanged.
+- **Result (2026-10-29):** RMSE 0.1103 vs 0.1118, gain 0.15 (×100), wins **74%** of folds. Fails part 2 again, for the same reason: about 2 of the 10 houses per fold. **Not added.** 15 test houses are commercial zone, so this costs something on those, but the training data can't show it reliably.
 
 ### LotFrontage: two candidates, decided by cross-validation
 

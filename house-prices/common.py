@@ -200,6 +200,9 @@ def ms_zoning_fill(X_train, X_test):
     # 2905 is in Mitchel (RL); 1916, 2217, 2251 are in IDOTRR, which has no RL house (RM, its most common zone)
     X_test.loc[X_test['Id'] == 2905, 'MSZoning'] = 'RL'
     X_test.loc[X_test['Id'].isin([1916, 2217, 2251]), 'MSZoning'] = 'RM'
+    for X in (X_train, X_test):
+        # post-hoc candidate (feature_notes.md): 1 for the commercial zone, 10 training houses
+        X['ZoneCommercial'] = (X['MSZoning'] == 'C (all)').astype(int)
     return X_train, X_test
 
 def functional_deduction(X_train, X_test):
