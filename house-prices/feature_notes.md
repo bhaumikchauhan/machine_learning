@@ -392,6 +392,13 @@ Leftover of the current model (×100) per value, reference = the largest value:
 - **Fills, decided before the run (most common value):** test 2121, 2189 (no basement): bathrooms 0. Test 2218, 2219: BsmtQual TA. Test 2041, 2186, 2525: BsmtCond TA. Train 949, test 1488, 2349: BsmtExposure No.
 - **Result (2026-10-28):** the 5 columns as one candidate: RMSE 0.1157 vs 0.1168, gain 0.12 (×100), wins 84% of folds. **Added.** The current model scores **0.1157 ± 0.0084**.
 
+#### Rooms group: added
+
+Leftover of the current model (×100), clear signals only: KitchenQual Ex +4 ± 3 (98 houses), 2 kitchens −5 ± 4 (65, mostly duplexes), 2 fireplaces +3 ± 2 (115). Everything else about 0 within its ±; TotRmsAbvGrd correlates 0.82 with log living area.
+- **Encodings (defaults):** FullBath, HalfBath, BedroomAbvGr, KitchenAbvGr, TotRmsAbvGrd, Fireplaces as numbers; KitchenQual and FireplaceQu as quality numbers (`KitchenQualNumber`, `FireplaceQuNumber`, no fireplace 0). All scaled.
+- **Fill:** test Id 1556 (a kitchen, no KitchenQual): TA. Test has 4 houses with 4 full baths (training max 3): clipped at submission.
+- **Result (2026-10-28):** the 8 columns as one candidate: RMSE 0.1138 vs 0.1157, gain 0.18 (×100), wins exactly 80% of folds. **Added.** The current model scores **0.1138 ± 0.0086**.
+
 ## Baseline
 
 A small first model, to get a CV score and its fold-to-fold noise before any comparison. Ridge on log(SalePrice), Ids 524 and 1299 removed from training.

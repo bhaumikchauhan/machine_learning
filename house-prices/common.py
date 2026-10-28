@@ -19,7 +19,8 @@ COLUMNS_FOR_FITTING = ['MSSubClass', 'Neighborhood', 'LotArea',
                        'NoCentralAir', 'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW',
                        'ConditionFeeder', 'ConditionParkNear', 'GarageArea', 'GarageQualNumber',
                        'GarageCondNumber', 'GarageYear', 'GarageBuiltIn', 'BsmtQualNumber', 'BsmtCondNumber',
-                       'BsmtFullBath', 'BsmtHalfBath', 'BsmtExposureGood']
+                       'BsmtFullBath', 'BsmtHalfBath', 'BsmtExposureGood', 'FullBath', 'HalfBath', 'BedroomAbvGr',
+                       'KitchenAbvGr', 'KitchenQualNumber', 'TotRmsAbvGrd', 'Fireplaces', 'FireplaceQuNumber']
 COLUMNS_NOT_FOR_FITTING = ([] + UNDECIDED_COLUMNS)
 MIN_FOLD_WIN_SHARE = 0.8
 # keep rule (feature_notes.md): mean RMSE gain of at least 0.001 and wins on at least 80% of folds
@@ -28,7 +29,9 @@ MIN_RMSE_GAIN = 0.001
 # OverallQual is a number column since 2026-10-28 (simpler, and one-hot added nothing; feature_notes.md)
 NUMERIC_COLUMNS = ['LotArea', 'Age', 'GrLivArea', 'TotalBsmtSF', 'OverallQualNumber', 'OverallCondNumber',
                    'BsmtFinishedSF', 'GarageArea', 'GarageQualNumber', 'GarageCondNumber', 'GarageYear',
-                   'BsmtQualNumber', 'BsmtCondNumber', 'BsmtFullBath', 'BsmtHalfBath']
+                   'BsmtQualNumber', 'BsmtCondNumber', 'BsmtFullBath', 'BsmtHalfBath',
+                   'FullBath', 'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'KitchenQualNumber', 'TotRmsAbvGrd',
+                   'Fireplaces', 'FireplaceQuNumber']
 # 0/1 columns, used as they are (not scaled)
 PASSTHROUGH_COLUMNS = ['FunctionalDeduction', 'SalePartial', 'SaleAbnormalOrFamily', 'NoCentralAir',
                        'ConditionArtery', 'ConditionRailNSAdjacent', 'ConditionRailEW', 'ConditionFeeder',
@@ -273,6 +276,15 @@ def basement_group(X_train, X_test):
         X['BsmtExposureGood'] = (X['BsmtExposure'] == 'Gd').astype(int)
     return X_train, X_test
 
+def rooms_group(X_train, X_test):
+    # test Id 1556 has a kitchen but no KitchenQual: TA, the most common
+    X_test.loc[X_test['Id'] == 1556, 'KitchenQual'] = 'TA'
+    for X in (X_train, X_test):
+        X['KitchenQualNumber'] = X['KitchenQual'].map(QUALITY_SCALE)
+        # no fireplace: 0 (Fireplaces = 0 already marks these houses)
+        X['FireplaceQuNumber'] = X['FireplaceQu'].map(QUALITY_SCALE).fillna(0)
+    return X_train, X_test
+
 def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     y = target_log_transform(y)
     X_train, y = ids_remove_outlier(X_train, y)
@@ -297,6 +309,7 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = condition_flags(X_train, X_test)
     X_train, X_test = garage_group(X_train, X_test)
     X_train, X_test = basement_group(X_train, X_test)
+    X_train, X_test = rooms_group(X_train, X_test)
     return X_train, y, X_test
 
 def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):
