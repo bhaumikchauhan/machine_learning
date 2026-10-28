@@ -469,6 +469,12 @@ The current model (CV RMSE 0.1236 ± 0.0089), fitted on all 1,458 training house
 - **Expected Kaggle score, written before uploading:** about 0.128 if Id 2550 sold for about $185k like the two removed houses (ln(695 / 185) = 1.32, adding 1.32² / 1,459 ≈ 0.0012 to the mean squared error), about 0.124 if it didn't.
 - **Kaggle score: 0.13669**, worse than both expectations. Possible causes, not separable from one score: Id 2550 (+0.004 to +0.009 if it sold low and is among the scored houses), noise (folds of 292 houses varied by ±0.009), validation wear from about 15 comparisons on the same folds (+0.001 to +0.002). CV stays the guide for choosing; one Kaggle score is too noisy to choose by, and choosing by it would make the test set a second validation set.
 
+### Submission 2 (2026-10-28): `submission_2.csv`
+
+The current model after all column groups (CV RMSE 0.1118 ± 0.0089), fitted on all 1,458 training houses, numeric test values clipped to the training range.
+- Id 2550 now $813,036 (submission 1: $694,923): the SalePartial premium expected when SaleCondition was added, plus the garage and room columns.
+- **Expected Kaggle score, written before uploading:** about 0.125 (CV 0.1118 plus submission 1's gap of 0.013), about +0.001 more from Id 2550's higher prediction if it sold low.
+
 ## Scaling
 
 Scaling changes the units of a column, never its shape. The terms are used loosely:
