@@ -59,6 +59,7 @@ def main():
     # not added (gain 0.02 and 0.01).
     # Other group (HeatingQC, MasVnrArea, YearBuilt) vs not added was compared on 2026-10-28: added.
     # ZoneCommercial (post-hoc, after error analysis) vs not added was compared on 2026-10-29: not added (74% of folds).
+    # Scaling the 0/1 columns vs unscaled was compared on 2026-10-29: unscaled stays.
     fold_rmse(X_train, y)
 
 

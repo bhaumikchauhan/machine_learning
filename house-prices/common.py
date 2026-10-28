@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import KFold, RepeatedKFold, cross_validate
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
 
 
@@ -347,12 +347,13 @@ def feature_engineering(X_train, y, X_test, use_overall_qual_number=False):
     X_train, X_test = other_group(X_train, X_test)
     return X_train, y, X_test
 
-def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None):
+def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_references=None, target_columns=None,
+                   scale_flags=False):
     # Everything learned from the data (scaler means, one-hot levels, target means, alpha) sits in here,
     # so cross_validate refits all of it on each training part and the held-out part stays unseen.
     # numeric_columns: scaled columns; passthrough_columns: 0/1 columns used as they are;
     # one_hot_references: column -> reference level; target_columns: target-encoded columns.
-    # Each defaults to the current model.
+    # Each defaults to the current model. scale_flags: also scale the 0/1 columns (flags and one-hot).
     if numeric_columns is None:
         numeric_columns = NUMERIC_COLUMNS
     if passthrough_columns is None:
@@ -363,10 +364,11 @@ def build_pipeline(numeric_columns=None, passthrough_columns=None, one_hot_refer
         target_columns = TARGET_ENCODED_COLUMNS
     preprocess = ColumnTransformer([
         ('scale', StandardScaler(), numeric_columns),
-        ('flags', 'passthrough', list(passthrough_columns)),
+        ('flags', StandardScaler() if scale_flags else 'passthrough', list(passthrough_columns)),
         # a level missing from a training part (or new in test) gets all zeros, i.e. priced like the reference
-        ('one_hot', OneHotEncoder(drop=list(one_hot_references.values()), handle_unknown='ignore',
-                                  sparse_output=False), list(one_hot_references)),
+        ('one_hot', make_pipeline(OneHotEncoder(drop=list(one_hot_references.values()), handle_unknown='ignore',
+                                                sparse_output=False),
+                                  StandardScaler() if scale_flags else 'passthrough'), list(one_hot_references)),
         # out-of-fold and blended mean log price per code; an unseen code (150 in test) gets the overall mean
         # Pylance infers cv: int from the default; sklearn accepts a splitter too (and wants one for the seed)
         ('target', TargetEncoder(cv=KFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)),  # pyright: ignore[reportArgumentType]

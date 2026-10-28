@@ -461,6 +461,13 @@ Written 2026-10-27, before the first comparison. A change (new column, other enc
 - **Each candidate is compared with the version actually in place** (written 2026-10-28, as done for LotShape): if a simpler version fails, it never becomes current, so the next, bigger version is compared with what is still in place, not with the failed one. Made explicit after the Conditions run, where the 5-column version had wrongly been set up against the failed 3-column one; chosen before computing the corrected comparison.
 - Any change to this rule gets written here, with a reason that doesn't refer to a result.
 
+## Scaling the 0/1 columns (2026-10-29)
+
+At alpha ≈ 6, a 0/1 column for a group of n houses keeps about n / (n + alpha) of its correction (ConditionRailEW, 14 houses: 70%; FunctionalDeduction, 100: 94%). Scaling a 0/1 column makes its weight small for the same correction, so the penalty barely touches it (14 houses: about 99.6% kept). Trade-off: trust small groups' corrections (scale) or hold them back because they're learned from few houses (don't scale).
+- **Test, written before running:** all 0/1 columns scaled (the flags and the one-hot columns) against the current, unscaled model. A change to the model, so the keep rule applies as written: kept only if it gains at least 0.1 (×100) and wins at least 80% of folds.
+- **Result:** scaled 0.1120 vs unscaled 0.1118: gain −0.02 (×100), wins 30% of folds. **Unscaled stays.**
+- **RidgeCV raised alpha from about 6 to about 25** when the 0/1 columns were scaled: with the small groups no longer held back, it penalized everything harder, which brought their protection back but also pulled the numeric columns more. The data says the small groups' corrections do need holding back.
+
 ## Error analysis (2026-10-29)
 
 `error_analysis.py`: each training house predicted by the average of its 10 out-of-fold predictions (one per CV repeat), current model (CV 0.1118).
@@ -511,6 +518,5 @@ The two largest houses in `train.csv` sold far below the trend: Id 524 (4,676 sq
 ## Open items
 
 - CV list below, one comparison at a time. Done: MSSubClass (target encoding stays), LotShape (dropped). OverallQual re-run (number column replaces one-hot). Neighborhood reference skipped (2026-10-28): at alpha ≈ 3 a neighbourhood of n houses keeps about n / (n + 3) of its weight (77% at 10 houses, over 90% for most), so the reference barely matters, and each comparison wears the CV score a little. Next: add more columns.
-- Whether to scale the 0/1 columns: in the baseline they aren't scaled (only LotArea, Age and GrLivArea are). At the alpha RidgeCV picks (about 0.6) the pull on small groups is small either way; revisit if alpha grows as columns are added.
 - Columns that may overlap with MSSubClass: `YearBuilt`. Check when we reach it. (`BldgType`, `HouseStyle`: dropped.)
 - Group similar columns (garage, basement, pool) instead of going one by one.
