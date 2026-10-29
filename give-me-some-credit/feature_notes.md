@@ -48,10 +48,12 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 
 **Values that look wrong, to look at:**
 - **96 and 98 in the three late-payment counts:** 5 and 264 borrowers, the same in all three columns. The next highest values are 11 to 17. Most likely codes ("unknown" or "not reported"), not counts; not documented in `Data Dictionary.xls`. The user's check: if they meant days late, every such borrower would be positive, and not all are.
-  - **NumberOfTimes90DaysLate, decided (2026-10-29):** replace 96/98 with the count whose default rate is closest to the coded borrowers'. On all the data, that is **3**: 54.6% against 57.7% at count 3 and 49.9% at count 2.
-    - The effect rises steeply, then levels off: 4.6% at 0, 33.7% at 1, 49.9% at 2, 57.7% at 3, and about 60 to 70% from 4 on. Groups above 4 are small (131 borrowers or fewer), so their rates are noisy.
-    - **The fill uses the target, so it is chosen out of fold:** inside the Pipeline, from the training part of each fold only (a step whose `fit` sees only those rows). The user writes this step.
-    - The other two late-payment columns are not decided yet.
+  - **Decided (2026-10-29): one 0/1 column `LateCountsCoded`** (1 for the 269 borrowers), and their three late-payment counts set to 0. The model learns their risk (54.6%) from the 0/1 column. The flag doesn't use the target, so nothing has to be fitted out of fold.
+  - **Considered first:** fill each column with the count whose default rate is closest to 54.6%, chosen out of fold because it uses the target.
+    - NumberOfTimes90DaysLate: 3 (57.7%; 2 is 49.9%).
+    - 60–89 days: 3 (56.6%; 2 is 50.2%).
+    - 30–59 days: no count reaches 54.6% (6 or more is 50.2%), so the rule would pick the top group and double it from 239 to 508 borrowers, most of them coded. The rule breaks down because these borrowers aren't like any count.
+  - **Shape of the effect:** it rises steeply, then levels off. For 90+ days: 4.6% at 0, 33.7% at 1, 49.9% at 2, 57.7% at 3, about 60 to 70% from 4 on. Groups above 4 are small, so their rates are noisy.
 - **DebtRatio when MonthlyIncome is missing:** median 1,159 against 0.30 when income is present.
 - **RevolvingUtilization** (the share of the credit limit used) goes up to 50,708, while the 99th percentile is 1.09.
 - **age 0:** 1 borrower.
