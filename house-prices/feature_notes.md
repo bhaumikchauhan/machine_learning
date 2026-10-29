@@ -521,6 +521,7 @@ At alpha ≈ 6, a 0/1 column for a group of n houses keeps about n / (n + alpha)
 
   - A little boosting helps: at weights 0.1 to 0.3 the blend beats Ridge in 90% or more of the folds. This is the "wrong in different directions" effect. At 50/50, the weaker model pulls too hard.
   - Weight 0.3 would pass the rule (gain 0.18, 90%), but it was picked after looking at these folds, so it is a weak test.
+- **Decision:** stay with Ridge alone (CV 0.1118, Kaggle 0.12412). No blend weight chosen inside the folds, no further tree tuning.
 
 ## Error analysis (2026-10-29)
 
