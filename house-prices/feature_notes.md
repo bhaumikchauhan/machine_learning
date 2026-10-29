@@ -547,7 +547,7 @@ The current model (CV RMSE 0.1236 ± 0.0089), fitted on all 1,458 training house
 The current model after all column groups (CV RMSE 0.1118 ± 0.0089), fitted on all 1,458 training houses, numeric test values clipped to the training range.
 - Id 2550 now $813,036 (submission 1: $694,923): the SalePartial premium expected when SaleCondition was added, plus the garage and room columns.
 - **Expected Kaggle score, written before uploading:** about 0.125 (CV 0.1118 plus submission 1's gap of 0.013), about +0.001 more from Id 2550's higher prediction if it sold low.
-- **Kaggle score: 0.12412**, slightly better than expected. From submission 1, Kaggle improved by 0.0126 and CV by 0.0118; the gap stayed at about 0.012. So CV has been a reliable guide, and the ~25 comparisons on the same folds haven't made it noticeably more optimistic.
+- **Kaggle score: 0.12412** (leaderboard rank 1,215), slightly better than expected. From submission 1, Kaggle improved by 0.0126 and CV by 0.0118; the gap stayed at about 0.012. So CV has been a reliable guide, and the ~25 comparisons on the same folds haven't made it noticeably more optimistic.
 
 ## Scaling
 
