@@ -468,6 +468,20 @@ At alpha ≈ 6, a 0/1 column for a group of n houses keeps about n / (n + alpha)
 - **Result:** scaled 0.1120 vs unscaled 0.1118: gain −0.02 (×100), wins 30% of folds. **Unscaled stays.**
 - **RidgeCV raised alpha from about 6 to about 25** when the 0/1 columns were scaled: with the small groups no longer held back, it penalized everything harder, which brought their protection back but also pulled the numeric columns more. The data says the small groups' corrections do need holding back.
 
+## Gradient boosting (2026-10-29)
+
+`tree_analysis.py`: `HistGradientBoostingRegressor` on the Ridge model's 41 columns (option A: the same information, so the comparison tests the model type). Numbers and 0/1 flags as they are; Neighborhood, ExterQual, GarageCars and MSSubClass as categories (ordinal codes declared categorical, an unseen category treated as missing). Target: log price. Other settings at their defaults (31 leaves, at least 20 houses per leaf), no early stopping.
+- **Error against the number of trees** (`plots/boosting_tree_count.png`, mean of the same 50 folds):
+
+  | Learning rate | Lowest validation RMSE | At | At 100 trees | Training RMSE at 1,000 trees |
+  |---|---|---|---|---|
+  | 0.03 | 0.1234 | 325 trees | 0.1323 | 0.016 |
+  | 0.1 (default) | 0.1244 | 95 trees | 0.1244 | 0.002 |
+  | 0.3 | 0.1306 | 25 trees | 0.1324 | 0.002 |
+
+- At the default learning rate the lowest point is at 95 trees, practically the default 100. Smaller steps need more trees and reach a slightly lower point; the rise after the lowest point is shallow, while training falls almost to 0.
+- **Best boosting (0.1234) is clearly worse than Ridge (0.1118)**; no learning rate or number of trees closes the gap.
+
 ## Error analysis (2026-10-29)
 
 `error_analysis.py`: each training house predicted by the average of its 10 out-of-fold predictions (one per CV repeat), current model (CV 0.1118).
