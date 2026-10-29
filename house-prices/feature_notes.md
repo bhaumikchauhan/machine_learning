@@ -501,6 +501,27 @@ At alpha ≈ 6, a 0/1 column for a group of n houses keeps about n / (n + alpha)
 - Practically the same as option A (0.1234): our feature engineering gave the trees almost nothing. Trees find the thresholds and handle missing values on their own, so hand-made columns help them much less than they help Ridge.
 - **Against Ridge (keep rule), learning rate 0.03 with 329 trees:** 0.1240 against 0.1118: gain −1.22 (×100), wins 2% of folds (1 of 50). **Ridge stays.**
 
+### Blend: Ridge and boosting averaged
+
+- **Plan, written before running:**
+  - In each of the 50 folds, fit Ridge (the current model) and boosting (option B, raw columns, learning rate 0.03, 329 trees) on the same training houses.
+  - Average their predictions of the log price.
+  - Option B rather than A: it scores the same, and it is built from different columns, so its mistakes should differ more from Ridge's. Averaging only helps where the two models are wrong in different directions.
+- **The candidate:** the plain 50/50 average, checked with the keep rule against Ridge alone.
+- **For information only, not for the decision:** the RMSE for each boosting weight from 0 to 1 in steps of 0.1. Choosing the weight on these same folds would flatter it.
+- **Prediction (Claude):** 50/50 around 0.110 to 0.113, which is borderline for the keep rule (it needs 0.1108 or lower). Boosting is clearly the weaker model, so the best weight is probably below 0.5, about 0.3.
+- **Result** (`plots/blend_ridge_boosting.png`):
+  - **50/50:** 0.1116 against 0.1118, a gain of 0.02 (×100), winning 54% of folds. **Fails the keep rule; Ridge alone stays.**
+  - **Per weight, for information only:**
+
+    | Boosting weight | 0 | 0.1 | 0.2 | **0.3** | 0.4 | 0.5 | 0.7 | 1 |
+    |---|---|---|---|---|---|---|---|---|
+    | RMSE | 0.1118 | 0.1107 | 0.1101 | **0.1100** | 0.1105 | 0.1116 | 0.1152 | 0.1240 |
+    | Folds won against Ridge | — | 96% | 90% | 90% | 78% | 54% | 22% | 2% |
+
+  - A little boosting helps: at weights 0.1 to 0.3 the blend beats Ridge in 90% or more of the folds. This is the "wrong in different directions" effect. At 50/50, the weaker model pulls too hard.
+  - Weight 0.3 would pass the rule (gain 0.18, 90%), but it was picked after looking at these folds, so it is a weak test.
+
 ## Error analysis (2026-10-29)
 
 `error_analysis.py`: each training house predicted by the average of its 10 out-of-fold predictions (one per CV repeat), current model (CV 0.1118).

@@ -98,6 +98,55 @@ def compare_with_ridge(learning_rate, trees):
     common.keep_rule(ridge_rmse, boosting_rmse)
 
 
+BLEND_WEIGHTS = np.round(np.arange(0, 1.01, 0.1), 1)
+
+
+def blend_with_ridge(learning_rate=0.03, trees=329):
+    # Ridge (current model) and boosting (raw columns) fitted on the same training houses in each fold;
+    # the blend predicts (1 - w) * Ridge + w * boosting, in log price. Returns fold RMSEs per weight w.
+    X_raw, y = raw_data()
+    X_train, y_train = engineered_data()
+    assert X_raw.index.equals(X_train.index)
+    rmse = {w: [] for w in BLEND_WEIGHTS}
+    for train_index, validation_index in common.repeated_folds().split(X_train):
+        ridge = common.build_pipeline().fit(X_train.iloc[train_index], y_train.iloc[train_index])
+        boosting = build_boosting_raw(X_raw, learning_rate, trees).fit(X_raw.iloc[train_index], y.iloc[train_index])
+        ridge_prediction = ridge.predict(X_train.iloc[validation_index])
+        boosting_prediction = boosting.predict(X_raw.iloc[validation_index])
+        actual = y.iloc[validation_index].values
+        for w in BLEND_WEIGHTS:
+            prediction = (1 - w) * ridge_prediction + w * boosting_prediction
+            rmse[w].append(np.sqrt(np.mean((prediction - actual) ** 2)))
+    rmse = {w: np.array(scores) for w, scores in rmse.items()}
+    for w, scores in rmse.items():
+        print(f"boosting weight {w}: RMSE {scores.mean():.4f}, wins against Ridge {(scores < rmse[0.0]).mean():.0%}")
+    print("50/50 average against Ridge alone:")
+    common.keep_rule(rmse[0.0], rmse[0.5])
+    return rmse
+
+
+def plot_blend(rmse):
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    weights = list(rmse)
+    means = [rmse[w].mean() for w in weights]
+    ax.plot(weights, means, color=BLUE, linewidth=2, marker='o', markersize=8, markeredgecolor=SURFACE,
+            markeredgewidth=2)
+    for w in (0.0, 0.5, 1.0):
+        ax.annotate(f"{rmse[w].mean():.4f}", (w, rmse[w].mean()), xytext=(0, 10), textcoords='offset points',
+                    ha='center', color=INK, fontsize=9)
+    best = weights[int(np.argmin(means))]
+    ax.annotate(f"lowest {rmse[best].mean():.4f}\nat weight {best}", (best, rmse[best].mean()), xytext=(0, 14),
+                textcoords='offset points', ha='center', color=INK, fontsize=9)
+    ax.set_ylim(min(means) - 0.002, max(means) + 0.002)
+    ax.set_xticks(weights)
+    ax.set_xlabel('weight on boosting (0 = Ridge alone, 1 = boosting alone)', color=INK_SECONDARY)
+    ax.set_ylabel('RMSE (log price), mean of 50 folds', color=INK_SECONDARY)
+    ax.set_title('Blending Ridge and boosting (raw columns)', loc='left', color=INK, fontsize=12)
+    save(fig, 'blend_ridge_boosting.png')
+
+
 def plot_tree_count_curves(curves, ridge_rmse=0.1118, title_columns="the Ridge model's columns",
                            file_name='boosting_tree_count.png'):
     fig, axes = plt.subplots(1, len(curves), figsize=(15, 5), dpi=120, sharey=True)
@@ -131,6 +180,9 @@ def plot_tree_count_curves(curves, ridge_rmse=0.1118, title_columns="the Ridge m
 
 
 if __name__ == '__main__':
-    # Option A, already run: plot_tree_count_curves(tree_count_curves())
-    plot_tree_count_curves(tree_count_curves(learning_rates=(0.03, 0.1), option='B'),
-                           title_columns='the raw columns', file_name='boosting_tree_count_raw.png')
+    # Already run:
+    # option A: plot_tree_count_curves(tree_count_curves())
+    # option B: plot_tree_count_curves(tree_count_curves(learning_rates=(0.03, 0.1), option='B'),
+    #                                  title_columns='the raw columns', file_name='boosting_tree_count_raw.png')
+    # option B against Ridge: compare_with_ridge(0.03, 329)
+    plot_blend(blend_with_ridge())
