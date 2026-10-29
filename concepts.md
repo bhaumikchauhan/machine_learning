@@ -4,6 +4,16 @@ Concepts that came up while working on the problems in this repo, each in a few 
 
 Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md).
 
+## Lessons from House Prices
+
+Final model: Ridge. CV went from 0.1453 to 0.1118; Kaggle 0.12412 (rank 1,215).
+1. **Decide before running.** Write the prediction and the keep rule (gain ≥ 0.1 ×100 and ≥ 80% of folds) first, compare each candidate with the version in place on the same 50 folds, and keep the simpler version on a tie. A test chosen after looking at the results is weak.
+2. **The leftover guides the columns.** A group's average leftover shows what a column could fix; the spread is what it can't fix. Many of the gains came from cleaning columns (fills, merges, flags), not from adding more.
+3. **Feature engineering depends on the model.** Logs, flags and merged groups took Ridge from 0.145 to 0.112, but gave boosting almost nothing (raw 0.1240, engineered 0.1234). Trees find their own thresholds.
+4. **Match the model to the shape of the data.** The main effects (size, quality, age) are close to straight lines that add up, so Ridge beat boosting. A blend with a small boosting weight helped a little (0.1100 at 0.3, chosen after the fact).
+5. **Some error can't be removed.** The worst 1% of houses carried 26% of the squared error, mostly unusual sales that no column can explain: a feature ceiling.
+6. **Trust CV over the leaderboard.** Kaggle stayed about 0.012 above CV for both submissions, so CV ranked the changes correctly. The scores of 0 on the leaderboard are leaks.
+
 ## The leftover
 
 **What it is.** The part of a house's price that the current model gets wrong: log(actual price) − log(predicted price), ×100 ≈ % above (+) or below (−) the prediction. The prediction comes from a model trained *without* that house (out-of-fold, as in a CV fold), so the model can't have memorized it.
