@@ -117,6 +117,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Random forest.** Averages many trees, each trained on a bootstrap sample of rows, with a random subset of columns per split. It reduces variance (overfitting) but can't add information the columns don't have. *T.*
 
+**Gradient boosting.** Trees are built one after another: tree 1 predicts the target; tree 2 is trained on tree 1's **leftover**; tree 3 on what trees 1 and 2 together still get wrong, and so on. The predictions are **added** (tree 1 + tree 2 + …), each correction scaled down by the **learning rate** (for example ×0.1): many small steps generalize better than a few big ones. Example: A $100k, B $150k, C $300k; tree 1 predicts 125, 125, 300; leftovers −25, +25, 0; tree 2 learns exactly those, and the sum is right. Unlike a random forest (independent trees, averaged, mainly fixing overfitting), boosting mainly fixes underfitting, step by step. XGBoost is gradient boosting; weighting the wrongly predicted examples is AdaBoost, an older method. *HP: before the tree model.*
+
 **Validation curve.** Score against one setting (such as `min_samples_leaf`). Try values on both sides of the best, reaching both the overfitting and the underfitting end, in doubling steps. *T: values 2, 5, 10, 20, 40, 80.*
 
 ## Evaluation
