@@ -111,6 +111,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Decision tree.** Splits on thresholds (`Age <= 6.5`), with different thresholds in different branches, so curved effects and interactions are no problem. `min_samples_leaf` limits how small a leaf can be: a small leaf can learn the wrong rule by chance. *T.*
 
+**Regression tree.** A leaf predicts the **average** target of its training rows (one number for a group: the average gives the smallest squared error). A split is chosen by trying every column and threshold and keeping the one with the smallest total squared error, each row measured against its own side's average: the sides should be as alike inside as possible (`criterion='squared_error'`, the regression counterpart of Gini purity). Example, 4 houses (800 sq ft $100k, 1,000 $120k, 2,000 $250k, 2,200 $270k): no split 22,900; size ≤ 900 13,267; **size ≤ 1,500 400** (sides average $110k and $260k); size ≤ 2,100 13,267. *HP: before the tree model.*
+
 **Random forest.** Averages many trees, each trained on a bootstrap sample of rows, with a random subset of columns per split. It reduces variance (overfitting) but can't add information the columns don't have. *T.*
 
 **Validation curve.** Score against one setting (such as `min_samples_leaf`). Try values on both sides of the best, reaching both the overfitting and the underfitting end, in doubling steps. *T: values 2, 5, 10, 20, 40, 80.*
