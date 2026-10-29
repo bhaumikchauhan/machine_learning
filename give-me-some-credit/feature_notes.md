@@ -55,6 +55,11 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
     - 30–59 days: no count reaches 54.6% (6 or more is 50.2%), so the rule would pick the top group and double it from 239 to 508 borrowers, most of them coded. The rule breaks down because these borrowers aren't like any count.
   - **Shape of the effect:** it rises steeply, then levels off. For 90+ days: 4.6% at 0, 33.7% at 1, 49.9% at 2, 57.7% at 3, about 60 to 70% from 4 on. Groups above 4 are small, so their rates are noisy.
 - **DebtRatio when MonthlyIncome is missing:** median 1,159 against 0.30 when income is present.
+  - **Why:** when income is missing or 0, DebtRatio holds the monthly debt payment in dollars (divided by 1). It is a whole number for 100% of those 31,365 borrowers, against 2.3% when income is above 0.
+  - **Decided (2026-10-29): a `Debt` column (monthly debt payments in dollars) in place of DebtRatio.** Debt = DebtRatio when income is missing or 0; otherwise Debt = MonthlyIncome × DebtRatio. (For $1 incomes, the product is the debt as well.)
+- **Very small incomes:** 605 borrowers have exactly $1; 38 have $2 to $99.
+  - Their default rate (about 2.7%) is like that of 0 (4.0%) and missing (5.6%), not like real low earners ($1,000 to $1,999: 10.8%, the riskiest group). So they look like "not reported", not tiny incomes. $100 to $499 (416 borrowers, 5.3%) is unclear, so the cut-off is $100.
+  - **Decided (2026-10-29): a 0/1 column `IncomeNotReported`** for income missing, 0 or under $100 (32,008 borrowers). The value that goes in MonthlyIncome for them is still to be decided.
 - **RevolvingUtilization** (the share of the credit limit used) goes up to 50,708, while the 99th percentile is 1.09.
 - **age 0:** 1 borrower.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
