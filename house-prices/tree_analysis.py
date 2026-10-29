@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 
@@ -31,17 +32,48 @@ def build_boosting(learning_rate=0.1, max_iter=100):
     return Pipeline([('preprocess', preprocess), ('model', model)])
 
 
-def tree_count_curves(learning_rates=(0.03, 0.1, 0.3), max_trees=1000):
-    # Training and validation RMSE after each tree, averaged over the same 50 folds as everywhere else.
+def raw_data():
+    # Option B: the CSV columns as they are, same rows (outliers removed) and order as the Ridge model,
+    # so the 50 folds hold the same houses.
+    X, y = common.retrieve_X_And_y()
+    X, y = common.ids_remove_outlier(X, common.target_log_transform(y))
+    X = X.drop(columns=['Id'])
+    X['MSSubClass'] = X['MSSubClass'].astype(str)
+    return X, y
+
+
+def build_boosting_raw(X, learning_rate=0.1, max_iter=100):
+    # Text columns as categories; missing values stay missing (OrdinalEncoder keeps NaN, the trees handle it)
+    categories = list(X.select_dtypes(exclude='number').columns)
+    numeric = list(X.select_dtypes(include='number').columns)
+    preprocess = ColumnTransformer([
+        ('numbers', 'passthrough', numeric),
+        ('categories', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), categories),
+    ])
+    is_category = [False] * len(numeric) + [True] * len(categories)
+    model = HistGradientBoostingRegressor(learning_rate=learning_rate, max_iter=max_iter, early_stopping=False,
+                                          categorical_features=is_category, random_state=common.RANDOM_SEED)
+    return Pipeline([('preprocess', preprocess), ('model', model)])
+
+
+def engineered_data():
+    # Option A: the Ridge model's columns
     X, y = common.retrieve_X_And_y()
     X_train, y, _ = common.feature_engineering(X, y, common.get_kaggle_test_data_from_csv())
+    return X_train, y
+
+
+def tree_count_curves(learning_rates=(0.03, 0.1, 0.3), max_trees=1000, option='A'):
+    # Training and validation RMSE after each tree, averaged over the same 50 folds as everywhere else.
+    X_train, y = engineered_data() if option == 'A' else raw_data()
     folds = list(common.repeated_folds().split(X_train))
     curves = {}
     for rate in learning_rates:
         train_rmse = np.zeros(max_trees)
         validation_rmse = np.zeros(max_trees)
         for train_index, validation_index in folds:
-            pipeline = build_boosting(rate, max_trees).fit(X_train.iloc[train_index], y.iloc[train_index])
+            pipeline = build_boosting(rate, max_trees) if option == 'A' else build_boosting_raw(X_train, rate, max_trees)
+            pipeline.fit(X_train.iloc[train_index], y.iloc[train_index])
             for part, index, total in [('train', train_index, train_rmse),
                                        ('validation', validation_index, validation_rmse)]:
                 features = pipeline.named_steps['preprocess'].transform(X_train.iloc[index])
@@ -54,7 +86,20 @@ def tree_count_curves(learning_rates=(0.03, 0.1, 0.3), max_trees=1000):
     return curves
 
 
-def plot_tree_count_curves(curves, ridge_rmse=0.1118):
+def compare_with_ridge(learning_rate, trees):
+    # Option B at one setting against the Ridge model (the version in place), fold by fold
+    X_raw, y = raw_data()
+    scores = cross_validate(build_boosting_raw(X_raw, learning_rate, trees), X_raw, y, cv=common.repeated_folds(),
+                            scoring='neg_root_mean_squared_error')
+    boosting_rmse = -scores['test_score']
+    X_train, y_train = engineered_data()
+    ridge_rmse = -common.cross_validate_model(X_train, y_train)['test_neg_root_mean_squared_error']
+    print(f"Ridge {ridge_rmse.mean():.4f}, boosting on raw columns {boosting_rmse.mean():.4f}")
+    common.keep_rule(ridge_rmse, boosting_rmse)
+
+
+def plot_tree_count_curves(curves, ridge_rmse=0.1118, title_columns="the Ridge model's columns",
+                           file_name='boosting_tree_count.png'):
     fig, axes = plt.subplots(1, len(curves), figsize=(15, 5), dpi=120, sharey=True)
     fig.patch.set_facecolor(SURFACE)
     for ax, (rate, (train_rmse, validation_rmse)) in zip(axes, curves.items()):
@@ -80,10 +125,12 @@ def plot_tree_count_curves(curves, ridge_rmse=0.1118):
         ax.set_title(f"learning rate {rate}", loc='left', color=INK, fontsize=11)
     axes[0].set_ylabel('RMSE (log price), mean of 50 folds', color=INK_SECONDARY)
     axes[0].legend(loc='upper right', frameon=False, labelcolor=INK_SECONDARY)
-    fig.suptitle('Gradient boosting on the Ridge model\'s columns: error against the number of trees',
+    fig.suptitle(f'Gradient boosting on {title_columns}: error against the number of trees',
                  x=0.01, ha='left', color=INK, fontsize=12)
-    save(fig, 'boosting_tree_count.png')
+    save(fig, file_name)
 
 
 if __name__ == '__main__':
-    plot_tree_count_curves(tree_count_curves())
+    # Option A, already run: plot_tree_count_curves(tree_count_curves())
+    plot_tree_count_curves(tree_count_curves(learning_rates=(0.03, 0.1), option='B'),
+                           title_columns='the raw columns', file_name='boosting_tree_count_raw.png')

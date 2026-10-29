@@ -482,6 +482,25 @@ At alpha ≈ 6, a 0/1 column for a group of n houses keeps about n / (n + alpha)
 - At the default learning rate the lowest point is at 95 trees, practically the default 100. Smaller steps need more trees and reach a slightly lower point; the rise after the lowest point is shallow, while training falls almost to 0.
 - **Best boosting (0.1234) is clearly worse than Ridge (0.1118)**; no learning rate or number of trees closes the gap.
 
+### Option B: the raw columns
+
+- **Plan, written before running:**
+  - All 79 columns of train.csv except Id, as they are: no fills (missing values stay missing, and a tree sends them to whichever side of a split fits best), no merges, no new columns.
+  - Text columns, plus MSSubClass (a code, not a number), are passed as categories.
+  - Same rows as Ridge (outliers 524 and 1299 removed) and the same 50 folds, so the result can be compared fold by fold.
+  - Learning rates 0.03 and 0.1 up to 1,000 trees; 0.3 was clearly worse on option A. The best one is then compared with Ridge using the keep rule.
+  - Choosing the number of trees on the same folds flatters boosting slightly.
+- **Prediction (Claude):** about the same as option A (0.122 to 0.128). Trees get more columns and see missing values directly, but they lose the hand-made columns (Age, the basement finished area, the flags). Still clearly worse than Ridge.
+- **Result** (`plots/boosting_tree_count_raw.png`):
+
+  | Learning rate | Lowest validation RMSE | At | At 100 trees | Training RMSE at 1,000 trees |
+  |---|---|---|---|---|
+  | 0.03 | 0.1240 | 329 trees | 0.1332 | 0.010 |
+  | 0.1 | 0.1253 | 97 trees | 0.1254 | 0.001 |
+
+- Practically the same as option A (0.1234): our feature engineering gave the trees almost nothing. Trees find the thresholds and handle missing values on their own, so hand-made columns help them much less than they help Ridge.
+- **Against Ridge (keep rule), learning rate 0.03 with 329 trees:** 0.1240 against 0.1118: gain −1.22 (×100), wins 2% of folds (1 of 50). **Ridge stays.**
+
 ## Error analysis (2026-10-29)
 
 `error_analysis.py`: each training house predicted by the average of its 10 out-of-fold predictions (one per CV repeat), current model (CV 0.1118).
