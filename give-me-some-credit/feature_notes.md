@@ -36,8 +36,18 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 | NumberOfTime60-89DaysPastDueNotWorse | 0 | 0 | 2 | 98 |
 | NumberOfDependents | 3,924 | 0 | 4 | 20 |
 
+**Past late payments predict future ones:** the target is 90+ days late in the *next* 2 years, while NumberOfTimes90DaysLate counts the past.
+
+| NumberOfTimes90DaysLate | Borrowers | Default rate |
+|---|---|---|
+| 0 | 141,662 | 4.6% |
+| 1 to 17 | 8,069 | 41.2% |
+| 96 or 98 | 269 | 54.6% |
+
+- The user predicted the "1 to 17" group would be lower than average, reasoning that the bank still gave them credit. It is 6 times higher: being given credit doesn't mean being low risk, since banks also lend to risky borrowers at higher interest.
+
 **Values that look wrong, to look at:**
-- **96 and 98 in the three late-payment counts:** 5 and 264 borrowers, the same in all three columns. The next highest values are 11 to 17.
+- **96 and 98 in the three late-payment counts:** 5 and 264 borrowers, the same in all three columns. The next highest values are 11 to 17. Most likely codes ("unknown" or "not reported"), not counts; not documented in `Data Dictionary.xls`. The user's check: if they meant days late, every such borrower would be positive, and not all are.
 - **DebtRatio when MonthlyIncome is missing:** median 1,159 against 0.30 when income is present.
 - **RevolvingUtilization** (the share of the credit limit used) goes up to 50,708, while the 99th percentile is 1.09.
 - **age 0:** 1 borrower.
