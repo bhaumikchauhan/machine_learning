@@ -141,6 +141,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 ## Evaluation
 
+**Accuracy with uneven classes; precision and recall.** With 6.7% defaulters, always saying "no default" scores 93.3% accuracy and catches nobody. Accuracy counts both mistakes as equal, but a missed defaulter (the loan is lost) usually costs a bank far more than a wrongly declined good borrower (the interest is lost). **Recall** is the share of real defaulters the model catches; **precision** is the share of flagged borrowers who really default. Example, 1,000 borrowers with 67 defaulters: model X flags 10, all real (accuracy 94.3%, recall 15%, precision 100%); model Y flags 150, of whom 50 are real (accuracy 88.3%, recall 75%, precision 33%). The bank prefers Y despite its lower accuracy. *GMSC: before the first model.*
+
 **Cross-validation.** Split the working data into folds; each fold takes a turn as validation while the others train. Repeating it with different shuffles (10 × 5 = 50 folds) averages out lucky folds. A fixed seed means two versions are compared on the same folds. Fold-to-fold scores varied by about ±0.03, so small gains in one run may be luck. *T.*
 
 **Compare fold by fold (paired).** Like two runners timed on the same 50 routes: hilly routes slow both, so judge by who wins on each route, not by how much each runner's times vary. A fold's score depends mostly on which hard houses landed in it, and that hits both models alike. So compare the two models' scores fold by fold: the differences vary far less than the scores themselves. *HP: fold scores ±0.94 (×100), fold-by-fold difference ±0.12.*
