@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`).
 
 ## Lessons from House Prices
 
