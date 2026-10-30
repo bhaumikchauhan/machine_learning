@@ -34,6 +34,13 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
   - Below about 1e-05 the penalty only shrinks all weights together, in the same proportions. The order of the borrowers is then frozen, and AUC uses only the order. For AUC, any C at or below 1e-05 is the same model.
   - The probabilities from such a model are all close to the 6.7% base rate. That doesn't matter for Kaggle's AUC, but it would for a cut-off or for the probabilities themselves (calibration, later).
 
+## Additions
+
+### 30–59 and 60–89 day late counts
+
+- **Plan, written before running (2026-10-30):** add both columns as one step (scaled, with their 96/98 codes already set to 0), and compare with the baseline on the same 50 folds using the keep rule.
+- **Prediction (user):** mean AUC gain of 0.02 (from 0.822 to about 0.842).
+
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
 ## Column overview (2026-10-29)
