@@ -68,5 +68,5 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
     - **Cap 2 to 100 at 2.** Logistic regression gives utilization one straight line; values out to 10 or 100, where risk no longer rises, would stretch the line and bend the weight for the ordinary 0 to 1 borrowers.
     - The user first suggested a cap at 10, thinking of the values as groups; the straight-line point changed that. A fixed rule, nothing fitted.
   - Even from 0 to 2 the rise isn't straight (steep up to about 1.5, then flatter); to look at after the first model.
-- **age 0:** 1 borrower.
+- **age 0:** 1 borrower; the next youngest is 21, and the test set's youngest is 21. **Decided (2026-10-30): set to a fixed 52**, the mean age (52.3), rounded. Written as a fixed number, so nothing is fitted; for one borrower, the mean's dependence on the fold doesn't matter.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
