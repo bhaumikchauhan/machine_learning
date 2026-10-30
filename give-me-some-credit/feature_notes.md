@@ -62,5 +62,11 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
   - **Decided (2026-10-29): a 0/1 column `IncomeNotReported`** for income missing, 0 or under $100 (32,008 borrowers). 
   - **Their MonthlyIncome, decided (2026-10-30): a fixed 0.** Logistic regression needs a number. With the flag in the model the value barely matters: all flagged borrowers get the same income part, and the flag's weight learns the rest (only the sum counts). A fixed number needs no fitting, so nothing to do out of fold. Boosting could take the blanks as they are.
 - **RevolvingUtilization** (the share of the credit limit used) goes up to 50,708, while the 99th percentile is 1.09.
+  - **Above 1 is possible:** interest or fees can push a balance over the limit. Default rate by utilization: 0 to 0.5: 2.7% (108,712 borrowers); 0.5 to 1: 15.3%; 1 to 1.5: 39.7% (2,721); 1.5 to 2: 44.5% (229); 2 to 10: 28.5% (130); 10 to 100: 33.3% (18); 100 or more: **4.9%** (223).
+  - **Decided (2026-10-30):**
+    - **100 or more is invalid:** risk that far over the limit should be very high, but it is below average. Perhaps a balance not divided by the limit. These 223 borrowers get a 0/1 column `UtilizationInvalid`, and their utilization is set to a fixed 0 (the same reasoning as for income).
+    - **Cap 2 to 100 at 2.** Logistic regression gives utilization one straight line; values out to 10 or 100, where risk no longer rises, would stretch the line and bend the weight for the ordinary 0 to 1 borrowers.
+    - The user first suggested a cap at 10, thinking of the values as groups; the straight-line point changed that. A fixed rule, nothing fitted.
+  - Even from 0 to 2 the rise isn't straight (steep up to about 1.5, then flatter); to look at after the first model.
 - **age 0:** 1 borrower.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
