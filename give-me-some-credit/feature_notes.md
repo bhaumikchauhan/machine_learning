@@ -56,6 +56,15 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
   - Chosen over a 0/1 flag for 0 to 3 lines, which would treat 0 lines (25.6%) like 3 (7.5%).
   - This is a second candidate for the same column, chosen after seeing the first fail, so it is a weaker test.
 - **Prediction (user):** a gain of 0.02.
+- **Result:** AUC 0.852, a gain of **−0.0007**, winning **16%** of folds. **Not added.**
+- **Why: the current model already ranks these borrowers as risky.** Average risk rank (percentile, from 5-fold out-of-fold predictions at C = 1e-05) by open lines:
+  - 0 lines: **0.85**, higher than the average defaulter's 0.83
+  - 1 line: 0.64
+  - 2 lines: 0.53
+  - 3 lines: 0.49
+  - 4 or more: 0.49
+
+  Other columns already carry the information, so a column can show a strong default rate on its own and still add nothing (as in House Prices, where decisions depended on the other columns). The leftover check, how far the model already goes for a group, would have shown this before running.
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 

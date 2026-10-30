@@ -68,6 +68,11 @@ def revolving_utilization_feature_engineering(X):
     X['RevolvingUtilizationOfUnsecuredLines'] = X['RevolvingUtilizationOfUnsecuredLines'].apply(lambda x: 2 if x > 2 and x < 100 else x)
     return X
 
+def number_of_open_credit_lines_and_loans_feature_engineering(X):
+    #create a new column that caps the number of open credit lines and loans at 4
+    X['NumberOfOpenCreditLinesAndLoans'] = X['NumberOfOpenCreditLinesAndLoans'].apply(lambda x: 4 if x > 4 else x)
+    return X
+
 def feature_engineering(X, y):
     #clip monthly income at $15,000
     X = monthly_income_feature_engineering(X)
@@ -130,6 +135,7 @@ def keep_rule(current_auc, candidate_auc):
     return keep
 
 def test_new_features(X, y, current_scores):
+    X = number_of_open_credit_lines_and_loans_feature_engineering(X)
     scale_columns = SCALE_COLUMNS + ['NumberOfOpenCreditLinesAndLoans']
     candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
     keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
