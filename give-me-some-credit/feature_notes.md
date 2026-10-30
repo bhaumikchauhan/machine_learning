@@ -50,7 +50,12 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 - **Result:** AUC 0.851, a gain of **−0.0020**, winning **0%** of folds. **Not added.** Worse in every fold, not just no better.
   - At the chosen C (1e-05 in most folds), the weights are tiny, and each weight follows mostly that column's own straight-line link to default; the model hardly weighs the columns against each other.
   - The raw column's line is shallow (falling up to 6–8 lines, rising after), so it adds a small, wrong push for most borrowers.
-  - Candidates for the shape: the steep part only (few lines), not tested yet.
+  - Candidates for the shape: the steep part only (few lines).
+- **Second try, written before running (2026-10-30):** a capped count, min(lines, 4), scaled; the raw column stays out.
+  - The line then covers only the steep part (25.6% at 0 down to 7.5% at 3), the same idea as the utilization cap.
+  - Chosen over a 0/1 flag for 0 to 3 lines, which would treat 0 lines (25.6%) like 3 (7.5%).
+  - This is a second candidate for the same column, chosen after seeing the first fail, so it is a weaker test.
+- **Prediction (user):** a gain of 0.02.
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
