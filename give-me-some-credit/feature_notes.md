@@ -68,6 +68,14 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
+## Submissions
+
+### Submission 1 (2026-10-30): `submission.csv`
+
+- **The model:** the current model (CV AUC 0.853 ± 0.004, baseline plus the 30–59 and 60–89 day counts), fitted on all 150,000 training borrowers. `create_submission` in `give_me_some_credit.py`, written by Claude.
+- **The file:** 101,503 rows, ids match `sampleEntry.csv`. Probabilities from 0.055 to 0.863, median 0.060: bunched near the 6.7% base rate because of the tiny C. That doesn't affect AUC.
+- **Expected Kaggle score, written before uploading:** about 0.853. Kaggle's AUC is computed on part of the test set, so a difference of about ±0.005 would be noise.
+
 ## Column overview (2026-10-29)
 
 All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):

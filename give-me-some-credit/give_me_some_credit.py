@@ -140,6 +140,23 @@ def test_new_features(X, y, current_scores):
     candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
     keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
 
+def create_submission(path='submission.csv'):
+    # Written by Claude. Fits the current model on all 150,000 training borrowers and writes one
+    # probability per test borrower. The feature engineering is fixed rules only, so applying it to
+    # the test set leaks nothing.
+    X, y = retrieve_X_And_y()
+    X, y = feature_engineering(X, y)
+    cols = SCALE_COLUMNS + PASSTHROUGH_COLUMNS
+    pipeline = build_pipeline().fit(X[cols], y)
+
+    test = get_kaggle_test_data_from_csv()
+    ids = test.iloc[:, 0]  # the unnamed first column holds the Id
+    X_test, _ = feature_engineering(test.drop(columns=['SeriousDlqin2yrs']), None)
+    probability = pipeline.predict_proba(X_test[cols])[:, 1]  # column 1 = probability of class 1 (default)
+    pd.DataFrame({'Id': ids, 'Probability': probability}).to_csv(path, index=False)
+    print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
+          f"median {np.median(probability):.4f}, max {probability.max():.4f}")
+
 def main():
     X, y = retrieve_X_And_y()
     X, y = feature_engineering(X, y)
