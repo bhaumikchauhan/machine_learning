@@ -40,6 +40,7 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 
 - **Plan, written before running (2026-10-30):** add both columns as one step (scaled, with their 96/98 codes already set to 0), and compare with the baseline on the same 50 folds using the keep rule.
 - **Prediction (user):** mean AUC gain of 0.02 (from 0.822 to about 0.842).
+- **Result:** gain **0.0307**, winning **100%** of folds. **Kept: AUC 0.822 → 0.853.** The gain was larger than predicted: the earlier late payments carry information the 90-day count doesn't (5,731 borrowers have a 60–89 day late payment, against 8,069 with a 90-day one, and 16,033 have a 30–59 day one).
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 

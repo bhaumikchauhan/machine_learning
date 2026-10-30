@@ -11,6 +11,7 @@ RANDOM_SEED = 42
 N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
+
 COLUMNS_FOR_FITTING = ['MonthlyIncome','DebtToIncome',
                        'IncomeNotReported',
                        'NumberOfTimes90DaysLate','LateCountsCoded',
@@ -21,7 +22,7 @@ NUMERIC_COLUMNS = ['MonthlyIncome','DebtToIncome',
                    'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines']
 
 PASSTHROUGH_COLUMNS = ['IncomeNotReported','LateCountsCoded','UtilizationInvalid']
-
+MIN_AUC_GAIN = 0.001
 MIN_FOLD_WIN_SHARE = 0.8
 
 def get_train_data_from_csv():
@@ -100,7 +101,7 @@ def build_pipeline(numeric_columns=None, passthrough_columns=None):
         ('scale', StandardScaler(), numeric_columns),
         ('passthrough', 'passthrough', passthrough_columns)
     ])
-    return Pipeline([('preprocess', preprocess), ('model', LogisticRegressionCV(Cs=np.logspace(-5,-1, 60), scoring='roc_auc'))])
+    return Pipeline([('preprocess', preprocess), ('model', LogisticRegressionCV(Cs=np.logspace(-5,-1, 6), scoring='roc_auc'))])
 
 def cross_validate_model(X, y):
     print("Fitting on:", COLUMNS_FOR_FITTING)
@@ -117,11 +118,30 @@ def cross_validate_model(X, y):
     print(f"C per fold: min {min(Cs)}, median {np.median(Cs)}, max {max(Cs)}")
     return scores
 
+def keep_rule(current_auc, candidate_auc):
+    cur_auc_mean = current_auc.mean()
+    candidate_auc_mean = candidate_auc.mean()
+    gain = candidate_auc_mean - cur_auc_mean
+    win_share = (candidate_auc > current_auc).mean()
+    keep = gain >= MIN_AUC_GAIN and win_share >= MIN_FOLD_WIN_SHARE
+    print(f"Mean gain: {gain:.4f} (need >= {MIN_AUC_GAIN:.3f}), "
+          f"folds won: {win_share:.0%} (need >= {MIN_FOLD_WIN_SHARE:.0%})")
+    print("Keep the candidate." if keep else "Keep the current version.")
+    return keep
+
 def main():
     X, y = retrieve_X_And_y()
     X, y = feature_engineering(X, y)
 
-    cross_validate_model(X, y)
+    current_scores = cross_validate_model(X, y)
+
+    NUMERIC_COLUMNS.append('NumberOfTime30-59DaysPastDueNotWorse')
+    NUMERIC_COLUMNS.append('NumberOfTime60-89DaysPastDueNotWorse')
+    COLUMNS_FOR_FITTING.append('NumberOfTime30-59DaysPastDueNotWorse')
+    COLUMNS_FOR_FITTING.append('NumberOfTime60-89DaysPastDueNotWorse')
+    candidate_scores = cross_validate_model(X, y)
+
+    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
 
 if __name__ == '__main__':
     main()
