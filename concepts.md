@@ -59,6 +59,10 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Missing can carry information, or not.** Check whether rows with a missing value differ from the rest: a missing Cabin went with lower class, a missing LotFrontage didn't go with a different price. If it carries information, a 0/1 "missing" flag can capture it. *T: Cabin, Age. HP: LotFrontage.*
 
+**Flag plus a fixed fill.** With a 0/1 flag in a linear model, the fill value for the flagged rows barely matters: they all get the same income part, the flag's weight learns the rest, and only the sum counts (fill $5,000: −0.5 + 0.8; fill 0: 0 + 0.3; both +0.3). A fixed number needs no fitting, so nothing to do out of fold; a median does. Codes stored as impossible numbers (96/98 as a count, $1 as an income) are treated the same way. *GMSC: LateCountsCoded, IncomeNotReported, UtilizationInvalid.*
+
+**Capping for a straight line.** A linear model gives a column one slope. Values far out where the effect stops rising stretch that line and bend the weight for the ordinary rows, so cap where the effect stops. A number is a position on the line, not a group. *GMSC: utilization capped at 2, not 10.*
+
 **Filling from related columns.** Fill a missing value from columns that predict it: age from title, frontage from lot size and lot shape, zone from neighbourhood. Check the relationship holds for the rows being filled (cul-de-sac lots are narrower for their size). *T: Age. HP: MSZoning, LotFrontage.*
 
 **Leaking labels vs leaking features.** A fill computed from features only (mean age per title) can use all rows, even test rows: no label is involved. A value computed from the label (survival rate, mean price) must use training rows only. *T: fill before the split.*
