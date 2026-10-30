@@ -12,14 +12,9 @@ N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
 
-COLUMNS_FOR_FITTING = ['MonthlyIncome','DebtToIncome',
-                       'IncomeNotReported',
-                       'NumberOfTimes90DaysLate','LateCountsCoded',
-                       'RevolvingUtilizationOfUnsecuredLines',
-                       'UtilizationInvalid']
-
-NUMERIC_COLUMNS = ['MonthlyIncome','DebtToIncome',
-                   'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines']
+SCALE_COLUMNS = ['MonthlyIncome','DebtToIncome',
+                   'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines',
+                   'NumberOfTime30-59DaysPastDueNotWorse', 'NumberOfTime60-89DaysPastDueNotWorse']
 
 PASSTHROUGH_COLUMNS = ['IncomeNotReported','LateCountsCoded','UtilizationInvalid']
 MIN_AUC_GAIN = 0.001
@@ -91,22 +86,27 @@ def repeated_folds():
     # Fixed seed, so every caller gets the same 50 folds and results can be compared fold by fold.
     return RepeatedStratifiedKFold(n_splits=N_FOLDS, n_repeats=N_REPEATS, random_state=RANDOM_SEED)
 
-def build_pipeline(numeric_columns=None, passthrough_columns=None):
-    if numeric_columns is None:
-        numeric_columns = NUMERIC_COLUMNS
+def build_pipeline(scale_columns=None, passthrough_columns=None):
+    if scale_columns is None:
+        scale_columns = SCALE_COLUMNS
     if passthrough_columns is None:
         passthrough_columns = PASSTHROUGH_COLUMNS
 
     preprocess = ColumnTransformer([
-        ('scale', StandardScaler(), numeric_columns),
+        ('scale', StandardScaler(), scale_columns),
         ('passthrough', 'passthrough', passthrough_columns)
     ])
     return Pipeline([('preprocess', preprocess), ('model', LogisticRegressionCV(Cs=np.logspace(-5,-1, 6), scoring='roc_auc'))])
 
-def cross_validate_model(X, y):
-    print("Fitting on:", COLUMNS_FOR_FITTING)
-    pipeline = build_pipeline()
-    scores = cross_validate(pipeline, X[COLUMNS_FOR_FITTING], y, cv=repeated_folds(),
+def cross_validate_model(X, y, scale_columns=None, passthrough_columns=None):
+    if scale_columns is None:
+        scale_columns = SCALE_COLUMNS
+    if passthrough_columns is None:
+        passthrough_columns = PASSTHROUGH_COLUMNS
+    cols = scale_columns + passthrough_columns
+    print("Fitting on:", cols)
+    pipeline = build_pipeline(scale_columns=scale_columns, passthrough_columns=passthrough_columns)
+    scores = cross_validate(pipeline, X[cols], y, cv=repeated_folds(),
                             scoring=['roc_auc'], return_estimator=True)
     #print the mean AUC, the standard deviation across the 50 folds, and the chosen C per fold (min, median, max)
     aucs = scores['test_roc_auc']
@@ -135,13 +135,10 @@ def main():
 
     current_scores = cross_validate_model(X, y)
 
-    NUMERIC_COLUMNS.append('NumberOfTime30-59DaysPastDueNotWorse')
-    NUMERIC_COLUMNS.append('NumberOfTime60-89DaysPastDueNotWorse')
-    COLUMNS_FOR_FITTING.append('NumberOfTime30-59DaysPastDueNotWorse')
-    COLUMNS_FOR_FITTING.append('NumberOfTime60-89DaysPastDueNotWorse')
-    candidate_scores = cross_validate_model(X, y)
+    #scale_columns = SCALE_COLUMNS + ['NumberOfTime30-59DaysPastDueNotWorse', 'NumberOfTime60-89DaysPastDueNotWorse']
+    #candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
 
-    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+    #keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
 
 if __name__ == '__main__':
     main()
