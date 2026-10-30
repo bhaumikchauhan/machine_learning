@@ -129,16 +129,17 @@ def keep_rule(current_auc, candidate_auc):
     print("Keep the candidate." if keep else "Keep the current version.")
     return keep
 
+def test_new_features(X, y, current_scores):
+    scale_columns = SCALE_COLUMNS + ['NumberOfOpenCreditLinesAndLoans']
+    candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
+    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+
 def main():
     X, y = retrieve_X_And_y()
     X, y = feature_engineering(X, y)
-
     current_scores = cross_validate_model(X, y)
-
-    #scale_columns = SCALE_COLUMNS + ['NumberOfTime30-59DaysPastDueNotWorse', 'NumberOfTime60-89DaysPastDueNotWorse']
-    #candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
-
-    #keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+    
+    test_new_features(X, y, current_scores)
 
 if __name__ == '__main__':
     main()

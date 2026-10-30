@@ -47,6 +47,10 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 - **Shape:** a lopsided U. 0 lines: 25.6% (1,888 borrowers); 1: 13.2%; 2: 9.1%; 3: 7.5%; 4 to 5: 6.4%; 6 to 8: 5.3% (the lowest); 9 to 12: 5.9%; 13 to 16: 6.5%; 17 to 20: 6.9%; 21 or more: about 7%.
 - **Plan, written before running (2026-10-30):** add it raw (scaled) and compare with the current model (AUC 0.853) using the keep rule.
 - **Prediction (user):** a gain below 0.005. One straight line can't follow the U.
+- **Result:** AUC 0.851, a gain of **−0.0020**, winning **0%** of folds. **Not added.** Worse in every fold, not just no better.
+  - At the chosen C (1e-05 in most folds), the weights are tiny, and each weight follows mostly that column's own straight-line link to default; the model hardly weighs the columns against each other.
+  - The raw column's line is shallow (falling up to 6–8 lines, rising after), so it adds a small, wrong push for most borrowers.
+  - Candidates for the shape: the steep part only (few lines), not tested yet.
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
