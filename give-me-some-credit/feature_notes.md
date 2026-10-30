@@ -16,7 +16,7 @@ Data: `kaggle/input/GiveMeSomeCredit/` (not in git). `cs-training.csv`, `cs-test
 Decided before the first model (2026-10-29):
 - **Score:** AUC. It uses only the order of the probabilities, so no cut-off is needed. Accuracy is ruled out: "always no" scores 93.3%.
 - **Folds:** `RepeatedStratifiedKFold`, 5 folds × 10 repeats, fixed seed. Stratified, so every fold keeps the 6.7% share of positives; plain folds could vary by chance. The fixed seed puts the same borrowers in the same folds, so versions can be compared fold by fold.
-- **Keep rule:** the candidate must win at least 80% of folds and gain at least a minimum mean AUC. **The minimum gain is still to be set**: after the first model shows the fold-to-fold spread, and before any comparison.
+- **Keep rule:** the candidate must win at least 80% of folds and gain **at least 0.001 mean AUC**. The gain was set on 2026-10-30, after the baseline showed a fold spread of ±0.005 and before any comparison. Don't change it because of results.
 - Conventions carried over from House Prices: compare each candidate with the version in place; the simpler version is current; write the prediction before running.
 
 ## Baseline (2026-10-30)
