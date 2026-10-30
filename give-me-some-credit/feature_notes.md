@@ -59,7 +59,8 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
   - **Decided (2026-10-29): a `Debt` column (monthly debt payments in dollars) in place of DebtRatio.** Debt = DebtRatio when income is missing or 0; otherwise Debt = MonthlyIncome × DebtRatio. (For $1 incomes, the product is the debt as well.)
 - **Very small incomes:** 605 borrowers have exactly $1; 38 have $2 to $99.
   - Their default rate (about 2.7%) is like that of 0 (4.0%) and missing (5.6%), not like real low earners ($1,000 to $1,999: 10.8%, the riskiest group). So they look like "not reported", not tiny incomes. $100 to $499 (416 borrowers, 5.3%) is unclear, so the cut-off is $100.
-  - **Decided (2026-10-29): a 0/1 column `IncomeNotReported`** for income missing, 0 or under $100 (32,008 borrowers). The value that goes in MonthlyIncome for them is still to be decided.
+  - **Decided (2026-10-29): a 0/1 column `IncomeNotReported`** for income missing, 0 or under $100 (32,008 borrowers). 
+  - **Their MonthlyIncome, decided (2026-10-30): a fixed 0.** Logistic regression needs a number. With the flag in the model the value barely matters: all flagged borrowers get the same income part, and the flag's weight learns the rest (only the sum counts). A fixed number needs no fitting, so nothing to do out of fold. Boosting could take the blanks as they are.
 - **RevolvingUtilization** (the share of the credit limit used) goes up to 50,708, while the 99th percentile is 1.09.
 - **age 0:** 1 borrower.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
