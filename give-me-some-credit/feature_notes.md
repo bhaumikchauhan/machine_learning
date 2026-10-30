@@ -19,6 +19,15 @@ Decided before the first model (2026-10-29):
 - **Keep rule:** the candidate must win at least 80% of folds and gain at least a minimum mean AUC. **The minimum gain is still to be set**: after the first model shows the fold-to-fold spread, and before any comparison.
 - Conventions carried over from House Prices: compare each candidate with the version in place; the simpler version is current; write the prediction before running.
 
+## Baseline (2026-10-30)
+
+Logistic regression on a few columns, chosen by the user as the ones that tell most about the borrower's finances:
+- NumberOfTimes90DaysLate and LateCountsCoded
+- RevolvingUtilizationOfUnsecuredLines and UtilizationInvalid
+- DebtToIncome, MonthlyIncome and IncomeNotReported
+
+Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
+
 ## Column overview (2026-10-29)
 
 All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
@@ -56,7 +65,11 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
   - **Shape of the effect:** it rises steeply, then levels off. For 90+ days: 4.6% at 0, 33.7% at 1, 49.9% at 2, 57.7% at 3, about 60 to 70% from 4 on. Groups above 4 are small, so their rates are noisy.
 - **DebtRatio when MonthlyIncome is missing:** median 1,159 against 0.30 when income is present.
   - **Why:** when income is missing or 0, DebtRatio holds the monthly debt payment in dollars (divided by 1). It is a whole number for 100% of those 31,365 borrowers, against 2.3% when income is above 0.
-  - **Decided (2026-10-29): a `Debt` column (monthly debt payments in dollars) in place of DebtRatio.** Debt = DebtRatio when income is missing or 0; otherwise Debt = MonthlyIncome × DebtRatio. (For $1 incomes, the product is the debt as well.)
+  - **First decided (2026-10-29): a `Debt` column** (monthly debt payments in dollars) in place of DebtRatio. Debt = DebtRatio when income is missing or 0; otherwise Debt = MonthlyIncome × DebtRatio. (For $1 incomes, the product is the debt as well.)
+  - **Replaced for the baseline (2026-10-30) by `DebtToIncome`.** The user's reason for Debt and income was the share of income that goes to debt, but a linear model adds columns and can't divide them ($500 / $1,000 and $5,000 / $10,000 are both 50%, yet they score differently). That share is DebtRatio itself, for reported incomes.
+    - DebtToIncome = DebtRatio when income is $100 or more; a fixed 0 when `IncomeNotReported` is 1.
+    - **Capped at 2:** risk rises up to about 2, then stops (5.9% at 0 to 0.25, 11.4% at 0.75 to 1, 13.7% at 1 to 2, 10.5% at 2 to 5, 8.6% at 5 to 170). 99% are below 2.02. This is the same straight-line reasoning as for utilization.
+    - Debt stays a candidate for later.
 - **Very small incomes:** 605 borrowers have exactly $1; 38 have $2 to $99.
   - Their default rate (about 2.7%) is like that of 0 (4.0%) and missing (5.6%), not like real low earners ($1,000 to $1,999: 10.8%, the riskiest group). So they look like "not reported", not tiny incomes. $100 to $499 (416 borrowers, 5.3%) is unclear, so the cut-off is $100.
   - **Decided (2026-10-29): a 0/1 column `IncomeNotReported`** for income missing, 0 or under $100 (32,008 borrowers). 
