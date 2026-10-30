@@ -75,6 +75,7 @@ Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, Number
 - **The model:** the current model (CV AUC 0.853 ± 0.004, baseline plus the 30–59 and 60–89 day counts), fitted on all 150,000 training borrowers. `create_submission` in `give_me_some_credit.py`, written by Claude.
 - **The file:** 101,503 rows, ids match `sampleEntry.csv`. Probabilities from 0.055 to 0.863, median 0.060: bunched near the 6.7% base rate because of the tiny C. That doesn't affect AUC.
 - **Expected Kaggle score, written before uploading:** about 0.853. Kaggle's AUC is computed on part of the test set, so a difference of about ±0.005 would be noise.
+- **Kaggle score: public 0.85030, private 0.85386** (submitted with the Kaggle command-line tool). Both are within the expected noise: private is 0.001 above CV, public 0.003 below. The competition has ended, so both parts of the test set are scored; the private one decided the final ranking.
 
 ## Column overview (2026-10-29)
 
