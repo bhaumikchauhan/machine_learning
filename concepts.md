@@ -150,6 +150,9 @@ Any shift makes one house better and the other worse by more; the best shift is 
 - **The cut-off:** a classifier outputs a probability, and the cut-off turns it into yes/no. X and Y can be the same model: a high cut-off flags few borrowers (precision up, recall down, like X); a low cut-off flags many (recall up, precision down, like Y). Choosing the cut-off is a business decision about what each mistake costs.
 
 **AUC.** The chance that a random positive gets a higher probability than a random negative; it uses only the order of the probabilities, so it needs no cut-off. Example: defaulters at 0.9 and 0.3, good borrowers at 0.4, 0.2 and 0.1: 5 of the 6 pairs are in the right order, so AUC = 0.83. 1.0 means every positive ranks above every negative; 0.5 is a coin flip; "always no" gives everyone the same probability and scores 0.5, despite 93.3% accuracy. *GMSC: the Kaggle score.*
+- **AUC ignores the scale:** halving every score (4, 2, 1 → 2, 1, 0.5) keeps the order, so AUC stays the same. A very strong penalty that shrinks all weights together therefore leaves AUC flat, and tuning C by AUC can end at the edge of any grid. *GMSC: inner AUC 0.8223 for every C from 1e-09 to 1e-05.*
+
+**A chosen setting at the edge of the grid.** The best value may lie beyond it: extend the range until the best is inside, or until the score is flat (then any value there is equivalent). *GMSC: C at the smallest value in every fold.*
 
 **Cross-validation.** Split the working data into folds; each fold takes a turn as validation while the others train. Repeating it with different shuffles (10 × 5 = 50 folds) averages out lucky folds. A fixed seed means two versions are compared on the same folds. Fold-to-fold scores varied by about ±0.03, so small gains in one run may be luck. *T.*
 

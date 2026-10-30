@@ -28,6 +28,12 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 
 **MonthlyIncome clipped at $15,000** (decided 2026-10-30). For reported incomes, risk falls steadily from $1,000 to about $15,000 (10.6% at $1,000 to $2,000, 4.2% at $10,000 to $15,000), then stops falling (4.4% at $15,000 to $25,000, 5.3% above). Not fitted to the line: $100 to $1,000 (2,518 borrowers, 6.5%) is lower than the next band.
 
+**Result (2026-10-30, `give_me_some_credit.py`, written by the user):** `LogisticRegressionCV(scoring='roc_auc')`, numbers scaled, flags passed through. **AUC 0.822 ± 0.005** (mean and sd over the 50 folds).
+- Bugs found in review: the flags were dropped (a ColumnTransformer drops unnamed columns): 0.818 → 0.820. C was chosen by accuracy (the default): → 0.821.
+- **The chosen C sits at the bottom edge of every grid tried.** Inner AUC is flat at 0.8223 for C = 1e-09 to 1e-05, against 0.8211 at 1e-04 and about 0.8195 from 1e-03 up.
+  - Below about 1e-05 the penalty only shrinks all weights together, in the same proportions. The order of the borrowers is then frozen, and AUC uses only the order. For AUC, any C at or below 1e-05 is the same model.
+  - The probabilities from such a model are all close to the 6.7% base rate. That doesn't matter for Kaggle's AUC, but it would for a cut-off or for the probabilities themselves (calibration, later).
+
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
 ## Column overview (2026-10-29)
