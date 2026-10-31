@@ -100,6 +100,9 @@ Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, Number
   - Compared with the current logistic regression (0.853) on the same 50 folds, using the keep rule.
   - The user writes the model code.
 - **Prediction (user):** close to the logistic regression, but a small negative gain.
+- **Result:** gain **+0.0116** (AUC about 0.865 against 0.853), winning **100%** of folds. **Kept: boosting on the raw columns is the current model.**
+  - Code by the user (`cross_validate_tree_model`). Review: a Regressor was used first, which has no probabilities for AUC; fixed to the Classifier.
+  - The opposite of House Prices: here the columns bend (U shapes, steps that level off), which the trees learn on their own, and with 150,000 rows there is enough data for them. None of our feature engineering was needed.
 
 ## Submissions
 

@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+from sklearn import pipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
@@ -129,6 +131,16 @@ def cross_validate_model(X, y, scale_columns=None, passthrough_columns=None):
     print(f"C per fold: min {min(Cs)}, median {np.median(Cs)}, max {max(Cs)}")
     return scores
 
+def cross_validate_tree_model(X, y):
+    model = HistGradientBoostingClassifier(random_state=RANDOM_SEED)
+    pipeline = Pipeline([('model', model)])
+    scores = cross_validate(pipeline, X, y, cv=repeated_folds(),
+                            scoring=['roc_auc'], return_estimator=True)
+    #print the mean AUC, the standard deviation across the 50 folds, and the chosen C per fold (min, median, max)
+    aucs = scores['test_roc_auc']
+    print(f"AUC mean: {aucs.mean():.3f} AUC std (+/- {aucs.std():.3f})")
+    return scores
+
 def keep_rule(current_auc, candidate_auc):
     cur_auc_mean = current_auc.mean()
     candidate_auc_mean = candidate_auc.mean()
@@ -165,12 +177,19 @@ def create_submission(path='submission.csv'):
     print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
           f"median {np.median(probability):.4f}, max {probability.max():.4f}")
 
+
+
+
 def main():
     X, y = retrieve_X_And_y()
     X, y = feature_engineering(X, y)
     current_scores = cross_validate_model(X, y)
-    
-    test_new_features(X, y, current_scores)
+
+    X, y = retrieve_X_And_y()
+    X = X.drop(columns=['id'])
+    candidate_scores = cross_validate_tree_model(X, y)
+    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+    #test_new_features(X, y, current_scores)
 
 if __name__ == '__main__':
     main()
