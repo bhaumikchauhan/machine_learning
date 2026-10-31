@@ -85,6 +85,8 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
   - Plus the count capped at 5 (scaled), for the rising end: from 1 loan up, the rate rises 5.3%, 5.6%, 6.7%, 8.9%, 15.2%.
   - Compared as one step with the current model (AUC 0.853).
 - **Prediction (user):** a negative gain.
+- **Result:** AUC 0.852, a gain of **−0.0007**, winning **8%** of folds. **Not added**, as predicted. Code by Claude, at the user's request (`real_estate_loans_feature_engineering`).
+  - The model misses the pattern (the risk-rank check), yet the columns don't help. That points at the model, not the columns: at C = 1e-05 each weight mostly follows its own column's straight-line link, so the model can't use a column whose value shows only next to the others. A U-shaped count split into a flag and a rising part is that kind of column. A hypothesis, not tested.
 
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 

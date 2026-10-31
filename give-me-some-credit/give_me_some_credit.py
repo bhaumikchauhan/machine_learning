@@ -73,6 +73,12 @@ def number_of_open_credit_lines_and_loans_feature_engineering(X):
     X['NumberOfOpenCreditLinesAndLoans'] = X['NumberOfOpenCreditLinesAndLoans'].apply(lambda x: 4 if x > 4 else x)
     return X
 
+def real_estate_loans_feature_engineering(X):
+    #0 real estate loans gets its own 0/1 column; the count is capped at 5 for the rising end (1 to 5+)
+    X['NoRealEstateLoans'] = X['NumberRealEstateLoansOrLines'].apply(lambda x: 1 if x == 0 else 0)
+    X['NumberRealEstateLoansOrLines'] = X['NumberRealEstateLoansOrLines'].clip(upper=5)
+    return X
+
 def feature_engineering(X, y):
     #clip monthly income at $15,000
     X = monthly_income_feature_engineering(X)
@@ -135,9 +141,11 @@ def keep_rule(current_auc, candidate_auc):
     return keep
 
 def test_new_features(X, y, current_scores):
-    X = number_of_open_credit_lines_and_loans_feature_engineering(X)
-    scale_columns = SCALE_COLUMNS + ['NumberOfOpenCreditLinesAndLoans']
-    candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns)
+    # NumberOfOpenCreditLinesAndLoans: raw and capped at 4 both not added (feature_notes)
+    X = real_estate_loans_feature_engineering(X)
+    scale_columns = SCALE_COLUMNS + ['NumberRealEstateLoansOrLines']
+    passthrough_columns = PASSTHROUGH_COLUMNS + ['NoRealEstateLoans']
+    candidate_scores = cross_validate_model(X, y, scale_columns=scale_columns, passthrough_columns=passthrough_columns)
     keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
 
 def create_submission(path='submission.csv'):
