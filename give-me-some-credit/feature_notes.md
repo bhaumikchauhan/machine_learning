@@ -66,6 +66,26 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 
   Other columns already carry the information, so a column can show a strong default rate on its own and still add nothing (as in House Prices, where decisions depended on the other columns). The leftover check, how far the model already goes for a group, would have shown this before running.
 
+### NumberRealEstateLoansOrLines
+
+- **Check before predicting (2026-10-31):** default rate by count, against the current model's average risk rank (5-fold out-of-fold, C = 1e-05):
+
+  | Count | Borrowers | Default rate | Risk rank |
+  |---|---|---|---|
+  | 0 | 56,188 | 8.3% | 0.49 |
+  | 1 | 52,338 | 5.3% | 0.49 |
+  | 2 | 31,522 | 5.6% | 0.52 |
+  | 3 | 6,300 | 6.7% | 0.52 |
+  | 4 | 2,170 | 8.9% | 0.55 |
+  | 5 or more | 1,482 | 15.2% | 0.57 |
+
+  - A U shape. Unlike open lines, the model misses it: 0 loans (probably no mortgage) defaults at 8.3% against 5.3% for 1 loan, yet both are ranked alike.
+- **Plan, written before running:**
+  - A 0/1 column `NoRealEstateLoans` (passthrough).
+  - Plus the count capped at 5 (scaled), for the rising end: from 1 loan up, the rate rises 5.3%, 5.6%, 6.7%, 8.9%, 15.2%.
+  - Compared as one step with the current model (AUC 0.853).
+- **Prediction (user):** a negative gain.
+
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
 ## Submissions
