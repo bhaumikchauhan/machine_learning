@@ -4,6 +4,16 @@ Concepts that came up while working on the problems in this repo, each in a few 
 
 Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`).
 
+## Lessons from Give Me Some Credit
+
+Final model: gradient boosting on the raw columns. CV AUC 0.865; Kaggle private 0.86670 (logistic regression: 0.853 CV, 0.85386 Kaggle).
+1. **Pick the score for the problem.** With 6.7% defaulters, accuracy rewards "always no" (93.3%). AUC judges only the ranking; precision, recall and the cut-off come later, as a business choice.
+2. **Find the impossible values first.** Codes stored as numbers (96/98 late counts, $1 incomes), a ratio that is really dollars when income is missing, utilization of 50,708. Each became a 0/1 flag plus a fixed fill, checked against the default rate.
+3. **Read the setting the search picks.** C at the edge of every grid showed that AUC goes flat under a strong penalty (only the order matters), and that this frozen model couldn't use new columns.
+4. **Check what the model already knows before adding a column.** Open credit lines looked strong alone, but the model already ranked those borrowers as risky; real estate loans were missed, but the tiny C blocked them.
+5. **Shapes decide the model.** U shapes and steps that level off defeat one straight line per column. Boosting learned them on its own and won without any feature engineering: the opposite of House Prices, where the effects were near-straight.
+6. **CV held again:** Kaggle moved by the same amount as CV (+0.012).
+
 ## Lessons from House Prices
 
 Final model: Ridge. CV went from 0.1453 to 0.1118; Kaggle 0.12412 (rank 1,215).

@@ -2,7 +2,7 @@
 
 Decisions and reasoning for the Give Me Some Credit model. The task is to predict, for 101,503 test borrowers, the probability of a serious late payment (90+ days) within 2 years (`SeriousDlqin2yrs`). There are 150,000 training borrowers, 6.7% of whom are positive. Kaggle scores the AUC.
 
-Status: in progress.
+Status: finished (2026-10-31). Final model: gradient boosting on the raw columns (CV AUC 0.865, Kaggle private 0.86670).
 
 **Who writes what:**
 - **The user writes:** the Pipeline, the CV loop and the leakage-sensitive parts (anything fitted on data).
