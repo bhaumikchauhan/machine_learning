@@ -87,7 +87,9 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
 - **Prediction (user):** a negative gain.
 - **Result:** AUC 0.852, a gain of **−0.0007**, winning **8%** of folds. **Not added**, as predicted. Code by Claude, at the user's request (`real_estate_loans_feature_engineering`).
   - The model misses the pattern (the risk-rank check), yet the columns don't help. That points at the model, not the columns: at C = 1e-05 each weight mostly follows its own column's straight-line link, so the model can't use a column whose value shows only next to the others. A U-shaped count split into a flag and a rising part is that kind of column. A hypothesis, not tested.
-
+- **Diagnostic, written before running:** the same two versions at a fixed C = 1 (weak penalty, columns fully combined), on the same 50 folds. Not a keep-rule decision. If the columns win at C = 1, the tiny C was blocking them; if not, the columns are the problem. **Prediction (user):** they win.
+- **Diagnostic result** (`diagnostics.py`, by Claude): at C = 1, current 0.8484, with the real estate columns 0.8515: a gain of **+0.0031**, winning **100%** of folds. **The tiny C was blocking them.**
+  - But both are below the current model at C = 1e-05 (0.853): the fully fitted line ranks worse than the tiny-C one. With the real estate columns, the gap narrows from 0.0046 to 0.0015.
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
 ## Submissions
