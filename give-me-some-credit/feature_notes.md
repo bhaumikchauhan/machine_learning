@@ -92,6 +92,15 @@ Logistic regression on a few columns, chosen by the user as the ones that tell m
   - But both are below the current model at C = 1e-05 (0.853): the fully fitted line ranks worse than the tiny-C one. With the real estate columns, the gap narrows from 0.0046 to 0.0015.
 Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, NumberRealEstateLoansOrLines, and the 30–59 and 60–89 day counts.
 
+## Gradient boosting
+
+- **Plan, written before running (2026-10-31):**
+  - `HistGradientBoostingClassifier` with its defaults. Early stopping is on automatically above 10,000 rows: 10% of each training fold is held back, so the number of trees is chosen inside the fold.
+  - All 10 raw columns: blanks and 96/98 left as they are.
+  - Compared with the current logistic regression (0.853) on the same 50 folds, using the keep rule.
+  - The user writes the model code.
+- **Prediction (user):** close to the logistic regression, but a small negative gain.
+
 ## Submissions
 
 ### Submission 1 (2026-10-30): `submission.csv`
