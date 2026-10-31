@@ -113,6 +113,12 @@ Left for later: age, NumberOfDependents, NumberOfOpenCreditLinesAndLoans, Number
 - **Expected Kaggle score, written before uploading:** about 0.853. Kaggle's AUC is computed on part of the test set, so a difference of about ±0.005 would be noise.
 - **Kaggle score: public 0.85030, private 0.85386** (submitted with the Kaggle command-line tool). Both are within the expected noise: private is 0.001 above CV, public 0.003 below. The competition has ended, so both parts of the test set are scored; the private one decided the final ranking.
 
+### Submission 2 (2026-10-31): `submission_2.csv`
+
+- **The model:** boosting on the raw columns (CV AUC about 0.865), fitted on all 150,000 training borrowers. `create_boosting_submission`, written by Claude.
+- **Expected Kaggle score, written before uploading:** about 0.865, and about 0.012 above submission 1 on both the public and the private part.
+- **Kaggle score: public 0.86161, private 0.86670**: +0.0113 and +0.0128 over submission 1, as CV said (+0.0116). The probabilities now spread out (median 0.021, against 0.060 for the tiny-C logistic regression).
+
 ## Column overview (2026-10-29)
 
 All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):

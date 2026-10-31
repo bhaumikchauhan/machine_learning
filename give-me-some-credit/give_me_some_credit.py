@@ -177,6 +177,20 @@ def create_submission(path='submission.csv'):
     print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
           f"median {np.median(probability):.4f}, max {probability.max():.4f}")
 
+def create_boosting_submission(path='submission_2.csv'):
+    # Written by Claude. The current model (boosting on the raw columns), fitted on all 150,000 training borrowers.
+    X, y = retrieve_X_And_y()
+    X = X.drop(columns=X.columns[0])  # the id column
+    model = HistGradientBoostingClassifier(random_state=RANDOM_SEED).fit(X, y)
+
+    test = get_kaggle_test_data_from_csv()
+    ids = test.iloc[:, 0]  # the first column holds the Id (unnamed in cs-test.csv)
+    X_test = test.drop(columns=[test.columns[0], 'SeriousDlqin2yrs'])
+    probability = model.predict_proba(X_test)[:, 1]
+    pd.DataFrame({'Id': ids, 'Probability': probability}).to_csv(path, index=False)
+    print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
+          f"median {np.median(probability):.4f}, max {probability.max():.4f}")
+
 
 
 
