@@ -28,3 +28,15 @@ There is no target, and inertia (the sum of squared distances to the centre) alw
 - **downstream use:** the segments are for marketing strategy, so each must be describable and different enough to act on.
 
 **Range for k (fixed before seeing the curve):** 5 to 10. A marketing team can't run separate strategies for many more segments, and fewer than 5 would be too coarse to act on. The elbow is read only inside this range.
+
+## Missing values
+
+**MINIMUM_PAYMENTS (313 missing).** The column behaves like the minimum *due*, not the minimum paid: for 2,365 of the 8,637 customers who have it, it is larger than PAYMENTS (the total paid). Of the 313 blanks, 240 have PAYMENTS = 0 (none of the other customers do), 74 have a $0 balance, 188 a balance of $50 or less, and 51 over $1,000.
+
+35 customers have balance, payments and minimum due all 0, yet 33 of them bought something (median $110) and 2 took a cash advance. That doesn't add up (refunds, payments recorded elsewhere, or bad records; the description doesn't say). They are 0.4% of customers, too few to form or move a cluster, so this isn't pursued.
+
+**Decision:** test two fills.
+- **Version 1 (now):** 0, meaning nothing due.
+- **Version 2 (later):** the median MINIMUM_PAYMENTS of customers with a similar balance.
+
+Without a target, the two are compared with the judging rules below, and by how many customers change cluster between them.
