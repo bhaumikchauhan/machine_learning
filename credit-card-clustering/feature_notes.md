@@ -26,3 +26,5 @@ There is no target, and inertia (the sum of squared distances to the centre) alw
 - **the elbow:** the k after which inertia stops falling much;
 - **cluster sizes:** a k with several clusters under 1% of customers is not good;
 - **downstream use:** the segments are for marketing strategy, so each must be describable and different enough to act on.
+
+**Range for k (fixed before seeing the curve):** 5 to 10. A marketing team can't run separate strategies for many more segments, and fewer than 5 would be too coarse to act on. The elbow is read only inside this range.
