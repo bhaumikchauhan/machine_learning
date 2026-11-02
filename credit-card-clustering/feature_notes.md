@@ -54,3 +54,7 @@ Without a target, the two are compared with the judging rules above, and by how 
 Pipeline: ColumnTransformer (MINIMUM_PAYMENTS: fill 0, log, scale; CREDIT_LIMIT: fill median, log, scale; the other 8 amount and count columns: log, scale; CASH_ADVANCE_FREQUENCY: clip at 1, scale; the other 6 bounded columns: scale), then KMeans.
 
 **Prediction (before running):** the biggest of the 5 clusters holds about 40% of customers.
+
+**Result:** the preprocessing gives 17 columns, no blanks, each with mean 0 and sd 1; the most extreme value is 5.1 sd (32 sd before the log). Cluster shares: 27.8%, 22.4%, 21.2%, 15.2%, 13.4%. The biggest cluster holds 28%, not the predicted 40%: k-means split the customers fairly evenly. No cluster is under 1%.
+
+Two earlier attempts went wrong, and are worth remembering: a ColumnTransformer runs its entries side by side on the original columns, not one after another. Entries for "fill", "log" and "scale" on the same column gave three copies, two still with blanks (KMeans: "Input X contains NaN"). Later, overlapping "log" and "scale" entries gave 25 columns instead of 17. Chained steps go in a Pipeline inside one entry, and each column belongs to exactly one entry.
