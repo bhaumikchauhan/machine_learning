@@ -42,3 +42,9 @@ There is no target, and inertia (the sum of squared distances to the centre) alw
 Without a target, the two are compared with the judging rules above, and by how many customers change cluster between them.
 
 **CREDIT_LIMIT (1 missing).** An ordinary customer (balance $18, one $187 cash advance). **Decision:** fill with the median credit limit ($3,000), fitted inside the Pipeline so new customers get the same fill.
+
+## Columns: log or not (decided 2026-11-02)
+
+- **log(1 + x), then scaled:** MINIMUM_PAYMENTS, ONEOFF_PURCHASES, INSTALLMENTS_PURCHASES, PURCHASES, CASH_ADVANCE, CASH_ADVANCE_TRX, PAYMENTS, PURCHASES_TRX, BALANCE, CREDIT_LIMIT. Most extreme customer 7 to 32 sd from the mean when only scaled.
+- **Scaled only:** PRC_FULL_PAYMENT, PURCHASES_FREQUENCY, ONEOFF_PURCHASES_FREQUENCY, PURCHASES_INSTALLMENTS_FREQUENCY, BALANCE_FREQUENCY, TENURE. Bounded, most extreme customer under 3 sd (BALANCE_FREQUENCY and TENURE have their tail on the low side, at most 0.5 sd above).
+- **CASH_ADVANCE_FREQUENCY: clipped at 1, scaled, not logged.** 8 customers are above 1 (max 1.5), impossible for a frequency. The log barely bends a 0–1 scale (log(1 + 1) = 0.69); its customers beyond 3 sd come from 52% sitting at 0, not from a long tail.
