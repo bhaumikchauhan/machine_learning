@@ -39,4 +39,4 @@ There is no target, and inertia (the sum of squared distances to the centre) alw
 - **Version 1 (now):** 0, meaning nothing due.
 - **Version 2 (later):** the median MINIMUM_PAYMENTS of customers with a similar balance.
 
-Without a target, the two are compared with the judging rules below, and by how many customers change cluster between them.
+Without a target, the two are compared with the judging rules above, and by how many customers change cluster between them.
