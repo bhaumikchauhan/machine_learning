@@ -203,3 +203,9 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **The scaling defines "similar".** After a log, gaps are ratios: $0–$20, $20–$420 and $420–$8,800 are each about 1 sd apart (raw: 0.01, 0.19, 3.92 sd). Raw says small dollar gaps don't matter; log says doubling matters the same at any level. With no target, no score says which is right; pick one, apply it to every amount column alike (or the unlogged ones dominate), and judge the clusters it gives. *CC.*
 
 **Inertia always falls with k.** Inertia (the sum of squared distances to each point's centre) is k-means' own score; at k = number of points it is 0. So the lowest inertia isn't the goal. The elbow (where the curve flattens), cluster sizes (no tiny clusters) and whether the segments are usable downstream pick k. *CC.*
+
+**Cluster profiles.** To judge clusters, describe each in the original units (dollars, frequencies), not in sd: its size and the median of key columns (the median, because one extreme customer pulls a mean far from the typical member). A k is usable when every cluster gets its own name and its own action; when a higher k only splits a cluster on a small difference ($900 vs $1,100 balance), it's too high. *CC: k = 6 gave six named segments; 7 and 8 added nothing usable.*
+
+**Clustering mixes every column.** One distance over all columns makes each cluster a mix of behaviours (buying, cash, payments). If the user of the segments thinks in separate questions ("frequent buyer?", "borrows cash?"), segmenting each dimension on its own and crossing them is an alternative, at the cost of many small cells. *CC.*
+
+**No target, so state a goal.** A dataset without a problem statement gives no way to say which clusters are right. Write down what the segments are for before judging them. *CC: "segments for a marketing strategy".*
