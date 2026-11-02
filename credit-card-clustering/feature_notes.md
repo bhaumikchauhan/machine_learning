@@ -40,3 +40,5 @@ There is no target, and inertia (the sum of squared distances to the centre) alw
 - **Version 2 (later):** the median MINIMUM_PAYMENTS of customers with a similar balance.
 
 Without a target, the two are compared with the judging rules above, and by how many customers change cluster between them.
+
+**CREDIT_LIMIT (1 missing).** An ordinary customer (balance $18, one $187 cash advance). **Decision:** fill with the median credit limit ($3,000), fitted inside the Pipeline so new customers get the same fill.
