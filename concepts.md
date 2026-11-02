@@ -111,6 +111,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Additive on the log-odds scale.** Logistic regression adds weights in log-odds, so without interactions the class effect is the same for men and women. *T: Pclass interaction.*
 
+**Polynomial features (not tried).** A squared column lets a linear model bend while staying linear in its weights: risk = w₁ × lines + w₂ × lines² + b is a U when w₁ < 0 and w₂ > 0. `PolynomialFeatures` adds them (also products x × y, which are interactions). Catches: x² of a skewed column explodes, so cap or scale first; the curve keeps rising past the data (extrapolation); and many new columns need regularization. Flags, caps and bins are the hand-made alternative; trees learn the shape without any of this. *GMSC: open credit lines and real estate loans were U-shaped; we used flags and caps, then boosting.*
+
 **Dates and ages in a linear model.** "Today − year" is the year flipped and shifted: same predictions, only the weight's sign changes. Age at sale (YrSold − YearBuilt) does differ, but a single age weight can't express a market trend: a later sale makes the house "older", which lowers its price. A market effect needs its own column (YrSold), and should be checked first: Ames prices were flat 2006–2010 (yearly leftovers within ±0.02), not +5% a year. *HP: YearBuilt, YrSold.*
 
 **Least squares and outliers.** Minimizing *squared* error lets one far-off row pull the line: an error of $463k squared outweighs hundreds of ordinary rows, and a row at the far end of the x-axis tilts the line most. Two houses of 1,460 moved the price-per-sq-ft slope by 7%. *HP: Ids 524, 1299.*
