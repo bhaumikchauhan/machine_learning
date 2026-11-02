@@ -77,5 +77,41 @@ def raw_against_log(column='PURCHASES'):
     save(fig, f'{column.lower()}_raw_against_log.png')
 
 
+def inertia_by_k(k_values=range(2, 16)):
+    # Uses the user's Pipeline; only n_clusters changes. Returns inertia and the smallest cluster's share per k.
+    import credit_card_clustering as ccc
+    X = load().drop(columns=['CUST_ID'])
+    rows = []
+    for k in k_values:
+        pipeline = ccc.build_pipeline()
+        pipeline.set_params(model__n_clusters=k)
+        pipeline.fit(X)
+        model = pipeline.named_steps['model']
+        shares = pd.Series(model.labels_).value_counts(normalize=True)
+        rows.append({'k': k, 'inertia': model.inertia_, 'smallest_share': shares.min(), 'largest_share': shares.max()})
+    table = pd.DataFrame(rows).set_index('k')
+    table['drop'] = -table['inertia'].diff()
+    table['drop_share'] = table['drop'] / table['inertia'].shift()
+    print(table.round({'inertia': 0, 'drop': 0, 'smallest_share': 3, 'largest_share': 3, 'drop_share': 3}).to_string())
+    return table
+
+
+def plot_inertia(table, allowed=(5, 10), file_name='inertia_by_k.png'):
+    fig, ax = plt.subplots(figsize=(9, 5), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    ax.axvspan(allowed[0] - 0.5, allowed[1] + 0.5, color=GRID, alpha=0.5, linewidth=0)
+    ax.annotate(f"allowed range ({allowed[0]} to {allowed[1]})", (allowed[0] - 0.4, table['inertia'].max()),
+                color=INK_SECONDARY, fontsize=9, va='top')
+    ax.plot(table.index, table['inertia'], color=BLUE, linewidth=2, marker='o', markersize=8,
+            markeredgecolor=SURFACE, markeredgewidth=2)
+    ax.set_xticks(table.index)
+    ax.set_xlabel('number of clusters (k)', color=INK_SECONDARY)
+    ax.set_ylabel('inertia (sum of squared distances to the centre)', color=INK_SECONDARY)
+    ax.set_title('Inertia by number of clusters (version 1)', loc='left', color=INK, fontsize=12)
+    save(fig, file_name)
+
+
 if __name__ == '__main__':
-    raw_against_log()
+    # raw_against_log()  # done: plots/purchases_raw_against_log.png
+    plot_inertia(inertia_by_k())

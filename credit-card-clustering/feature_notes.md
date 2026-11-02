@@ -58,3 +58,20 @@ Pipeline: ColumnTransformer (MINIMUM_PAYMENTS: fill 0, log, scale; CREDIT_LIMIT:
 **Result:** the preprocessing gives 17 columns, no blanks, each with mean 0 and sd 1; the most extreme value is 5.1 sd (32 sd before the log). Cluster shares: 27.8%, 22.4%, 21.2%, 15.2%, 13.4%. The biggest cluster holds 28%, not the predicted 40%: k-means split the customers fairly evenly. No cluster is under 1%.
 
 Two earlier attempts went wrong, and are worth remembering: a ColumnTransformer runs its entries side by side on the original columns, not one after another. Entries for "fill", "log" and "scale" on the same column gave three copies, two still with blanks (KMeans: "Input X contains NaN"). Later, overlapping "log" and "scale" entries gave 25 columns instead of 17. Chained steps go in a Pipeline inside one entry, and each column belongs to exactly one entry.
+
+## Choosing k (version 1)
+
+**Prediction (before running):** the inertia curve flattens at k = 7.
+
+**Result** (`plots/inertia_by_k.png`, k = 2 to 15 for context, read only in 5 to 10):
+
+| k | Inertia | Drop from k − 1 | Smallest cluster | Largest cluster |
+|---|---|---|---|---|
+| 5 | 77,397 | 10.2% | 13.4% | 27.8% |
+| 6 | 70,862 | 8.4% | 10.1% | 24.7% |
+| 7 | 67,394 | 4.9% | 4.7% | 22.5% |
+| 8 | 65,100 | 3.4% | 6.4% | 22.0% |
+| 9 | 61,205 | 6.0% | 2.8% | 21.9% |
+| 10 | 59,299 | 3.1% | 2.8% | 21.8% |
+
+The drops halve from 6 to 7 (8.4% to 4.9%), so the curve bends around 7, as predicted, but softly: there is no sharp elbow, and the drops after 7 are uneven (9 drops more than 8). Every k in the range passes the size check (smallest cluster above 1%). The elbow narrows k to about 6 to 8; it doesn't pick one.
