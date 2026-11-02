@@ -48,3 +48,9 @@ Without a target, the two are compared with the judging rules above, and by how 
 - **log(1 + x), then scaled:** MINIMUM_PAYMENTS, ONEOFF_PURCHASES, INSTALLMENTS_PURCHASES, PURCHASES, CASH_ADVANCE, CASH_ADVANCE_TRX, PAYMENTS, PURCHASES_TRX, BALANCE, CREDIT_LIMIT. Most extreme customer 7 to 32 sd from the mean when only scaled.
 - **Scaled only:** PRC_FULL_PAYMENT, PURCHASES_FREQUENCY, ONEOFF_PURCHASES_FREQUENCY, PURCHASES_INSTALLMENTS_FREQUENCY, BALANCE_FREQUENCY, TENURE. Bounded, most extreme customer under 3 sd (BALANCE_FREQUENCY and TENURE have their tail on the low side, at most 0.5 sd above).
 - **CASH_ADVANCE_FREQUENCY: clipped at 1, scaled, not logged.** 8 customers are above 1 (max 1.5), impossible for a frequency. The log barely bends a 0–1 scale (log(1 + 1) = 0.69); its customers beyond 3 sd come from 52% sitting at 0, not from a long tail.
+
+## First k-means run (version 1, k = 5)
+
+Pipeline: ColumnTransformer (MINIMUM_PAYMENTS: fill 0, log, scale; CREDIT_LIMIT: fill median, log, scale; the other 8 amount and count columns: log, scale; CASH_ADVANCE_FREQUENCY: clip at 1, scale; the other 6 bounded columns: scale), then KMeans.
+
+**Prediction (before running):** the biggest of the 5 clusters holds about 40% of customers.
