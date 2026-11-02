@@ -89,6 +89,8 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Why scale.** A penalty (Ridge, Lasso) charges every weight's size equally. A column in thousands needs a tiny weight and a 0/1 column a big one for the same effect, so the penalty would hit them unequally. Plain least squares, with no penalty, gives the same predictions with or without scaling: change the units and the best weight changes to match (weight 10 per sq ft = weight 10,000 per thousand sq ft). *HP: LotArea.*
 
+**ColumnTransformer runs side by side, Pipeline runs in order.** A ColumnTransformer entry is (name, step, columns): every entry gets the *original* columns and the outputs are placed next to each other. A Pipeline step is (name, step): each step gets the previous step's output. So "fill, then log, then scale" for one column is a Pipeline inside one ColumnTransformer entry, and each column belongs to exactly one entry. Separate entries for fill, log and scale on the same column give three copies, two of them still blank. Columns not named in any entry are dropped. *CC: KMeans "Input X contains NaN"; then 25 columns instead of 17. GMSC: flags dropped until a passthrough entry was added.*
+
 ## Statistics
 
 **Uncertainty of a rate.** An observed rate p from n rows varies around the true rate by about ±2 × √(p(1 − p) / n) (95% of samples). Halving it takes 4 times the rows. It fails for tiny n or p = 0 or 1 (3 of 3 gives ±0); then compute directly: 3 of 3 survivors is still 12.5% likely at a true rate of 50%. *T: min_samples_leaf.*
