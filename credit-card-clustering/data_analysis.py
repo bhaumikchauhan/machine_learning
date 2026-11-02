@@ -112,6 +112,28 @@ def plot_inertia(table, allowed=(5, 10), file_name='inertia_by_k.png'):
     save(fig, file_name)
 
 
+PROFILE_COLUMNS = ['BALANCE', 'PURCHASES', 'ONEOFF_PURCHASES', 'INSTALLMENTS_PURCHASES', 'CASH_ADVANCE',
+                   'PURCHASES_FREQUENCY', 'CASH_ADVANCE_FREQUENCY', 'PRC_FULL_PAYMENT', 'CREDIT_LIMIT', 'TENURE']
+
+
+def cluster_profiles(k):
+    # Size and median of the key columns per cluster, in the original units (dollars, frequencies, months).
+    import credit_card_clustering as ccc
+    data = load()
+    pipeline = ccc.build_pipeline()
+    pipeline.set_params(model__n_clusters=k)
+    pipeline.fit(data.drop(columns=['CUST_ID']))
+    labels = pipeline.named_steps['model'].labels_
+    profile = data[PROFILE_COLUMNS].groupby(labels).median()
+    profile.insert(0, 'share', pd.Series(labels).value_counts(normalize=True))
+    profile = profile.sort_values('share', ascending=False)
+    print(f"k = {k}")
+    print(profile.round(2).to_string())
+    return profile
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
-    plot_inertia(inertia_by_k())
+    # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
+    for k in (6, 7, 8):
+        cluster_profiles(k)
