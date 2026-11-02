@@ -88,3 +88,11 @@ k = 6, named by the user:
 | 3 | 16% | $812 | $425 (all one-off) | $0 | 0.25 | 0% | $2,500 | moderate users |
 | 0 | 14% | $2,641 | $833 | $1,945 | 0.75 | 0% | $5,000 | cash and credit users |
 | 4 | 10% | $12 | $114 | $0 | 0.17 | 0% | $2,700 | inactive |
+
+k = 7 keeps the six and adds a 5% cluster of newer customers (median tenure 7 months, against 12 everywhere else) who mainly borrow cash. Not a separate strategy: onboarding offers can use TENURE directly. k = 8 drops that cluster and splits two of the six: high usage buyers into those who carry a balance (12%, 0% paid in full) and those who pay off (6%, 88%); and cash and credit users into frequent (10%, purchase frequency 0.90) and occasional buyers (8%, 0.25). The user judged that mixing buying frequency with cash isn't useful: marketing would treat "frequent vs occasional buyer" and "borrows cash or not" as separate questions.
+
+**Goal, stated by us:** the Kaggle dataset has no problem statement, so the goal is ours: segments for a marketing strategy, from k-means on all columns (this problem is for learning unsupervised methods).
+
+**Decision: k = 6 for version 1.** All six clusters have distinct names and actions; 7 and 8 add nothing usable.
+
+**Alternative, not taken:** segment each dimension on its own (buying frequency, cash advance, paying in full) by rules or by k-means on that dimension's columns, and cross the results. Each answer stays separate, but the cells multiply (3 × 2 × 2 = 12) and some become tiny. That is rule-based segmentation, not clustering on all columns.
