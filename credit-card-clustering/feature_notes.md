@@ -75,3 +75,16 @@ Two earlier attempts went wrong, and are worth remembering: a ColumnTransformer 
 | 10 | 59,299 | 3.1% | 2.8% | 21.8% |
 
 The drops halve from 6 to 7 (8.4% to 4.9%), so the curve bends around 7, as predicted, but softly: there is no sharp elbow, and the drops after 7 are uneven (9 drops more than 8). Every k in the range passes the size check (smallest cluster above 1%). The elbow narrows k to about 6 to 8; it doesn't pick one.
+
+**Profiles** (`cluster_profiles(k)` in `data_analysis.py`: size and median of key columns per cluster, in original units; medians because one $49,040 spender would pull a mean far from the typical member). CASH_ADVANCE is cash withdrawn on the card (a loan with a fee and interest from day one), not a payment in advance.
+
+k = 6, named by the user:
+
+| Cluster | Share | Median balance | Purchases | Cash advance | Purchase frequency | Paid in full | Credit limit | Name |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 25% | $1,599 | $0 | $1,364 | 0.00 | 0% | $3,000 | only cash borrowers |
+| 5 | 19% | $97 | $469 (all instalments) | $0 | 0.92 | 18% | $2,000 | frequent buyers, low balance and limit |
+| 2 | 16% | $759 | $2,321 | $0 | 1.00 | 8% | $6,500 | high usage buyers |
+| 3 | 16% | $812 | $425 (all one-off) | $0 | 0.25 | 0% | $2,500 | moderate users |
+| 0 | 14% | $2,641 | $833 | $1,945 | 0.75 | 0% | $5,000 | cash and credit users |
+| 4 | 10% | $12 | $114 | $0 | 0.17 | 0% | $2,700 | inactive |
