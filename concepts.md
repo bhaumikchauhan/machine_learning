@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md).
 
 ## Lessons from Give Me Some Credit
 
@@ -191,3 +191,13 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Outlier removal and CV.** Removing hard rows from the validation folds too makes scores look better just because the hard rows are gone. To measure whether removing them helps, remove them from the training part of each fold only. *HP: Ids 524, 1299.*
 
 **When to stop.** Signals: clearly above a simple baseline; much of the remaining error is chance (same inputs, different outcome); different models agree; gains below the fold noise; and validation wear: every comparison made on the same rows makes the CV score a little more optimistic (multiple comparisons). *T.*
+
+## Clustering
+
+**Distances need scaling.** k-means groups customers by distance, summed over all columns, so the column with the biggest numbers decides. Purchases $1,000 against $1,100 and frequency 0.1 against 0.9: distance √(100² + 0.8²) ≈ 100, all from dollars, though the frequency gap is the largest possible. After StandardScaler (gaps in sd: 0.05 and 2.0) frequency decides. *CC.*
+
+**Outliers grab clusters.** k-means minimises the sum of *squared* distances, so one customer 22 sd from the rest adds 484 against about 1 for a typical one. Giving them their own centre cuts the total more than splitting hundreds of ordinary customers, so a cluster gets spent on a handful of extremes. This is the objective doing it on purpose, not a local minimum (a bad start, which `n_init` handles). *CC: PURCHASES, biggest customer 22.5 sd raw, 2.0 sd after log(1 + x).*
+
+**The scaling defines "similar".** After a log, gaps are ratios: $0–$20, $20–$420 and $420–$8,800 are each about 1 sd apart (raw: 0.01, 0.19, 3.92 sd). Raw says small dollar gaps don't matter; log says doubling matters the same at any level. With no target, no score says which is right; pick one, apply it to every amount column alike (or the unlogged ones dominate), and judge the clusters it gives. *CC.*
+
+**Inertia always falls with k.** Inertia (the sum of squared distances to each point's centre) is k-means' own score; at k = number of points it is 0. So the lowest inertia isn't the goal. The elbow (where the curve flattens), cluster sizes (no tiny clusters) and whether the segments are usable downstream pick k. *CC.*
