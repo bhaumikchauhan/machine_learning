@@ -2,7 +2,7 @@
 
 Decisions and reasoning for grouping credit card customers into segments. The task is unsupervised: there is no target column, so there is no score to cross-validate against, and judging the groups is part of the work.
 
-Status: in progress (started 2026-10-31).
+Status: finished (2026-11-03). Final result: k-means, k = 6, version 1 (MINIMUM_PAYMENTS blank = 0), `n_init=10`; six named segments (see "Decision: `n_init=10`" at the end for the current cluster numbers). Lessons are at the top of `concepts.md`.
 
 **Who writes what** (the same split as Give Me Some Credit):
 - **The user writes:** the Pipeline and anything fitted on data (scaler, PCA, k-means).

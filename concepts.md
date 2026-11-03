@@ -4,6 +4,16 @@ Concepts that came up while working on the problems in this repo, each in a few 
 
 Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md).
 
+## Lessons from credit card clustering
+
+Final result: k-means, k = 6, on all 17 columns (amounts logged, all scaled, MINIMUM_PAYMENTS blank = 0, `n_init=10`). Six named segments: only cash borrowers 25%, frequent instalment buyers 20%, high usage buyers 16%, moderate users 16%, cash and credit users 14%, inactive 10%.
+1. **Without a target, state the goal first.** The dataset had no problem statement, so "segments for a marketing strategy" was ours, and it set how the clusters were judged: the elbow, no cluster under 1%, and every cluster getting its own name and action.
+2. **The preprocessing defines "similar".** Distances follow the biggest numbers, so scaling is required; a log changes gaps from dollars to ratios. No score says which is right, so the choice is made on purpose and applied to every amount column alike.
+3. **Inertia can't pick k.** It always falls. The elbow narrowed k to 6–8 softly; the profiles decided: 7 and 8 only added a tenure cluster and splits that mixed buying with cash.
+4. **Profiles, in original units and medians, are the real check.** They caught a misread column (cash advance is borrowing cash, not paying in advance) and showed which splits are actionable.
+5. **Test the choices that could matter, and keep the simple one when they don't.** The KNN fill moved 3.3% of customers and left the segments alike; one bad start moved 1,793, so `n_init=10`.
+6. **ColumnTransformer entries run side by side, Pipeline steps in order:** fill → log → scale on one column is a Pipeline inside one entry.
+
 ## Lessons from Give Me Some Credit
 
 Final model: gradient boosting on the raw columns. CV AUC 0.865; Kaggle private 0.86670 (logistic regression: 0.853 CV, 0.85386 Kaggle).
