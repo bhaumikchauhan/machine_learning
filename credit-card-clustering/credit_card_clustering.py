@@ -54,17 +54,36 @@ def build_pipeline():
     ])
 
 
-    return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=5, random_state=42))])
+    return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=6, random_state=42))])
 
-def main():
+
+def pca_coordinates():
+    from sklearn.decomposition import PCA
     X = get_data_from_csv()
-    #drop the 'CUST_ID' column since it is not a feature
     X = X.drop(columns=['CUST_ID'])
     pipeline = build_pipeline()
     pipeline.fit(X)
-    print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
+    # reuses the fitted preprocessing: the same 17 scaled columns KMeans saw
+    X_transformed = pipeline.named_steps['preprocess'].transform(X)
+    pca = PCA(n_components=2)
+    coordinates = pca.fit_transform(X_transformed)
     labels = pipeline.named_steps['model'].labels_
-    print(pd.Series(labels).value_counts(normalize=True))
+    print("Explained variance ratio:", pca.explained_variance_ratio_)
+    return coordinates, labels
+
+
+def main():
+    X_pca = pca_coordinates()
+    # X = get_data_from_csv()
+    # #drop the 'CUST_ID' column since it is not a feature
+    # X = X.drop(columns=['CUST_ID'])
+    # pipeline = build_pipeline()
+    # pipeline.fit(X)
+    # print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
+    # labels = pipeline.named_steps['model'].labels_
+    # print(pd.Series(labels).value_counts(normalize=True))
+
+
 
 
 if __name__ == '__main__':

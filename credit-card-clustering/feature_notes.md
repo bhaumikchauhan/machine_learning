@@ -102,3 +102,5 @@ k = 7 keeps the six and adds a 5% cluster of newer customers (median tenure 7 mo
 PCA on the 17 scaled columns, only to draw the clusters in 2-D; k-means still clusters on all 17.
 
 **Prediction (before running):** the first 2 axes capture 44% of the spread.
+
+**Result** (`plots/pca_clusters.png`): the first 2 axes capture 33.7% + 22.4% = **56.1%** of the spread, more than the predicted 44%. The cluster numbers match the k = 6 profiles. Only cash borrowers (cluster 1) stand clearly apart on the left; the others touch or overlap. Overlap in 2-D doesn't mean overlap in 17 columns: 44% of the spread isn't in the picture.

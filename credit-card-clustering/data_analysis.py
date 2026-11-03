@@ -132,8 +132,33 @@ def cluster_profiles(k):
     return profile
 
 
+# Six categorical colours in the reference palette's fixed order
+CLUSTER_COLOURS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300']
+
+
+def plot_pca_clusters(file_name='pca_clusters.png'):
+    # The user's PCA coordinates (first 2 axes of the 17 scaled columns), one dot per customer, coloured by cluster.
+    import credit_card_clustering as ccc
+    coordinates, labels = ccc.pca_coordinates()
+    fig, ax = plt.subplots(figsize=(9, 7), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    ax.grid(axis='x', color=GRID, linewidth=0.8)
+    for cluster in sorted(set(labels)):
+        points = coordinates[labels == cluster]
+        ax.scatter(points[:, 0], points[:, 1], s=8, alpha=0.5, color=CLUSTER_COLOURS[cluster % len(CLUSTER_COLOURS)],
+                   linewidths=0, label=f"cluster {cluster} ({len(points) / len(labels):.0%})")
+    ax.legend(frameon=False, labelcolor=INK_SECONDARY, markerscale=2.5, loc='best')
+    ax.set_xlabel('PCA axis 1', color=INK_SECONDARY)
+    ax.set_ylabel('PCA axis 2', color=INK_SECONDARY)
+    ax.set_title(f'Customers on the first 2 PCA axes, {len(set(labels))} clusters (version 1)', loc='left',
+                 color=INK, fontsize=12)
+    save(fig, file_name)
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
-    for k in (6, 7, 8):
-        cluster_profiles(k)
+    # for k in (6, 7, 8):  # done: profiles in feature_notes.md
+    #     cluster_profiles(k)
+    plot_pca_clusters()
