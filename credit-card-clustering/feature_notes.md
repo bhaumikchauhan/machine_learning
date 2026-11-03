@@ -139,3 +139,14 @@ KMeans with `init='k-means++'` runs once by default (`n_init='auto'` means 1 sta
 | `n_init=10`, seed 42 (best of 10 starts) | 70,860 |
 
 Seed 3 got stuck in a local minimum: from its starting centres, every small move made things worse, though a better arrangement existed. Our seed 42 is at the good solution (best of 10 gives the same inertia), so the profiles stand.
+
+**Decision: `n_init=10` added to KMeans** (both versions). Inertia 70,860; 108 customers (1.2%) change cluster against the single start, the six profiles stay within a few dollars, but the cluster **numbers** change (`plots/pca_clusters.png` regenerated):
+
+| Name | Number before (single start) | Number now (n_init=10) | Share |
+|---|---|---|---|
+| only cash borrowers | 1 | 0 | 25% |
+| frequent buyers, low balance and limit | 5 | 4 | 20% |
+| high usage buyers | 2 | 2 | 16% |
+| moderate users | 3 | 1 | 16% |
+| cash and credit users | 0 | 3 | 14% |
+| inactive | 4 | 5 | 10% |

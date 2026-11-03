@@ -21,7 +21,7 @@ def get_data_from_csv():
 
 def build_pipeline(version=1):
     if version == 2:
-        return Pipeline([('preprocess', build_preprocess_version_2()), ('model', KMeans(n_clusters=6, random_state=42))])
+        return Pipeline([('preprocess', build_preprocess_version_2()), ('model', KMeans(n_clusters=6, n_init=10, random_state=42))])
     preprocess = ColumnTransformer([
         ('minimum_payments', 
          Pipeline([
@@ -56,7 +56,7 @@ def build_pipeline(version=1):
     ])
 
 
-    return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=6, random_state=42))])
+    return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=6, n_init=10, random_state=42))])
 
 
 # Written by Claude (on request). Version 2: MINIMUM_PAYMENTS (and the one CREDIT_LIMIT blank) filled from the
