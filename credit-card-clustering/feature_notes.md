@@ -104,3 +104,7 @@ PCA on the 17 scaled columns, only to draw the clusters in 2-D; k-means still cl
 **Prediction (before running):** the first 2 axes capture 44% of the spread.
 
 **Result** (`plots/pca_clusters.png`): the first 2 axes capture 33.7% + 22.4% = **56.1%** of the spread, more than the predicted 44%. The cluster numbers match the k = 6 profiles. Only cash borrowers (cluster 1) stand clearly apart on the left; the others touch or overlap. Overlap in 2-D doesn't mean overlap in 17 columns: 44% of the spread isn't in the picture.
+
+Reading the axes (`pca.components_`, each axis's weight on every scaled column):
+- **Axis 1, buy or borrow cash:** purchase columns +0.21 to +0.38, cash advance columns −0.24 to −0.29, the rest near 0. Only cash borrowers sit far left, high usage buyers far right.
+- **Axis 2, how much balance the customer carries and moves:** BALANCE +0.43, MINIMUM_PAYMENTS +0.40, PAYMENTS +0.35, BALANCE_FREQUENCY +0.34. Inactive customers ($12 balance) sit at the bottom, cash and credit users ($2,641 balance) at the top.
