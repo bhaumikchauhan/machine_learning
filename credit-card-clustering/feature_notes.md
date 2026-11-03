@@ -125,3 +125,5 @@ Implemented by Claude (on request) as `build_pipeline(version=2)`: one entry for
 | For comparison: version 1 with a different KMeans seed (0, 1, 2, 4) | 8 to 143 |
 
 The version 2 fills are small: median $35, quartiles $14 to $154 (version 1: $0). Cluster shares barely move (the largest change: inactive 10.1% to 11.0%). One seed (3) changed 1,793 customers: a different solution, not noise (see below).
+
+**Decision: keep version 1** (blank = 0). Version 2 moves 3.3% of customers and leaves the six segments and their shares about the same, so the simpler fill stays.
