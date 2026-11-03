@@ -112,3 +112,16 @@ Reading the axes (`pca.components_`, each axis's weight on every scaled column):
 ## Version 2: MINIMUM_PAYMENTS filled from similar customers
 
 **Decision:** `KNNImputer`, with neighbours found on BALANCE, CREDIT_LIMIT and PAYMENTS. It measures distance, so the same scaling lesson applies: the neighbour columns are logged and scaled before imputing. It fills with the *mean* of the neighbours' values, not the median planned earlier; on the log scale that mean is far less pulled by one big customer.
+
+Implemented by Claude (on request) as `build_pipeline(version=2)`: one entry for MINIMUM_PAYMENTS, BALANCE, CREDIT_LIMIT and PAYMENTS with log, then scale, then `KNNImputer(n_neighbors=5)` (impute last, because the neighbours are found by distance). The single CREDIT_LIMIT blank is filled by its neighbours too.
+
+**Result** (`compare_versions()` in `data_analysis.py`; cluster numbers matched by the most shared customers):
+
+| | Customers who change cluster |
+|---|---|
+| All | 297 of 8,950 (3.3%) |
+| The 313 with a blank MINIMUM_PAYMENTS | 60 |
+| The other 8,637 | 237 (the blanks move the centres a little, and customers near a boundary flip) |
+| For comparison: version 1 with a different KMeans seed (0, 1, 2, 4) | 8 to 143 |
+
+The version 2 fills are small: median $35, quartiles $14 to $154 (version 1: $0). Cluster shares barely move (the largest change: inactive 10.1% to 11.0%). One seed (3) changed 1,793 customers: a different solution, not noise (see below).

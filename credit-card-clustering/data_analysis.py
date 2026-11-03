@@ -116,11 +116,11 @@ PROFILE_COLUMNS = ['BALANCE', 'PURCHASES', 'ONEOFF_PURCHASES', 'INSTALLMENTS_PUR
                    'PURCHASES_FREQUENCY', 'CASH_ADVANCE_FREQUENCY', 'PRC_FULL_PAYMENT', 'CREDIT_LIMIT', 'TENURE']
 
 
-def cluster_profiles(k):
+def cluster_profiles(k, version=1):
     # Size and median of the key columns per cluster, in the original units (dollars, frequencies, months).
     import credit_card_clustering as ccc
     data = load()
-    pipeline = ccc.build_pipeline()
+    pipeline = ccc.build_pipeline(version)
     pipeline.set_params(model__n_clusters=k)
     pipeline.fit(data.drop(columns=['CUST_ID']))
     labels = pipeline.named_steps['model'].labels_
@@ -156,9 +156,43 @@ def plot_pca_clusters(file_name='pca_clusters.png'):
     save(fig, file_name)
 
 
+def compare_versions():
+    # Version 1 (MINIMUM_PAYMENTS blank = 0) against version 2 (KNNImputer). Cluster numbers are arbitrary, so each
+    # version 2 cluster is first matched to the version 1 cluster it shares most customers with.
+    from scipy.optimize import linear_sum_assignment
+    import credit_card_clustering as ccc
+    data = load()
+    X = data.drop(columns=['CUST_ID'])
+    labels = {}
+    for version in (1, 2):
+        pipeline = ccc.build_pipeline(version).fit(X)
+        labels[version] = pipeline.named_steps['model'].labels_
+        if version == 2:
+            filled = pipeline.named_steps['preprocess'].named_transformers_['account_size']
+            log_scaled = filled[:-1].transform(X[ccc.ACCOUNT_SIZE_COLUMNS])
+            scaler = filled.named_steps['scale']
+            dollars = np.expm1(scaler.inverse_transform(filled.named_steps['fill'].transform(log_scaled)))[:, 0]
+    overlap = pd.crosstab(labels[1], labels[2])
+    rows, cols = linear_sum_assignment(-overlap.values)
+    match = {overlap.columns[c]: overlap.index[r] for r, c in zip(rows, cols)}
+    matched = pd.Series(labels[2]).map(match).values
+    changed = matched != labels[1]
+    blank = X['MINIMUM_PAYMENTS'].isna().values
+    print(f"Customers who change cluster: {changed.sum()} of {len(X)} ({changed.mean():.1%})")
+    print(f"  of the {blank.sum()} with a blank MINIMUM_PAYMENTS: {changed[blank].sum()}")
+    print(f"  of the other {(~blank).sum()}: {changed[~blank].sum()}")
+    print(f"Version 2 fills for the blanks: median ${np.median(dollars[blank]):,.0f}, "
+          f"quartiles ${np.percentile(dollars[blank], 25):,.0f} to ${np.percentile(dollars[blank], 75):,.0f}")
+    print("Cluster shares, version 1 against version 2 (matched numbers):")
+    print(pd.DataFrame({'version 1': pd.Series(labels[1]).value_counts(normalize=True),
+                        'version 2': pd.Series(matched).value_counts(normalize=True)}).round(3).to_string())
+    return changed
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
     # for k in (6, 7, 8):  # done: profiles in feature_notes.md
     #     cluster_profiles(k)
-    plot_pca_clusters()
+    # plot_pca_clusters()  # done: plots/pca_clusters.png
+    compare_versions()

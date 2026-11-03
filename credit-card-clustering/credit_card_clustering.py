@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
+from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
@@ -19,7 +19,9 @@ LOG_COLUMNS = ['MINIMUM_PAYMENTS', 'ONEOFF_PURCHASES', 'INSTALLMENTS_PURCHASES',
 def get_data_from_csv():
     return pd.read_csv("kaggle\\input\\ccdata\\CC GENERAL.csv")
 
-def build_pipeline():
+def build_pipeline(version=1):
+    if version == 2:
+        return Pipeline([('preprocess', build_preprocess_version_2()), ('model', KMeans(n_clusters=6, random_state=42))])
     preprocess = ColumnTransformer([
         ('minimum_payments', 
          Pipeline([
@@ -55,6 +57,40 @@ def build_pipeline():
 
 
     return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=6, random_state=42))])
+
+
+# Written by Claude (on request). Version 2: MINIMUM_PAYMENTS (and the one CREDIT_LIMIT blank) filled from the
+# 5 nearest customers on BALANCE, CREDIT_LIMIT and PAYMENTS. Everything else is the same as version 1.
+ACCOUNT_SIZE_COLUMNS = ['MINIMUM_PAYMENTS', 'BALANCE', 'CREDIT_LIMIT', 'PAYMENTS']
+
+def build_preprocess_version_2():
+    return ColumnTransformer([
+        # log, then scale, then impute: KNNImputer finds neighbours by distance, so the columns must already be
+        # on one scale. log1p keeps NaN as NaN, and StandardScaler ignores NaN when it learns the mean and sd.
+        ('account_size',
+         Pipeline([
+                    ('log', FunctionTransformer(np.log1p)),
+                    ('scale', StandardScaler()),
+                    ('fill', KNNImputer(n_neighbors=5)),
+                ]),
+        ACCOUNT_SIZE_COLUMNS),
+        ('cash_advance_frequency',
+         Pipeline([
+                    ('clip', FunctionTransformer(np.clip, kw_args={'a_min': 0, 'a_max': 1})),
+                    ('scale', StandardScaler()),
+                ]),
+        ['CASH_ADVANCE_FREQUENCY']),
+        ('log_and_scale',
+         Pipeline([
+                    ('log', FunctionTransformer(np.log1p)),
+                    ('scale', StandardScaler()),
+         ]),
+         [col for col in LOG_COLUMNS if col not in ACCOUNT_SIZE_COLUMNS]),
+        ('scale', StandardScaler(),
+         [col for col in ALL_COLUMNS if
+          col not in ACCOUNT_SIZE_COLUMNS + ['CASH_ADVANCE_FREQUENCY']
+          and col not in LOG_COLUMNS])
+    ])
 
 
 def pca_coordinates():
