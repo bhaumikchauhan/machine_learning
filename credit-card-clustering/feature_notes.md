@@ -96,3 +96,9 @@ k = 7 keeps the six and adds a 5% cluster of newer customers (median tenure 7 mo
 **Decision: k = 6 for version 1.** All six clusters have distinct names and actions; 7 and 8 add nothing usable.
 
 **Alternative, not taken:** segment each dimension on its own (buying frequency, cash advance, paying in full) by rules or by k-means on that dimension's columns, and cross the results. Each answer stays separate, but the cells multiply (3 × 2 × 2 = 12) and some become tiny. That is rule-based segmentation, not clustering on all columns.
+
+## PCA picture (version 1, k = 6)
+
+PCA on the 17 scaled columns, only to draw the clusters in 2-D; k-means still clusters on all 17.
+
+**Prediction (before running):** the first 2 axes capture 44% of the spread.
