@@ -108,3 +108,7 @@ PCA on the 17 scaled columns, only to draw the clusters in 2-D; k-means still cl
 Reading the axes (`pca.components_`, each axis's weight on every scaled column):
 - **Axis 1, buy or borrow cash:** purchase columns +0.21 to +0.38, cash advance columns −0.24 to −0.29, the rest near 0. Only cash borrowers sit far left, high usage buyers far right.
 - **Axis 2, how much balance the customer carries and moves:** BALANCE +0.43, MINIMUM_PAYMENTS +0.40, PAYMENTS +0.35, BALANCE_FREQUENCY +0.34. Inactive customers ($12 balance) sit at the bottom, cash and credit users ($2,641 balance) at the top.
+
+## Version 2: MINIMUM_PAYMENTS filled from similar customers
+
+**Decision:** `KNNImputer`, with neighbours found on BALANCE, CREDIT_LIMIT and PAYMENTS. It measures distance, so the same scaling lesson applies: the neighbour columns are logged and scaled before imputing. It fills with the *mean* of the neighbours' values, not the median planned earlier; on the log scale that mean is far less pulled by one big customer.
