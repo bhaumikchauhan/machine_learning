@@ -127,3 +127,15 @@ Implemented by Claude (on request) as `build_pipeline(version=2)`: one entry for
 The version 2 fills are small: median $35, quartiles $14 to $154 (version 1: $0). Cluster shares barely move (the largest change: inactive 10.1% to 11.0%). One seed (3) changed 1,793 customers: a different solution, not noise (see below).
 
 **Decision: keep version 1** (blank = 0). Version 2 moves 3.3% of customers and leaves the six segments and their shares about the same, so the simpler fill stays.
+
+## Local minimum: the seed that changed 1,793 customers
+
+KMeans with `init='k-means++'` runs once by default (`n_init='auto'` means 1 start). Inertia at k = 6, version 1:
+
+| Start | Inertia |
+|---|---|
+| seeds 42, 0, 1, 2, 4 | 70,860 to 70,862 |
+| seed 3 | **73,882** (4% worse: a different, poorer solution) |
+| `n_init=10`, seed 42 (best of 10 starts) | 70,860 |
+
+Seed 3 got stuck in a local minimum: from its starting centres, every small move made things worse, though a better arrangement existed. Our seed 42 is at the good solution (best of 10 gives the same inertia), so the profiles stand.
