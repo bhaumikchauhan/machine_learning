@@ -233,3 +233,23 @@ The noise is the far-out customers, not the between-segment ones: median distanc
 **Conclusion (the user's reading):** one cluster means there is no low-density gap anywhere: between any two customers, even far-apart ones (cash borrowers at −4 and high usage buyers at +4 on PCA axis 1), runs a path of dense neighbours. So the six k-means segments are cuts through one continuous cloud: useful for marketing (distinct profiles and actions), but their borders are a choice, not something the data shows. That fits Ward putting 25% of customers elsewhere. DBSCAN's noise (3.7%) is a different thing from the border flag: it marks the far-out customers, mostly inactive ones.
 
 **Is eps = 2.5 right? Sensitivity check (criterion fixed before running):** there's no score for eps, so the check is whether the conclusion depends on it. DBSCAN is run for eps 1.0 to 3.5 (min_samples 34) and for min_samples 17 and 68 at eps 2.5. The "no gaps" conclusion is overturned if any setting gives **at least 2 clusters of 5% of customers or more, with under 30% noise**.
+
+**Result** (`dbscan_sensitivity()` in `data_analysis.py`):
+
+| eps | min_samples | Clusters | Clusters ≥ 5% | Largest | Second | Noise |
+|---|---|---|---|---|---|---|
+| 1.00 | 34 | 4 | 2 | 14.1% | 6.7% | 77.1% |
+| 1.25 | 34 | 5 | 2 | 25.9% | 16.6% | 52.4% |
+| 1.50 | 34 | 4 | 1 | 69.4% | 0.6% | 29.1% |
+| 1.75 | 34 | 1 | 1 | 84.2% | | 15.8% |
+| 2.00 | 34 | 1 | 1 | 90.0% | | 10.0% |
+| 2.25 | 34 | 2 | 1 | 93.2% | 0.5% | 6.3% |
+| 2.50 | 34 | 1 | 1 | 96.3% | | 3.7% |
+| 3.00 | 34 | 2 | 1 | 98.7% | 0.3% | 1.0% |
+| 3.50 | 34 | 1 | 1 | 99.9% | | 0.1% |
+| 2.50 | 17 | 1 | 1 | 98.5% | | 1.5% |
+| 2.50 | 68 | 1 | 1 | 94.0% | | 6.0% |
+
+No setting meets the criterion: two big clusters appear only at eps 1.0 and 1.25, where half or more of the customers are noise. So the "no gaps" conclusion doesn't depend on eps = 2.5.
+
+At eps 1.25, the two dense cores are 1,487 only cash borrowers and a buyers' core (1,077 frequent buyers, 614 high usage buyers, 562 moderate users); all 1,241 cash and credit users are noise or tiny clusters. At eps 1.5 the two cores join, and 491 cash and credit users are in the joined cluster. The densest structure is two poles, buying and borrowing cash (PCA axis 1), linked by customers who do both.

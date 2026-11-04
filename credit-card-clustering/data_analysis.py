@@ -317,6 +317,27 @@ def compare_dbscan():
     return noise
 
 
+def dbscan_sensitivity(settings=None):
+    # DBSCAN across eps and min_samples on the same 17 scaled columns: clusters, big clusters (>= 5%), noise
+    from sklearn.cluster import DBSCAN
+    import credit_card_clustering as ccc
+    X = load().drop(columns=['CUST_ID'])
+    scaled = ccc.build_pipeline().named_steps['preprocess'].fit_transform(X)
+    if settings is None:
+        settings = [(eps, 34) for eps in (1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0, 3.5)] + [(2.5, 17), (2.5, 68)]
+    rows = []
+    for eps, min_samples in settings:
+        labels = DBSCAN(eps=eps, min_samples=min_samples).fit(scaled).labels_
+        shares = pd.Series(labels[labels != -1]).value_counts() / len(labels)
+        rows.append({'eps': eps, 'min_samples': min_samples, 'clusters': len(shares),
+                     'clusters >= 5%': int((shares >= 0.05).sum()),
+                     'largest': shares.max() if len(shares) else 0, 'second': shares.iloc[1] if len(shares) > 1 else 0,
+                     'noise': (labels == -1).mean()})
+    table = pd.DataFrame(rows)
+    print(table.round(3).to_string(index=False))
+    return table
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
@@ -327,4 +348,5 @@ if __name__ == '__main__':
     # plot_dendrogram(compare_ward_with_kmeans())  # done: plots/ward_dendrogram.png
     # border_flag()  # done: 15.2% border
     # plot_k_distance()  # done: plots/dbscan_k_distance.png
-    compare_dbscan()
+    # compare_dbscan()  # done: 1 cluster, 330 noise
+    dbscan_sensitivity()
