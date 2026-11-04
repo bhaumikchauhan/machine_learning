@@ -23,3 +23,5 @@ The gradient contains the input, so raw pixels (up to 255) make every step 255 t
 **One held-out split: 20% (8,400 images), stratified by label**, fixed seed so every model is judged on the same images. Repeated k-fold (50 fits per comparison) is too slow for networks that take minutes each.
 
 The cost: one split has no fold-to-fold spread to show its noise. Its uncertainty comes from the 8,400 images instead: at 98% accuracy, sd = √(0.98 × 0.02 / 8,400) ≈ 0.15 percentage points.
+
+**Keep rule:** a change is kept if validation accuracy rises by **at least 0.5 percentage points** (about 3 sd of one split's noise), on the same held-out images. Otherwise the simpler model stays.
