@@ -11,3 +11,9 @@ Status: in progress (started 2026-11-04).
 Data: `kaggle/input/digit-recognizer/` (not in git). `train.csv`: 42,000 images, a `label` column plus 784 pixel columns (28 × 28, row by row), values 0 to 255, 81% of pixels are 0, no missing values. `test.csv`: 28,000 images without labels. The ten digits are balanced: 9.0% (fives) to 11.2% (ones).
 
 Setup: PyTorch with CUDA, GPU NVIDIA GeForce RTX 4070 SUPER (12 GB).
+
+## Scaling (decided 2026-11-04)
+
+The gradient contains the input, so raw pixels (up to 255) make every step 255 times bigger than inputs near 1: a learning rate that works for 0–1 inputs would bounce and diverge.
+
+**Decision: divide every pixel by 255** (0 to 1, one shared rule). StandardScaler per pixel column was rejected: a pixel that is almost always blank gets a tiny sd, so a rare stray mark becomes a huge input. pixel14 (top edge) has ink in 1 of 42,000 images; that 216 becomes 204.9 sd, while a full stroke in the centre (pixel406, ink in 66% of images) becomes 1.1 sd. 76 pixel columns are blank in every image.
