@@ -189,3 +189,18 @@ Where k-means' 1,388 moderate users went under Ward: 729 stayed, 213 inactive, 2
 **Conclusion (the user's message for marketing):** about half of the moderate users are clearly moderate; the rest are border customers whose segment is uncertain. The clear segments (only cash borrowers, cash and credit users, inactive, high usage buyers) agree across both methods, so k-means stays the result.
 
 **Border flag (rule fixed before looking):** from `pipeline.transform(X)`, each customer's distance to the 6 k-means centres. Border when nearest ÷ second nearest > 0.9 (the two nearest centres within about 10%). Relative, not a fixed gap, because the inactive segment's spread (14) is twice the others' and its distances run larger. **Expectation:** the flagged customers should roughly be the ones Ward moved.
+
+**Result** (`border_flag()` in `data_analysis.py`): 1,360 border customers (15.2%). Ward moved 57% of them against 19% of the others, so the flag does find the uncertain customers. But only 35% of Ward's 2,242 moves are flagged: most of Ward's disagreement is not about close calls but about clusters of a different shape (its early merges can't be undone). Frequent buyers show it most: 15% border, but 39% moved.
+
+| Segment | Border share | Ward moved |
+|---|---|---|
+| moderate users | 22% | 47% |
+| inactive | 21% | 18% |
+| cash and credit users | 18% | 11% |
+| high usage buyers | 16% | 21% |
+| frequent buyers, low balance and limit | 15% | 39% |
+| only cash borrowers | 6% | 13% |
+
+The expectation held only partly: the flag marks the close calls, which Ward moves three times as often, but Ward's other moves come from its different method, not from the customers being uncertain.
+
+**Ward comparison closed (2026-11-04).** k-means stays the result; the border flag (15% of customers) is the per-customer uncertainty to hand marketing alongside the segment.

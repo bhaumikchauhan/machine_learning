@@ -13,6 +13,7 @@ Final result: k-means, k = 6, on all 17 columns (amounts logged, all scaled, MIN
 4. **Profiles, in original units and medians, are the real check.** They caught a misread column (cash advance is borrowing cash, not paying in advance) and showed which splits are actionable.
 5. **Test the choices that could matter, and keep the simple one when they don't.** The KNN fill moved 3.3% of customers and left the segments alike; one bad start moved 1,793, so `n_init=10`.
 6. **ColumnTransformer entries run side by side, Pipeline steps in order:** fill → log → scale on one column is a Pipeline inside one entry.
+7. **A second method shows which segments are solid.** Ward put 25% of customers elsewhere (predicted 5%); the distinct segments agreed (82–89% stayed), the in-between ones didn't (53–61%). A border flag from the k-means distances (nearest within 10% of the second nearest) marked 15% of customers, whom Ward moved 3× as often; most of Ward's moves still came from its different method.
 
 ## Lessons from Give Me Some Credit
 
@@ -227,3 +228,7 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Hierarchical (agglomerative) clustering.** Start with every point as its own cluster, then repeatedly merge the two closest clusters until one is left; no k, no centres, no random start. The merge history is the dendrogram, and k is chosen afterwards by cutting it at a height. The linkage defines the distance between two clusters: single = closest pair of points, complete = farthest pair, average = mean over all pairs, Ward = increase in inertia. Example on a line, A=1, B=2, C=6, D=7: {A,B} to {C,D} is 4 with single linkage (B–C) and 6 with complete (A–D). *Studied after CC.*
 
 **Single linkage chains.** A chain of points each close to the next (1, 2, 3, … 20) merges into one cluster early under single linkage, since only the nearest pair counts; a few "bridge" points can join two real groups. Complete linkage resists, because its farthest-pair distance grows with the chain.
+
+**Border customers.** `KMeans.transform` gives each point's distance to every centre; when the nearest is barely closer than the second (ratio nearest ÷ second near 1, at most 1 by definition), the assignment is a close call. Use a relative rule, since loose clusters have larger distances. *CC: ratio > 0.9 flagged 15%; Ward moved 57% of them against 19% of the rest.*
+
+**Comparing two clusterings.** Cluster numbers are arbitrary, so match them first (each cluster to the one it shares most points with: `scipy.optimize.linear_sum_assignment` on the crosstab), then count who changed. Compare with the change from a different seed alone, the "noise". *CC: KNN fill 3.3% vs seeds 0.1–1.6%; Ward 25%.*

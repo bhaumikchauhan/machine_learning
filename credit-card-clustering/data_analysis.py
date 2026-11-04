@@ -243,6 +243,30 @@ def plot_dendrogram(ward_pipeline, file_name='ward_dendrogram.png'):
     save(fig, file_name)
 
 
+BORDER_RATIO = 0.9
+
+
+def border_flag():
+    # Border customer: nearest k-means centre within about 10% of the second nearest (nearest / second > 0.9).
+    # Checked against the customers Ward put in a different segment.
+    import credit_card_clustering as ccc
+    X = load().drop(columns=['CUST_ID'])
+    pipeline = ccc.build_pipeline().fit(X)
+    distances = np.sort(pipeline.transform(X), axis=1)  # distance to each of the 6 centres, nearest first
+    border = distances[:, 0] / distances[:, 1] > BORDER_RATIO
+    kmeans = pipeline.named_steps['model'].labels_
+    ward = match_labels(kmeans, ccc.build_ward_pipeline().fit(X).named_steps['model'].labels_)
+    moved = ward != kmeans
+    print(f"Border customers: {border.sum()} of {len(X)} ({border.mean():.1%})")
+    print(f"Ward moved {moved[border].mean():.0%} of the border customers and {moved[~border].mean():.0%} of the others")
+    print(f"Of the {moved.sum()} customers Ward moved, {border[moved].mean():.0%} are flagged as border")
+    by_segment = pd.DataFrame({'border share': pd.Series(border).groupby(kmeans).mean(),
+                               'Ward moved': pd.Series(moved).groupby(kmeans).mean()})
+    by_segment.index = by_segment.index.map(SEGMENT_NAMES)
+    print(by_segment.round(2).sort_values('border share', ascending=False).to_string())
+    return border
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
@@ -250,4 +274,5 @@ if __name__ == '__main__':
     #     cluster_profiles(k)
     # plot_pca_clusters()  # done: plots/pca_clusters.png
     # compare_versions()  # done: version 1 kept
-    plot_dendrogram(compare_ward_with_kmeans())
+    # plot_dendrogram(compare_ward_with_kmeans())  # done: plots/ward_dendrogram.png
+    border_flag()
