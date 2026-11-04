@@ -25,3 +25,9 @@ The gradient contains the input, so raw pixels (up to 255) make every step 255 t
 The cost: one split has no fold-to-fold spread to show its noise. Its uncertainty comes from the 8,400 images instead: at 98% accuracy, sd = √(0.98 × 0.02 / 8,400) ≈ 0.15 percentage points.
 
 **Keep rule:** a change is kept if validation accuracy rises by **at least 0.5 percentage points** (about 3 sd of one split's noise), on the same held-out images. Otherwise the simpler model stays.
+
+## Baseline: logistic regression on the 784 pixels
+
+One weight per pixel for each digit (a 28 × 28 template per digit), no notion of which pixels are neighbours. `LogisticRegression(max_iter=1000)` on pixels ÷ 255, judged on the held-out 20%.
+
+**Prediction (before running):** the most confused pair is 1 and 9 (both are mostly one vertical stroke).
