@@ -161,11 +161,11 @@ Same preprocessing (version 1), `AgglomerativeClustering(n_clusters=6, linkage='
 
 | Segment (k-means name) | k-means share | Ward share | Stayed in the same segment |
 |---|---|---|---|
-| only cash borrowers | 25% | 25% | 1,938 of 2,213 (88%) |
+| only cash borrowers | 25% | 25% | 1,938 of 2,218 (87%) |
 | high usage buyers | 16% | 16% | 1,137 of 1,445 (79%) |
 | cash and credit users | 14% | 21% | 1,101 of 1,241 (89%) |
 | inactive | 10% | 14% | 732 of 893 (82%) |
 | frequent buyers, low balance and limit | 20% | 14% | 1,071 of 1,765 (61%) |
 | moderate users | 16% | 11% | 729 of 1,388 (53%) |
 
-The six profiles keep their names (the medians move, e.g. Ward's cash and credit users have a $2,046 balance against $2,610), and the smallest cluster is 11%. The clear segments (cash borrowers, cash and credit) agree; the in-between ones (moderate users, frequent buyers) lose 40–47% of their customers to neighbours. In the dendrogram, the cut for 6 sits among merges at about 98, 99 and 102, so 5, 6 and 7 clusters are almost equally far apart; the big gaps are higher up (2 or 3 clusters).
+The six profiles keep their names (the medians move, e.g. Ward's cash and credit users have a $2,046 balance against $2,610), and the smallest cluster is 11%. The clear segments (cash borrowers, cash and credit) agree; the in-between ones (moderate users, frequent buyers) lose 39–47% of their customers to neighbours. In the dendrogram, the cut for 6 sits among merges at about 98, 99 and 102, so 5, 6 and 7 clusters are almost equally far apart; the big gaps are higher up (2 or 3 clusters).
