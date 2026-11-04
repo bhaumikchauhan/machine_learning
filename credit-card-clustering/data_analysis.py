@@ -290,6 +290,33 @@ def plot_k_distance(min_samples=34, file_name='dbscan_k_distance.png'):
     return k_distance
 
 
+def compare_dbscan():
+    # DBSCAN noise against the k-means segments and the border flag, plus how far noise customers sit out
+    import credit_card_clustering as ccc
+    data = load()
+    X = data.drop(columns=['CUST_ID'])
+    kmeans_pipeline = ccc.build_pipeline().fit(X)
+    kmeans = kmeans_pipeline.named_steps['model'].labels_
+    distances = np.sort(kmeans_pipeline.transform(X), axis=1)
+    border = distances[:, 0] / distances[:, 1] > BORDER_RATIO
+    model = ccc.build_dbscan_pipeline().fit(X).named_steps['model']
+    noise = model.labels_ == -1
+    core = np.zeros(len(X), dtype=bool)
+    core[model.core_sample_indices_] = True
+    print(f"Clusters: {len(set(model.labels_) - {-1})}, core {core.sum()}, border {(~core & ~noise).sum()}, noise {noise.sum()}")
+    print(f"Noise among k-means border customers: {noise[border].mean():.1%}; among the others: {noise[~border].mean():.1%}")
+    print(f"Distance to the nearest k-means centre, median: noise {np.median(distances[noise, 0]):.2f}, "
+          f"others {np.median(distances[~noise, 0]):.2f}")
+    by_segment = pd.DataFrame({'customers': pd.Series(kmeans).value_counts(),
+                               'noise': pd.Series(noise).groupby(kmeans).sum()})
+    by_segment['noise share'] = by_segment['noise'] / by_segment['customers']
+    by_segment.index = by_segment.index.map(SEGMENT_NAMES)
+    print(by_segment.round(3).sort_values('noise share', ascending=False).to_string())
+    print(data.loc[noise, PROFILE_COLUMNS].median().round(2).to_frame('noise median').join(
+        data.loc[~noise, PROFILE_COLUMNS].median().round(2).to_frame('others median')).to_string())
+    return noise
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
@@ -299,4 +326,5 @@ if __name__ == '__main__':
     # compare_versions()  # done: version 1 kept
     # plot_dendrogram(compare_ward_with_kmeans())  # done: plots/ward_dendrogram.png
     # border_flag()  # done: 15.2% border
-    plot_k_distance()
+    # plot_k_distance()  # done: plots/dbscan_k_distance.png
+    compare_dbscan()

@@ -62,6 +62,10 @@ def build_pipeline(version=1, model=None):
 def build_ward_pipeline():
     return build_pipeline(1, model=AgglomerativeClustering(n_clusters=6, linkage='ward'))
 
+def build_dbscan_pipeline():
+    from sklearn.cluster import DBSCAN
+    return build_pipeline(1, model=DBSCAN(eps=2.5, min_samples=34))
+
 # Written by Claude (on request). Version 2: MINIMUM_PAYMENTS (and the one CREDIT_LIMIT blank) filled from the
 # 5 nearest customers on BALANCE, CREDIT_LIMIT and PAYMENTS. Everything else is the same as version 1.
 ACCOUNT_SIZE_COLUMNS = ['MINIMUM_PAYMENTS', 'BALANCE', 'CREDIT_LIMIT', 'PAYMENTS']
@@ -96,6 +100,8 @@ def build_preprocess_version_2():
     ])
 
 
+
+
 def pca_coordinates():
     from sklearn.decomposition import PCA
     X = get_data_from_csv()
@@ -116,11 +122,15 @@ def main():
     X = get_data_from_csv()
     #drop the 'CUST_ID' column since it is not a feature
     X = X.drop(columns=['CUST_ID'])
-    pipeline = build_ward_pipeline()
+    pipeline = build_dbscan_pipeline()
     pipeline.fit(X)
-    print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
+    # print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
+    # labels = pipeline.named_steps['model'].labels_
+    # print(pd.Series(labels).value_counts(normalize=True))
     labels = pipeline.named_steps['model'].labels_
-    print(pd.Series(labels).value_counts(normalize=True))
+    core_samples = pipeline.named_steps['model'].core_sample_indices_
+    print("Number of clusters found:", len(set(labels)) - (1 if -1 in labels else 0))
+    print("Number of noise points:", list(labels).count(-1))
 
 
 

@@ -216,3 +216,16 @@ Same 17 scaled columns (version 1). DBSCAN finds dense regions by chaining core 
 **eps = 2.5** (the user's choice; `plots/dbscan_k_distance.png`). About 12% of customers have their 34th neighbour farther than 2.5, so about 88% are core points; 2.5 sits where the curve starts to bend (around customer 7,500 to 8,500). 1.2 was considered and rejected: it is read off the curve at customer 2,100, so 77% of customers would not be core.
 
 **Prediction (before running):** fewer clusters than k-means' six, because the segments touch (PCA picture, Ward's weak borders) and with 88% of customers as core points, chains of cores will run across the touching zones and merge segments into big clusters.
+
+**Result** (user's `build_dbscan_pipeline()`, `compare_dbscan()` in `data_analysis.py`): **1 cluster**; 7,938 core, 682 border, 330 noise (3.7%). The prediction (fewer than six) held, in the extreme: chains of core points connect every segment.
+
+The noise is the far-out customers, not the between-segment ones: median distance to the nearest k-means centre 5.0 against 2.5 for the rest. k-means border customers are noise 3 times as often (8.4% against 2.8%), but 205 of the 330 come from the inactive segment (23% of it; the segment with the widest spread, 14). Noise customers have a shorter median tenure (10 months against 12), small balances ($196) and some cash advance ($369).
+
+| k-means segment | Customers | Noise | Share |
+|---|---|---|---|
+| inactive | 893 | 205 | 23.0% |
+| cash and credit users | 1,241 | 52 | 4.2% |
+| high usage buyers | 1,445 | 23 | 1.6% |
+| moderate users | 1,388 | 19 | 1.4% |
+| only cash borrowers | 2,218 | 19 | 0.9% |
+| frequent buyers, low balance and limit | 1,765 | 12 | 0.7% |
