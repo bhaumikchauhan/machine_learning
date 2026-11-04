@@ -183,3 +183,7 @@ The six profiles keep their names (the medians move, e.g. Ward's cash and credit
 | **Total inertia** | **70,860** | **80,619** (+14%) |
 
 k-means is tighter overall, but that is the quantity it minimises, so this alone doesn't make it "right". Ward's moderate users are tighter (5.1) because Ward made the segment smaller (11% against 16%) and handed its looser members to neighbours. Measured on raw dollars, the spread would again be ruled by the big spenders, so the clustering's own space is the one to measure in.
+
+Where k-means' 1,388 moderate users went under Ward: 729 stayed, 213 inactive, 213 cash and credit users, 125 high usage buyers, 67 frequent buyers, 41 only cash borrowers. The border customers lean three ways (going quiet, borrowing cash, spending more), not mainly towards the buyer segments.
+
+**Conclusion (the user's message for marketing):** about half of the moderate users are clearly moderate; the rest are border customers whose segment is uncertain. The clear segments (only cash borrowers, cash and credit users, inactive, high usage buyers) agree across both methods, so k-means stays the result.
