@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -19,7 +19,7 @@ LOG_COLUMNS = ['MINIMUM_PAYMENTS', 'ONEOFF_PURCHASES', 'INSTALLMENTS_PURCHASES',
 def get_data_from_csv():
     return pd.read_csv("kaggle\\input\\ccdata\\CC GENERAL.csv")
 
-def build_pipeline(version=1):
+def build_pipeline(version=1, model=None):
     if version == 2:
         return Pipeline([('preprocess', build_preprocess_version_2()), ('model', KMeans(n_clusters=6, n_init=10, random_state=42))])
     preprocess = ColumnTransformer([
@@ -55,9 +55,12 @@ def build_pipeline(version=1):
           and col not in LOG_COLUMNS])
     ])
 
-
+    if model is not None:
+        return Pipeline([('preprocess', preprocess), ('model', model)])
     return Pipeline([('preprocess', preprocess), ('model', KMeans(n_clusters=6, n_init=10, random_state=42))])
 
+def build_ward_pipeline():
+    return build_pipeline(1, model=AgglomerativeClustering(n_clusters=6, linkage='ward'))
 
 # Written by Claude (on request). Version 2: MINIMUM_PAYMENTS (and the one CREDIT_LIMIT blank) filled from the
 # 5 nearest customers on BALANCE, CREDIT_LIMIT and PAYMENTS. Everything else is the same as version 1.
@@ -109,15 +112,15 @@ def pca_coordinates():
 
 
 def main():
-    X_pca = pca_coordinates()
-    # X = get_data_from_csv()
-    # #drop the 'CUST_ID' column since it is not a feature
-    # X = X.drop(columns=['CUST_ID'])
-    # pipeline = build_pipeline()
-    # pipeline.fit(X)
-    # print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
-    # labels = pipeline.named_steps['model'].labels_
-    # print(pd.Series(labels).value_counts(normalize=True))
+    #X_pca = pca_coordinates()
+    X = get_data_from_csv()
+    #drop the 'CUST_ID' column since it is not a feature
+    X = X.drop(columns=['CUST_ID'])
+    pipeline = build_ward_pipeline()
+    pipeline.fit(X)
+    print("shape of the data after preprocessing:", pipeline.named_steps['preprocess'].transform(X).shape)
+    labels = pipeline.named_steps['model'].labels_
+    print(pd.Series(labels).value_counts(normalize=True))
 
 
 

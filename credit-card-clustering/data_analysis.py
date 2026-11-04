@@ -189,10 +189,65 @@ def compare_versions():
     return changed
 
 
+SEGMENT_NAMES = {0: 'only cash borrowers', 1: 'moderate users', 2: 'high usage buyers', 3: 'cash and credit users',
+                 4: 'frequent buyers, low balance and limit', 5: 'inactive'}  # k-means numbers, n_init=10
+
+
+def match_labels(reference, other):
+    # Renumber `other` so each of its clusters takes the number of the reference cluster it shares most customers with
+    from scipy.optimize import linear_sum_assignment
+    overlap = pd.crosstab(reference, other)
+    rows, cols = linear_sum_assignment(-overlap.values)
+    mapping = {overlap.columns[c]: overlap.index[r] for r, c in zip(rows, cols)}
+    return pd.Series(other).map(mapping).values
+
+
+def compare_ward_with_kmeans():
+    # k-means (n_init=10) against Ward on the same 17 scaled columns: who changes cluster, and the Ward profiles
+    import credit_card_clustering as ccc
+    data = load()
+    X = data.drop(columns=['CUST_ID'])
+    kmeans = ccc.build_pipeline().fit(X).named_steps['model'].labels_
+    ward_pipeline = ccc.build_ward_pipeline().fit(X)
+    ward = match_labels(kmeans, ward_pipeline.named_steps['model'].labels_)
+    changed = ward != kmeans
+    print(f"Customers who change cluster: {changed.sum()} of {len(X)} ({changed.mean():.1%})")
+    moves = pd.crosstab(pd.Series(kmeans, name='k-means').map(SEGMENT_NAMES),
+                        pd.Series(ward, name='Ward').map(SEGMENT_NAMES))
+    print(moves.to_string())
+    profile = data[PROFILE_COLUMNS].groupby(ward).median()
+    profile.insert(0, 'share', pd.Series(ward).value_counts(normalize=True))
+    profile.insert(0, 'k-means share', pd.Series(kmeans).value_counts(normalize=True))
+    profile.index = profile.index.map(SEGMENT_NAMES)
+    print(profile.round(2).to_string())
+    return ward_pipeline
+
+
+def plot_dendrogram(ward_pipeline, file_name='ward_dendrogram.png'):
+    # The last 30 merges of Ward's tree, rebuilt with scipy on the same scaled columns (same merges as scikit-learn)
+    from scipy.cluster.hierarchy import dendrogram, linkage
+    X = load().drop(columns=['CUST_ID'])
+    tree = linkage(ward_pipeline.named_steps['preprocess'].transform(X), method='ward')
+    cut = (tree[-6, 2] + tree[-5, 2]) / 2  # between the merge that leaves 6 clusters and the one that leaves 5
+    fig, ax = plt.subplots(figsize=(11, 5), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    dendrogram(tree, truncate_mode='lastp', p=30, ax=ax, color_threshold=0, above_threshold_color=BLUE,
+               leaf_font_size=8, show_leaf_counts=True)
+    ax.axhline(cut, color=MUTED, linewidth=1, linestyle='--')
+    ax.annotate('cut for 6 clusters', (ax.get_xlim()[1], cut), xytext=(-4, 4), textcoords='offset points',
+                ha='right', color=INK_SECONDARY, fontsize=9)
+    ax.set_xlabel('customers in each branch (last 30 merges shown)', color=INK_SECONDARY)
+    ax.set_ylabel('merge distance (Ward)', color=INK_SECONDARY)
+    ax.set_title('Ward dendrogram, version 1 columns', loc='left', color=INK, fontsize=12)
+    save(fig, file_name)
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
     # for k in (6, 7, 8):  # done: profiles in feature_notes.md
     #     cluster_profiles(k)
     # plot_pca_clusters()  # done: plots/pca_clusters.png
-    compare_versions()
+    # compare_versions()  # done: version 1 kept
+    plot_dendrogram(compare_ward_with_kmeans())
