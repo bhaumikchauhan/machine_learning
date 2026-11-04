@@ -229,3 +229,5 @@ The noise is the far-out customers, not the between-segment ones: median distanc
 | moderate users | 1,388 | 19 | 1.4% |
 | only cash borrowers | 2,218 | 19 | 0.9% |
 | frequent buyers, low balance and limit | 1,765 | 12 | 0.7% |
+
+**Conclusion (the user's reading):** one cluster means there is no low-density gap anywhere: between any two customers, even far-apart ones (cash borrowers at −4 and high usage buyers at +4 on PCA axis 1), runs a path of dense neighbours. So the six k-means segments are cuts through one continuous cloud: useful for marketing (distinct profiles and actions), but their borders are a choice, not something the data shows. That fits Ward putting 25% of customers elsewhere. DBSCAN's noise (3.7%) is a different thing from the border flag: it marks the far-out customers, mostly inactive ones.
