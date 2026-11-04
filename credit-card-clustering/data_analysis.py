@@ -267,6 +267,29 @@ def border_flag():
     return border
 
 
+def plot_k_distance(min_samples=34, file_name='dbscan_k_distance.png'):
+    # Each customer's distance to their min_samples-th nearest neighbour (themselves included, as DBSCAN counts),
+    # on the 17 scaled columns, sorted. The bend is the usual choice for eps.
+    from sklearn.neighbors import NearestNeighbors
+    import credit_card_clustering as ccc
+    X = load().drop(columns=['CUST_ID'])
+    scaled = ccc.build_pipeline().named_steps['preprocess'].fit_transform(X)
+    distances, _ = NearestNeighbors(n_neighbors=min_samples).fit(scaled).kneighbors(scaled)
+    k_distance = np.sort(distances[:, -1])
+    for share in (0.5, 0.75, 0.9, 0.95, 0.99):
+        print(f"{share:.0%} of customers have their {min_samples}th neighbour within {np.quantile(k_distance, share):.2f}")
+    fig, ax = plt.subplots(figsize=(9, 5), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    style_axes(ax)
+    ax.plot(np.arange(1, len(k_distance) + 1), k_distance, color=BLUE, linewidth=2)
+    ax.set_xlabel('customers, sorted by the distance', color=INK_SECONDARY)
+    ax.set_ylabel(f'distance to the {min_samples}th nearest neighbour', color=INK_SECONDARY)
+    ax.set_title(f'k-distance curve (min_samples = {min_samples}), 17 scaled columns', loc='left', color=INK,
+                 fontsize=12)
+    save(fig, file_name)
+    return k_distance
+
+
 if __name__ == '__main__':
     # raw_against_log()  # done: plots/purchases_raw_against_log.png
     # plot_inertia(inertia_by_k())  # done: plots/inertia_by_k.png
@@ -275,4 +298,5 @@ if __name__ == '__main__':
     # plot_pca_clusters()  # done: plots/pca_clusters.png
     # compare_versions()  # done: version 1 kept
     # plot_dendrogram(compare_ward_with_kmeans())  # done: plots/ward_dendrogram.png
-    border_flag()
+    # border_flag()  # done: 15.2% border
+    plot_k_distance()
