@@ -31,3 +31,18 @@ The cost: one split has no fold-to-fold spread to show its noise. Its uncertaint
 One weight per pixel for each digit (a 28 × 28 template per digit), no notion of which pixels are neighbours. `LogisticRegression(max_iter=1000)` on pixels ÷ 255, judged on the held-out 20%.
 
 **Prediction (before running):** the most confused pair is 1 and 9 (both are mostly one vertical stroke).
+
+**Result:** validation accuracy **91.31%** (730 mistakes of 8,400). `plots/baseline_mistakes.png` (`data_analysis.py`).
+
+| Most common mistakes (true → predicted) | Count |
+|---|---|
+| 4 → 9 | 42 |
+| 3 → 5 | 35 |
+| 7 → 9 | 32 |
+| 5 → 3 | 32 |
+| 9 → 7 | 29 |
+| 3 → 2 | 27 |
+| 8 → 5 | 25 |
+| 8 → 3 | 24 |
+
+The prediction (1 and 9) missed: only 5 mistakes between them (1 → 9: 1, 9 → 1: 4). Hardest digits: 8 (85.4%), 5 (85.5%), 3 (87.6%); easiest: 1 (97.5%), 6 (96.3%), 0 (96.0%).
