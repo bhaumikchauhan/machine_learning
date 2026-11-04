@@ -208,3 +208,7 @@ The expectation held only partly: the flag marks the close calls, which Ward mov
 ## After closing: DBSCAN
 
 Same 17 scaled columns (version 1). DBSCAN finds dense regions by chaining core points (at least `min_samples` neighbours within `eps`); points outside every dense region are noise (−1). Question: does it mark the k-means border customers as noise, and does it find the same segments?
+
+**min_samples = 34** (2 × 17 columns, the rule of thumb; fixed before running). min_samples is the neighbours one point needs within eps to be core, not the minimum cluster size; clusters grow far bigger by chaining. 500 was considered and rejected: 5.6% of all customers inside each radius needs a large eps, which chains neighbouring segments into one blob and swallows the border customers.
+
+**eps rule (fixed before looking):** from the k-distance curve, each customer's distance to their 34th nearest neighbour (themselves included, as DBSCAN counts), sorted. eps = the value where the curve bends sharply upwards: below it, customers sit in dense regions; above it, they are the sparse ones.
