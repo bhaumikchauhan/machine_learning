@@ -169,3 +169,17 @@ Same preprocessing (version 1), `AgglomerativeClustering(n_clusters=6, linkage='
 | moderate users | 16% | 11% | 729 of 1,388 (53%) |
 
 The six profiles keep their names (the medians move, e.g. Ward's cash and credit users have a $2,046 balance against $2,610), and the smallest cluster is 11%. The clear segments (cash borrowers, cash and credit) agree; the in-between ones (moderate users, frequent buyers) lose 39–47% of their customers to neighbours. In the dendrogram, the cut for 6 sits among merges at about 98, 99 and 102, so 5, 6 and 7 clusters are almost equally far apart; the big gaps are higher up (2 or 3 clusters).
+
+**Spread within each segment** (the user's check; mean squared distance to the segment's centre, on the 17 logged and scaled columns the clustering used):
+
+| Segment | k-means | Ward |
+|---|---|---|
+| only cash borrowers | 6.3 | 8.6 |
+| moderate users | 7.0 | 5.1 |
+| high usage buyers | 7.2 | 7.5 |
+| cash and credit users | 9.2 | 9.2 |
+| frequent buyers, low balance and limit | 7.1 | 9.3 |
+| inactive | 14.2 | 14.1 |
+| **Total inertia** | **70,860** | **80,619** (+14%) |
+
+k-means is tighter overall, but that is the quantity it minimises, so this alone doesn't make it "right". Ward's moderate users are tighter (5.1) because Ward made the segment smaller (11% against 16%) and handed its looser members to neighbours. Measured on raw dollars, the spread would again be ruled by the big spenders, so the clustering's own space is the one to measure in.
