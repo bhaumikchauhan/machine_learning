@@ -214,3 +214,5 @@ Same 17 scaled columns (version 1). DBSCAN finds dense regions by chaining core 
 **eps rule (fixed before looking):** from the k-distance curve, each customer's distance to their 34th nearest neighbour (themselves included, as DBSCAN counts), sorted. eps = the value where the curve bends sharply upwards: below it, customers sit in dense regions; above it, they are the sparse ones.
 
 **eps = 2.5** (the user's choice; `plots/dbscan_k_distance.png`). About 12% of customers have their 34th neighbour farther than 2.5, so about 88% are core points; 2.5 sits where the curve starts to bend (around customer 7,500 to 8,500). 1.2 was considered and rejected: it is read off the curve at customer 2,100, so 77% of customers would not be core.
+
+**Prediction (before running):** fewer clusters than k-means' six, because the segments touch (PCA picture, Ward's weak borders) and with 88% of customers as core points, chains of cores will run across the touching zones and merge segments into big clusters.
