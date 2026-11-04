@@ -150,3 +150,9 @@ Seed 3 got stuck in a local minimum: from its starting centres, every small move
 | moderate users | 3 | 1 | 16% |
 | cash and credit users | 0 | 3 | 14% |
 | inactive | 4 | 5 | 10% |
+
+## After closing: hierarchical clustering (Ward) against k-means
+
+Same preprocessing (version 1), `AgglomerativeClustering(n_clusters=6, linkage='ward')` in place of KMeans. Ward merges the pair of clusters whose merge raises inertia least, the quantity k-means minimises, but it never undoes a merge, so the clusters should be similar, not identical. Judged by: customers who change cluster against k-means (after matching numbers), whether the six profiles keep their names, and no cluster under 1%.
+
+**Prediction (before running):** 5% of customers change cluster.
