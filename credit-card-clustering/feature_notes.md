@@ -204,3 +204,7 @@ Where k-means' 1,388 moderate users went under Ward: 729 stayed, 213 inactive, 2
 The expectation held only partly: the flag marks the close calls, which Ward moves three times as often, but Ward's other moves come from its different method, not from the customers being uncertain.
 
 **Ward comparison closed (2026-11-04).** k-means stays the result; the border flag (15% of customers) is the per-customer uncertainty to hand marketing alongside the segment.
+
+## After closing: DBSCAN
+
+Same 17 scaled columns (version 1). DBSCAN finds dense regions by chaining core points (at least `min_samples` neighbours within `eps`); points outside every dense region are noise (−1). Question: does it mark the k-means border customers as noise, and does it find the same segments?
