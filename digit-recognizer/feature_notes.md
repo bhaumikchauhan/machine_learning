@@ -46,3 +46,9 @@ One weight per pixel for each digit (a 28 × 28 template per digit), no notion o
 | 8 → 3 | 24 |
 
 The prediction (1 and 9) missed: only 5 mistakes between them (1 → 9: 1, 9 → 1: 4). Hardest digits: 8 (85.4%), 5 (85.5%), 3 (87.6%); easiest: 1 (97.5%), 6 (96.3%), 0 (96.0%).
+
+Why 4 and 9 (and 3 and 5) are confused: not the amount of ink but where it sits. Overlap of the average images (1 = identical): 4 and 9 0.93 (65 mistakes between them), 3 and 5 0.90 (67); 3 and 6 have the same ink (111 and 109) but overlap 0.71 (4 mistakes); 1 and 9 0.62 (5). A template can't tell a closed-top 4 from a 9; that needs local shape.
+
+## Dense network
+
+`nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))`: 128 hidden units, each a partial template, combined by the output layer; ReLU lets a unit switch off (without it the two layers collapse into one, the logistic regression again). The training loop (`train_network` in `digit_recognizer.py`, written by Claude on request): Adam, learning rate 0.001, cross-entropy loss, mini-batches of 128, 10 epochs, fixed seed, the same held-out split (`split_data`, now shared with the baseline). Judged on validation accuracy after epoch 10.
