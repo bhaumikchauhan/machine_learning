@@ -187,3 +187,5 @@ k-means is tighter overall, but that is the quantity it minimises, so this alone
 Where k-means' 1,388 moderate users went under Ward: 729 stayed, 213 inactive, 213 cash and credit users, 125 high usage buyers, 67 frequent buyers, 41 only cash borrowers. The border customers lean three ways (going quiet, borrowing cash, spending more), not mainly towards the buyer segments.
 
 **Conclusion (the user's message for marketing):** about half of the moderate users are clearly moderate; the rest are border customers whose segment is uncertain. The clear segments (only cash borrowers, cash and credit users, inactive, high usage buyers) agree across both methods, so k-means stays the result.
+
+**Border flag (rule fixed before looking):** from `pipeline.transform(X)`, each customer's distance to the 6 k-means centres. Border when nearest ÷ second nearest > 0.9 (the two nearest centres within about 10%). Relative, not a fixed gap, because the inactive segment's spread (14) is twice the others' and its distances run larger. **Expectation:** the flagged customers should roughly be the ones Ward moved.
