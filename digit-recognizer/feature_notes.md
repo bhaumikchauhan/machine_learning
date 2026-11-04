@@ -54,3 +54,25 @@ Why 4 and 9 (and 3 and 5) are confused: not the amount of ink but where it sits.
 `nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))`: 128 hidden units, each a partial template, combined by the output layer; ReLU lets a unit switch off (without it the two layers collapse into one, the logistic regression again). The training loop (`train_network` in `digit_recognizer.py`, written by Claude on request): Adam, learning rate 0.001, cross-entropy loss, mini-batches of 128, 10 epochs, fixed seed, the same held-out split (`split_data`, now shared with the baseline). Judged on validation accuracy after epoch 10.
 
 **Prediction (before running):** clears the keep rule (≥ 91.81%). The 128 hidden features can learn strokes and gaps, and the output layer can combine them, which ten fixed templates can't.
+
+**Result:** validation accuracy **96.60%** after epoch 10, against 91.31% for the baseline: +5.29 points, so it's **kept**. The prediction held. Mistakes fell from 730 to 286 (`plots/dense_mistakes.png`).
+
+| Epoch | Train loss | Validation accuracy |
+|---|---|---|
+| 1 | 0.5225 | 91.58% |
+| 2 | 0.2460 | 92.92% |
+| 3 | 0.1881 | 94.60% |
+| 5 | 0.1245 | 95.57% |
+| 7 | 0.0876 | 96.20% |
+| 9 | 0.0651 | 96.51% |
+| 10 | 0.0570 | 96.60% |
+
+| Mistake (true → predicted) | Baseline | Dense |
+|---|---|---|
+| 4 → 9 | 42 | 17 |
+| 3 → 5 | 35 | 17 |
+| 7 → 9 | 32 | 11 |
+| 5 → 3 | 32 | 10 |
+| 9 → 7 | 29 | 9 |
+
+The top pairs are the same, each cut by half to two thirds. After one epoch the network already matches the baseline. Validation accuracy is still rising at epoch 10 (+0.09 points), but more slowly.

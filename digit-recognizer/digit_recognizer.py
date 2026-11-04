@@ -80,6 +80,9 @@ if __name__ == "__main__":
     X, y = get_X_y(df)
     X = divide_by_255(X)
 
-    model, X_test, y_test = get_model_and_test_data(X, y)
-    accuracy = accuracy_score(y_test, model.predict(X_test))
-    print(f"Accuracy: {accuracy:.4f}")
+    # model, X_test, y_test = get_model_and_test_data(X, y)
+    # accuracy = accuracy_score(y_test, model.predict(X_test))
+    # print(f"Accuracy: {accuracy:.4f}")
+
+    network = build_dense_network()
+    network, history = train_network(network, X, y, epochs=10, learning_rate=1e-3, batch_size=128)
