@@ -52,3 +52,5 @@ Why 4 and 9 (and 3 and 5) are confused: not the amount of ink but where it sits.
 ## Dense network
 
 `nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))`: 128 hidden units, each a partial template, combined by the output layer; ReLU lets a unit switch off (without it the two layers collapse into one, the logistic regression again). The training loop (`train_network` in `digit_recognizer.py`, written by Claude on request): Adam, learning rate 0.001, cross-entropy loss, mini-batches of 128, 10 epochs, fixed seed, the same held-out split (`split_data`, now shared with the baseline). Judged on validation accuracy after epoch 10.
+
+**Prediction (before running):** clears the keep rule (≥ 91.81%). The 128 hidden features can learn strokes and gaps, and the output layer can combine them, which ten fixed templates can't.
