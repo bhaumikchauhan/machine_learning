@@ -14,6 +14,7 @@ Final result: k-means, k = 6, on all 17 columns (amounts logged, all scaled, MIN
 5. **Test the choices that could matter, and keep the simple one when they don't.** The KNN fill moved 3.3% of customers and left the segments alike; one bad start moved 1,793, so `n_init=10`.
 6. **ColumnTransformer entries run side by side, Pipeline steps in order:** fill → log → scale on one column is a Pipeline inside one entry.
 7. **A second method shows which segments are solid.** Ward put 25% of customers elsewhere (predicted 5%); the distinct segments agreed (82–89% stayed), the in-between ones didn't (53–61%). A border flag from the k-means distances (nearest within 10% of the second nearest) marked 15% of customers, whom Ward moved 3× as often; most of Ward's moves still came from its different method.
+8. **DBSCAN found no gaps, at any setting.** One cluster at eps 2.5 (from the k-distance curve), and no eps from 1.0 to 3.5 gave two big clusters without half the customers as noise. So the segments are useful cuts through a continuum. When a setting can't be scored, check whether the conclusion depends on it, with the overturning rule written first.
 
 ## Lessons from Give Me Some Credit
 

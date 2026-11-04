@@ -253,3 +253,7 @@ The noise is the far-out customers, not the between-segment ones: median distanc
 No setting meets the criterion: two big clusters appear only at eps 1.0 and 1.25, where half or more of the customers are noise. So the "no gaps" conclusion doesn't depend on eps = 2.5.
 
 At eps 1.25, the two dense cores are 1,487 only cash borrowers and a buyers' core (1,077 frequent buyers, 614 high usage buyers, 562 moderate users); all 1,241 cash and credit users are noise or tiny clusters. At eps 1.5 the two cores join, and 491 cash and credit users are in the joined cluster. The densest structure is two poles, buying and borrowing cash (PCA axis 1), linked by customers who do both.
+
+The bridge between the two cores is the cash and credit users: none are in a core at eps 1.25, 491 are at 1.5. They both buy and borrow cash, so they sit between the poles; once their area is dense enough, a chain of core points runs from the cash borrowers through them to the buyers.
+
+**DBSCAN closed (2026-11-04).** k-means stays the result. DBSCAN shows the six segments are cuts through one continuous cloud (no gaps at any eps tried), and its noise marks far-out customers (3.7% at eps 2.5), mostly inactive ones.
