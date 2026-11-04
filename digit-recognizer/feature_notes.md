@@ -76,3 +76,9 @@ Why 4 and 9 (and 3 and 5) are confused: not the amount of ink but where it sits.
 | 9 → 7 | 29 | 9 |
 
 The top pairs are the same, each cut by half to two thirds. After one epoch the network already matches the baseline. Validation accuracy is still rising at epoch 10 (+0.09 points), but more slowly.
+
+## Number of epochs (decided 2026-11-04)
+
+More epochs keep lowering the training loss; at some point validation accuracy stops rising and falls (overfitting). Picking the best of 30 epochs on the held-out 8,400 would make its score the best of 30 looks, so slightly optimistic.
+
+**Decision (option a):** the 33,600 training images are split again, 80% to train on (26,880) and 20% as an **early-stopping set** (6,720, stratified, seed 42). Train up to 30 epochs; the epoch with the best early-stopping accuracy is kept (its weights restored). The held-out 8,400 are used once, to judge that final model with the keep rule. Same idea as the inner folds of LogisticRegressionCV: choose inside the training data, judge outside it.
