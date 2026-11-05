@@ -148,3 +148,5 @@ The CNN under the new default (seeds 0 to 4): held-out 98.81%, 98.85%, 98.80%, 9
 **Training data (option b, the user):** no held-out set for the submission; the CNN trains on all 42,000 labelled images, 33,600 to train on and 8,400 to choose the epoch (best of 30, seed 42). `create_submission()` in `digit_recognizer.py`. Best epoch 25 (early-stopping accuracy 99.19%). Predicted shares per digit 9.0% (fives) to 11.3% (ones), matching the training labels.
 
 **Expected score (before submitting):** about 98.8% to 99.0%: 98.84% was measured on 26,880 training images, and 33,600 should help slightly.
+
+**Kaggle score: 98.960%** (public), inside the expected 98.8% to 99.0%. The held-out estimate carried over to Kaggle's test images.
