@@ -100,15 +100,16 @@ def compare_epoch_choices(seeds=range(5)):
     return table
 
 
-def compare_networks(builds, seeds=range(5), epochs=10):
-    # Each network with the reference setup (10 epochs on all 33,600 training images, last epoch kept),
-    # on the same seeds, so only the network differs. Judged by average held-out accuracy.
+def compare_networks(builds, seeds=range(5), **training):
+    # Each network with the same training setup (train_network's default: best of 30 epochs on the
+    # early-stopping set, unless `training` overrides it), on the same seeds, so only the network differs.
+    # Judged by average held-out accuracy.
     X, y = dr.get_X_y(dr.get_data_from_csv())
     X = dr.divide_by_255(X)
     table = pd.DataFrame(index=pd.Index(list(seeds), name='seed'))
     for name, build in builds.items():
         for seed in seeds:
-            _, _, accuracy = dr.train_network(build, X, y, epochs=epochs, seed=seed, early_stopping=False, verbose=False)
+            _, _, accuracy = dr.train_network(build, X, y, seed=seed, verbose=False, **training)
             table.loc[seed, name] = accuracy
             print(f"{name}, seed {seed}: {accuracy:.4f}")
     print(table.to_string(float_format='{:.4f}'.format))
@@ -121,6 +122,7 @@ if __name__ == '__main__':
     # model, X_val, y_val = baseline()
     # plot_mistakes(confused_pairs(model, X_val, y_val))
     # compare_epoch_choices()
-    table = compare_networks({'dense': dr.build_dense_network, 'cnn': dr.build_conv_network})
-    gain = (table['cnn'].mean() - table['dense'].mean()) * 100
-    print(f"Gain of the CNN: {gain:+.2f} points (keep rule: CNN mean at least 0.9705)")
+    # the decision run: 10 epochs, last epoch kept (the reference setup then)
+    # table = compare_networks({'dense': dr.build_dense_network, 'cnn': dr.build_conv_network},
+    #                          epochs=10, early_stopping=False)
+    compare_networks({'cnn': dr.build_conv_network})

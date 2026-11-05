@@ -134,3 +134,9 @@ A keep rule is checked against two things known before running. **The noise sets
 | Sd | 0.11 | 0.11 |
 
 **Decision: kept.** +2.11 points against the +0.5 rule (≥ 97.05%), and every CNN seed beats every dense seed. Mistakes fall from about 290 to about 113 of 8,400. The dense means match the earlier comparison exactly, so seeded runs now reproduce. The 10 runs together took 41 seconds.
+
+## Default training: early stopping (decided 2026-11-05)
+
+**Change of procedure (the user):** from now on every network trains up to 30 epochs and keeps the epoch with the best early-stopping accuracy (`train_network`'s defaults; `compare_networks` uses them unless told otherwise). **Reason, independent of the +0.38 result:** a fixed epoch count chosen for one network doesn't carry over to the next (the CNN may need a different number than the dense network), while the early-stopping set checks every network itself. The cost: each network trains on 26,880 images instead of 33,600. The CNN decision above stands (it was made under the old setup).
+
+The CNN under the new default (seeds 0 to 4): held-out 98.81%, 98.85%, 98.80%, 98.89%, 98.76%, **mean 98.82%** (sd 0.05), against 98.65% with 10 epochs. Best epochs 26, 27, 28, 28, 30: close to the 30 limit, so a longer run might gain a little more.
