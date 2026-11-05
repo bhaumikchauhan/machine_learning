@@ -51,17 +51,24 @@ def accuracy_of(network, X, y):
         return (network(X).argmax(dim=1) == y).float().mean().item()
 
 
-def train_network(network, X, y, epochs=30, learning_rate=1e-3, batch_size=128):
-    torch.manual_seed(42)  # same starting weights and batch order every run
+def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size=128, seed=42,
+                  early_stopping=True, verbose=True):
+    # the network is built here, after the seed, so the seed fixes its starting weights too
+    torch.manual_seed(seed)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    network = build_network().to(device)
     X_train, X_test, y_train, y_test = split_data(X, y)
-    # the epoch is chosen on an early-stopping set taken from the training part; the held-out set only judges
-    X_fit, X_stop, y_fit, y_stop = train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+    if early_stopping:
+        # the epoch is chosen on an early-stopping set taken from the training part; the held-out set only judges
+        X_fit, X_stop, y_fit, y_stop = train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+        X_stop, y_stop = to_tensors(X_stop, y_stop, device)
+    else:
+        # train on the whole training part and keep the last epoch
+        X_fit, y_fit = X_train, y_train
+        X_stop, y_stop = None, None
     X_fit, y_fit = to_tensors(X_fit, y_fit, device)
-    X_stop, y_stop = to_tensors(X_stop, y_stop, device)
     X_test, y_test = to_tensors(X_test, y_test, device)
 
-    network = network.to(device)
     optimizer = torch.optim.Adam(network.parameters(), lr=learning_rate)
     # cross-entropy: softmax over the 10 scores, then −log(probability of the true digit)
     loss_function = nn.CrossEntropyLoss()
@@ -83,20 +90,26 @@ def train_network(network, X, y, epochs=30, learning_rate=1e-3, batch_size=128):
             total_loss += loss.item() * len(batch)
 
         fit_accuracy = accuracy_of(network, X_fit, y_fit)
-        stop_accuracy = accuracy_of(network, X_stop, y_stop)
-        if stop_accuracy > best_accuracy:
+        stop_accuracy = accuracy_of(network, X_stop, y_stop) if early_stopping else None
+        if early_stopping and stop_accuracy > best_accuracy:
             best_accuracy, best_epoch = stop_accuracy, epoch
             best_weights = copy.deepcopy(network.state_dict())  # a copy, or later epochs would overwrite it
         history.append({'epoch': epoch, 'train_loss': total_loss / len(X_fit),
                         'fit_accuracy': fit_accuracy, 'stop_accuracy': stop_accuracy})
-        print(f"epoch {epoch:2d}  train loss {total_loss / len(X_fit):.4f}  "
-              f"fit accuracy {fit_accuracy:.4f}  early-stopping accuracy {stop_accuracy:.4f}")
+        if verbose:
+            line = f"epoch {epoch:2d}  train loss {total_loss / len(X_fit):.4f}  fit accuracy {fit_accuracy:.4f}"
+            if early_stopping:
+                line += f"  early-stopping accuracy {stop_accuracy:.4f}"
+            print(line)
 
-    # keep the best epoch's weights, then look at the held-out images once
-    network.load_state_dict(best_weights)
+    # keep the best epoch's weights (or the last epoch's), then look at the held-out images once
+    if early_stopping:
+        network.load_state_dict(best_weights)
     held_out_accuracy = accuracy_of(network, X_test, y_test)
-    print(f"best epoch {best_epoch} (early-stopping accuracy {best_accuracy:.4f}), "
-          f"held-out accuracy {held_out_accuracy:.4f}")
+    if verbose:
+        chosen = f"best epoch {best_epoch} (early-stopping accuracy {best_accuracy:.4f})" if early_stopping \
+            else f"last epoch {epochs}"
+        print(f"{chosen}, held-out accuracy {held_out_accuracy:.4f}")
     return network, history, held_out_accuracy
 
 
@@ -109,5 +122,5 @@ if __name__ == "__main__":
     # accuracy = accuracy_score(y_test, model.predict(X_test))
     # print(f"Accuracy: {accuracy:.4f}")
 
-    network = build_dense_network()
-    network, history, held_out_accuracy = train_network(network, X, y, epochs=30, learning_rate=1e-3, batch_size=128)
+    network, history, held_out_accuracy = train_network(build_dense_network, X, y, epochs=30, learning_rate=1e-3,
+                                                        batch_size=128)

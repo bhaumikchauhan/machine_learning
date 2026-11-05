@@ -78,6 +78,29 @@ def plot_mistakes(matrix, file_name='baseline_mistakes.png', title='Logistic reg
     save(fig, file_name)
 
 
+def compare_epoch_choices(seeds=range(5)):
+    # The dense network two ways, on the same seeds: 10 epochs on all 33,600 training images (last epoch kept)
+    # against early stopping (best of 30 on the 6,720 early-stopping images). Judged by average held-out accuracy.
+    X, y = dr.get_X_y(dr.get_data_from_csv())
+    X = dr.divide_by_255(X)
+    rows = []
+    for seed in seeds:
+        _, _, ten_epochs = dr.train_network(dr.build_dense_network, X, y, epochs=10, seed=seed,
+                                            early_stopping=False, verbose=False)
+        _, history, stopped = dr.train_network(dr.build_dense_network, X, y, epochs=30, seed=seed, verbose=False)
+        best_epoch = max(history, key=lambda h: h['stop_accuracy'])['epoch']
+        rows.append({'seed': seed, '10 epochs': ten_epochs, 'early stopping': stopped, 'best epoch': best_epoch})
+        print(f"seed {seed}: 10 epochs {ten_epochs:.4f}, early stopping {stopped:.4f} (best epoch {best_epoch})")
+    table = pd.DataFrame(rows).set_index('seed')
+    print(table.to_string(float_format='{:.4f}'.format))
+    for column in ['10 epochs', 'early stopping']:
+        print(f"{column}: mean {table[column].mean():.4f}, sd {table[column].std():.4f}")
+    gain = (table['early stopping'].mean() - table['10 epochs'].mean()) * 100
+    print(f"Gain of early stopping: {gain:+.2f} points (keep rule: at least +0.50)")
+    return table
+
+
 if __name__ == '__main__':
-    model, X_val, y_val = baseline()
-    plot_mistakes(confused_pairs(model, X_val, y_val))
+    # model, X_val, y_val = baseline()
+    # plot_mistakes(confused_pairs(model, X_val, y_val))
+    compare_epoch_choices()
