@@ -37,6 +37,19 @@ def get_model_and_test_data(X, y):
 def build_dense_network():
     return nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
 
+def build_conv_network():
+    unflatten_layer = nn.Unflatten(1, (1, 28, 28))  # the 784 pixels are a single-channel 28x28 image
+    return nn.Sequential(
+        unflatten_layer,
+        nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        nn.Flatten(),
+        nn.Linear(64 * 7 * 7, 128), nn.ReLU(),
+        nn.Linear(128, 10)
+    )
+
 
 def to_tensors(X, y, device):
     # pandas -> tensors on the GPU: pixels as float32, labels as int64 (what the loss expects)
@@ -122,5 +135,5 @@ if __name__ == "__main__":
     # accuracy = accuracy_score(y_test, model.predict(X_test))
     # print(f"Accuracy: {accuracy:.4f}")
 
-    network, history, held_out_accuracy = train_network(build_dense_network, X, y, epochs=30, learning_rate=1e-3,
+    network, history, held_out_accuracy = train_network(build_conv_network, X, y, epochs=30, learning_rate=1e-3,
                                                         batch_size=128)

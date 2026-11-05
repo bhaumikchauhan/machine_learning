@@ -116,3 +116,21 @@ The 96.60% is one draw from random starting weights too, so a +0.4 gain from sin
 A keep rule is checked against two things known before running. **The noise sets the minimum:** training noise of a 5-seed average ≈ 0.05 points, but all seeds reuse the same 8,400 held-out images, so the image part (≈ 0.15) stays; the minimum is about 0.5. **What's worth it sets the maximum:** the gain counted in mistakes against the cost of the change. A rule of +2 points would pass the noise check but demand 168 fewer mistakes (58% of the dense network's 290), rejecting a clear improvement. The CNN costs little more than the dense network (a few lines of code, a few minutes of training), so the noise minimum is the bar.
 
 **Rule:** the CNN is kept if its average held-out accuracy over seeds 0 to 4 beats the dense network's 96.55% by at least 0.5 points (≥ 97.05%).
+
+## CNN (decided 2026-11-05)
+
+`build_conv_network` (written by the user): `nn.Unflatten(1, (1, 28, 28))` (the 784 pixels back into a one-channel 28 × 28 grid), then two blocks of `Conv2d` (3 × 3, padding 1, 32 then 64 filters) + ReLU + `MaxPool2d(2)` (28 → 14 → 7), then `Flatten` (64 × 7 × 7 = 3,136), `Linear(3136, 128)`, ReLU, `Linear(128, 10)`. Filters look at small neighbourhoods, so local shape (a closed or open top on a 4 or 9) is something it can learn; the dense network sees every pixel separately. A first run with early stopping gave 98.96% (best epoch 24).
+
+**Result** (`compare_networks` in `data_analysis.py`: the reference setup, 10 epochs on all 33,600, last epoch kept, seeds 0 to 4, so only the network differs):
+
+| Seed | Dense | CNN |
+|---|---|---|
+| 0 | 96.67% | 98.82% |
+| 1 | 96.40% | 98.60% |
+| 2 | 96.54% | 98.52% |
+| 3 | 96.49% | 98.69% |
+| 4 | 96.63% | 98.64% |
+| **Mean** | **96.55%** | **98.65%** |
+| Sd | 0.11 | 0.11 |
+
+**Decision: kept.** +2.11 points against the +0.5 rule (≥ 97.05%), and every CNN seed beats every dense seed. Mistakes fall from about 290 to about 113 of 8,400. The dense means match the earlier comparison exactly, so seeded runs now reproduce. The 10 runs together took 41 seconds.
