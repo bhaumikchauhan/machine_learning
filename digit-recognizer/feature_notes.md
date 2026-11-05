@@ -140,3 +140,11 @@ A keep rule is checked against two things known before running. **The noise sets
 **Change of procedure (the user):** from now on every network trains up to 30 epochs and keeps the epoch with the best early-stopping accuracy (`train_network`'s defaults; `compare_networks` uses them unless told otherwise). **Reason, independent of the +0.38 result:** a fixed epoch count chosen for one network doesn't carry over to the next (the CNN may need a different number than the dense network), while the early-stopping set checks every network itself. The cost: each network trains on 26,880 images instead of 33,600. The CNN decision above stands (it was made under the old setup).
 
 The CNN under the new default (seeds 0 to 4): held-out 98.81%, 98.85%, 98.80%, 98.89%, 98.76%, **mean 98.82%** (sd 0.05), against 98.65% with 10 epochs. Best epochs 26, 27, 28, 28, 30: close to the 30 limit, so a longer run might gain a little more.
+
+**Reproducibility fix (2026-11-05):** CNN runs with the same seed still differed (98.11% and 98.02% after 3 epochs; the dense network repeats exactly). Cause: cuDNN, the GPU library behind `Conv2d`, picks fast algorithms that add in a varying order. `train_network` now sets `torch.backends.cudnn.deterministic = True` and `benchmark = False`; same-seed CNN runs are identical again. The CNN under the default, rerun deterministically (seeds 0 to 4): 98.73%, 98.92%, 98.85%, 98.83%, 98.89%, **mean 98.84%**, best epochs 23 to 30. (The 10-epoch CNN numbers above came from non-deterministic runs; the decision doesn't depend on that.)
+
+## Kaggle submission 1 (2026-11-05)
+
+**Training data (option b, the user):** no held-out set for the submission; the CNN trains on all 42,000 labelled images, 33,600 to train on and 8,400 to choose the epoch (best of 30, seed 42). `create_submission()` in `digit_recognizer.py`. Best epoch 25 (early-stopping accuracy 99.19%). Predicted shares per digit 9.0% (fives) to 11.3% (ones), matching the training labels.
+
+**Expected score (before submitting):** about 98.8% to 99.0%: 98.84% was measured on 26,880 training images, and 33,600 should help slightly.

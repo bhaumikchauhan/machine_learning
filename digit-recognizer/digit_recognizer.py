@@ -65,12 +65,20 @@ def accuracy_of(network, X, y):
 
 
 def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size=128, seed=42,
-                  early_stopping=True, verbose=True):
+                  early_stopping=True, verbose=True, held_out=True):
     # the network is built here, after the seed, so the seed fixes its starting weights too
     torch.manual_seed(seed)
+    # cuDNN's fastest convolution algorithms add in a varying order, so a CNN would differ run to run without this
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     network = build_network().to(device)
-    X_train, X_test, y_train, y_test = split_data(X, y)
+    if held_out:
+        X_train, X_test, y_train, y_test = split_data(X, y)
+    else:
+        # for the submission: no held-out set, every labelled image is used for training (and early stopping)
+        X_train, y_train = X, y
+        X_test, y_test = None, None
     if early_stopping:
         # the epoch is chosen on an early-stopping set taken from the training part; the held-out set only judges
         X_fit, X_stop, y_fit, y_stop = train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
@@ -80,7 +88,6 @@ def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size
         X_fit, y_fit = X_train, y_train
         X_stop, y_stop = None, None
     X_fit, y_fit = to_tensors(X_fit, y_fit, device)
-    X_test, y_test = to_tensors(X_test, y_test, device)
 
     optimizer = torch.optim.Adam(network.parameters(), lr=learning_rate)
     # cross-entropy: softmax over the 10 scores, then −log(probability of the true digit)
@@ -118,12 +125,37 @@ def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size
     # keep the best epoch's weights (or the last epoch's), then look at the held-out images once
     if early_stopping:
         network.load_state_dict(best_weights)
-    held_out_accuracy = accuracy_of(network, X_test, y_test)
+    held_out_accuracy = accuracy_of(network, *to_tensors(X_test, y_test, device)) if held_out else None
     if verbose:
         chosen = f"best epoch {best_epoch} (early-stopping accuracy {best_accuracy:.4f})" if early_stopping \
             else f"last epoch {epochs}"
-        print(f"{chosen}, held-out accuracy {held_out_accuracy:.4f}")
+        print(f"{chosen}, held-out accuracy {held_out_accuracy:.4f}" if held_out else chosen)
     return network, history, held_out_accuracy
+
+
+# Written by Claude: the Kaggle submission.
+def get_kaggle_test_data_from_csv():
+    return pd.read_csv("kaggle\\input\\digit-recognizer\\test.csv")
+
+
+def predict_digits(network, X):
+    # the highest of the 10 scores is the predicted digit
+    device = next(network.parameters()).device
+    network.eval()
+    with torch.no_grad():
+        X = torch.tensor(X.values, dtype=torch.float32, device=device)
+        return network(X).argmax(dim=1).cpu().numpy()
+
+
+def create_submission(path='submission.csv'):
+    # The CNN trained on all 42,000 labelled images: 33,600 to train on, 8,400 to choose the epoch (best of 30)
+    X, y = get_X_y(get_data_from_csv())
+    network, _, _ = train_network(build_conv_network, divide_by_255(X), y, held_out=False)
+    X_test = divide_by_255(get_kaggle_test_data_from_csv())
+    labels = predict_digits(network, X_test)
+    pd.DataFrame({'ImageId': range(1, len(labels) + 1), 'Label': labels}).to_csv(path, index=False)
+    print(f"Saved {path}: {len(labels)} rows, share per digit "
+          f"{pd.Series(labels).value_counts(normalize=True).sort_index().round(3).to_dict()}")
 
 
 if __name__ == "__main__":
