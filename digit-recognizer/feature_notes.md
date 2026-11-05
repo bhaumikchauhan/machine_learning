@@ -110,3 +110,9 @@ The 96.60% is one draw from random starting weights too, so a +0.4 gain from sin
 | Gain | +0.38 | |
 
 **Decision: not kept; 10 epochs stays** (96.55% on average is the dense network's score). The gain is several times the noise of a 5-seed average (about 0.05), so it's probably real, but it's below the rule written beforehand. Lowering the rule after seeing a near miss was considered and rejected: a rule moved to fit the result is fitted to the held-out images and gives false confidence.
+
+## CNN: keep rule (decided 2026-11-05)
+
+A keep rule is checked against two things known before running. **The noise sets the minimum:** training noise of a 5-seed average ≈ 0.05 points, but all seeds reuse the same 8,400 held-out images, so the image part (≈ 0.15) stays; the minimum is about 0.5. **What's worth it sets the maximum:** the gain counted in mistakes against the cost of the change. A rule of +2 points would pass the noise check but demand 168 fewer mistakes (58% of the dense network's 290), rejecting a clear improvement. The CNN costs little more than the dense network (a few lines of code, a few minutes of training), so the noise minimum is the bar.
+
+**Rule:** the CNN is kept if its average held-out accuracy over seeds 0 to 4 beats the dense network's 96.55% by at least 0.5 points (≥ 97.05%).
