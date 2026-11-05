@@ -26,6 +26,8 @@ The cost: one split has no fold-to-fold spread to show its noise. Its uncertaint
 
 **Keep rule:** a change is kept if validation accuracy rises by **at least 0.5 percentage points** (about 3 sd of one split's noise), on the same held-out images. Otherwise the simpler model stays.
 
+What the 0.5 left out (noticed 2026-11-05): it covers only which images land in the held-out set. A network also varies with its training (random starting weights, batch order): sd 0.11–0.14 points per run, single runs up to 0.3 apart. Logistic regression has no such noise, so 0.5 was enough for it; for networks, compare 5-seed averages (training noise of the mean ≈ 0.05), where 0.5 holds again.
+
 ## Baseline: logistic regression on the 784 pixels
 
 One weight per pixel for each digit (a 28 × 28 template per digit), no notion of which pixels are neighbours. `LogisticRegression(max_iter=1000)` on pixels ÷ 255, judged on the held-out 20%.
