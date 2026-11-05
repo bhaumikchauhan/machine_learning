@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md).
 
 ## Lessons from credit card clustering
 
@@ -245,3 +245,23 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Gradient, then step.** `loss.backward()` computes the gradient: for each weight, how much the loss changes if that weight rises a little (backpropagation does it through all layers at once). `optimizer.step()` moves each weight against its gradient by learning rate × gradient. Example: x = 2, y = 10, w = 3: prediction 6, loss 16, gradient 2 × (6 − 10) × 2 = −16; at learning rate 0.1, w becomes 4.6 and the loss 0.64.
 
 **Learning rate too big: overshoot, then blow up.** At learning rate 0.5 the same step jumps past the minimum to w = 11 (loss 144), then to w = −13 (loss 1,296): each jump lands farther away, so the loss grows instead of shrinking. Too big can diverge, not just slow down.
+
+**Scale inputs for gradient descent.** The gradient of a weight contains its input, so inputs of 255 give steps 255 times bigger than inputs near 1, and a learning rate fit for one diverges on the other. For images, divide all pixels by 255: StandardScaler per pixel turns a rare stray mark in a nearly always blank pixel into a huge input. *DR: pixel14, inked in 1 of 42,000 images, would become 205 sd; a centre stroke 1.1 sd.*
+
+**ReLU keeps layers from collapsing.** ReLU = max(0, x), applied after each hidden layer. Without it, two linear layers multiply out to one linear layer (back to logistic regression); with it, each hidden unit can switch off, so the next layer combines partial patterns. The output isn't ReLU'd: it's 10 raw scores (logits), one per digit. `CrossEntropyLoss` applies softmax itself; `argmax` of the scores is the predicted digit. *DR: 784 → 128 → 10, 91.31% → 96.60%.*
+
+**Mini-batches and epochs.** One update = predict a batch (128 images), average its loss, `backward`, `step`. One epoch = one pass over all training images, here 26,880 ÷ 128 = 210 updates. Batch size trades noise for count: batch 1 gives 26,880 noisy updates per epoch, the whole set gives 1 exact but tiny update (10 epochs = 10 steps, too few). The loss is averaged per batch, so the epoch loss multiplies by `len(batch)` before dividing by the image count, or a short last batch (33,600 = 262 × 128 + 64) counts as much as a full one.
+
+**Where the gradients live.** `loss` and the optimizer never talk directly. The forward pass records every operation back to the weights; `loss.backward()` walks that record and writes each gradient into the weight's own `.grad`; the optimizer holds the same weight tensors (`network.parameters()`) and reads `.grad` in `step()`. `backward` *adds* to `.grad`, so `zero_grad()` clears it each batch, otherwise every update follows the sum of all past batches' gradients.
+
+**Early stopping set.** Training accuracy keeps rising with epochs (100% by epoch 27) while unseen accuracy flattens, then may fall. Choosing the best epoch on the held-out set makes its score the best of 30 looks (validation wear), so the epoch is chosen on a set split off the training part and the held-out set judges once. *DR: 33,600 → 26,880 to train, 6,720 to stop.*
+
+**Seed the network's starting weights.** Two runs of a network differ by their random starting weights and batch order. `torch.manual_seed` must run *before* the network is built, or only the batch order is fixed. Seeded, the same seed gives identical runs; for a comparison, average several seeds, since one run is one draw. *DR: built before seeding, three runs gave 96.74–97.04%; across seeds 0–4, sd 0.11–0.14 points.*
+
+**Don't change the rule after the result.** The keep rule is written first so the result can't shape it. Moving it after seeing a near miss is choosing whatever passes: fitted to the held-out set, and false confidence. A rule can be revised, for the next comparison. *DR: early stopping +0.38 against +0.50 (5 seeds, gain several times the noise): not kept.*
+
+**Convolution filters and ReLU.** A filter (for example 3 × 3 weights) slides over the image; each position gives a weighted sum of that patch, so a convolution is linear like a dense layer. ReLU after it makes each output mean "how much of my pattern is here" (0 when absent or reversed); a mirror-image pattern is caught by another filter of the same layer (`nn.Conv2d(1, 32, 3)` learns 32), which training finds on its own if it helps the loss.
+
+**Receptive field.** Each layer sees a patch of the layer below, so stacked layers see wider areas of the image: two 3 × 3 convolutions reach 5 × 5 pixels (in 1-D: b4 uses a3–a5, which use p2–p6). Without ReLU the two would equal one 5 × 5 filter; with ReLU the second combines what the first found next to each other (strokes → corners → digit parts).
+
+**Cross-entropy = log loss for many classes.** Softmax turns the 10 scores into probabilities adding up to 1; the loss is −log(probability of the true digit): 0.99 → 0.01, 0.70 → 0.36, 0.10 → 2.30. Binary log loss −[y·log(p) + (1 − y)·log(1 − p)] is the same with 2 classes: y and 1 − y just pick the true class's probability (p if y = 1, 1 − p if y = 0). The loss sees only the scores and the label, nothing about images. Its gradient on each score is probability − (1 for the true digit, else 0): true 4 at 0.70 gets −0.30 (pushed up), 9 at 0.25 gets +0.25 (pushed down); `backward` carries that push back to every weight, filters included.
