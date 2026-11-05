@@ -98,3 +98,13 @@ None clears the keep rule (+0.5), so the prediction held. The run-to-run spread 
 The 96.60% is one draw from random starting weights too, so a +0.4 gain from single runs can't be trusted. The minimum over runs was considered and rejected: it falls as the number of runs grows and rests on the single most extreme run.
 
 **Decision rule (before running):** 5 runs of each version, seeds 0 to 4 (`train_network` now takes `build_network` and `seed`, and builds the network after seeding; `early_stopping=False` trains on all 33,600 and keeps the last epoch). Early stopping is kept if its **average** held-out accuracy beats the 10-epoch average by at least 0.5 points. `compare_epoch_choices()` in `data_analysis.py`.
+
+**Result (5 seeds):**
+
+| Version | Mean held-out accuracy | Sd over seeds |
+|---|---|---|
+| 10 epochs, all 33,600 | 96.55% | 0.11 |
+| Early stopping, best of 30 | 96.93% | 0.14 |
+| Gain | +0.38 | |
+
+**Decision: not kept; 10 epochs stays** (96.55% on average is the dense network's score). The gain is several times the noise of a 5-seed average (about 0.05), so it's probably real, but it's below the rule written beforehand. Lowering the rule after seeing a near miss was considered and rejected: a rule moved to fit the result is fitted to the held-out images and gives false confidence.
