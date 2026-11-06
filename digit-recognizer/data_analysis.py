@@ -100,21 +100,38 @@ def compare_epoch_choices(seeds=range(5)):
     return table
 
 
-def compare_networks(builds, seeds=range(5), **training):
-    # Each network with the same training setup (train_network's default: best of 30 epochs on the
-    # early-stopping set, unless `training` overrides it), on the same seeds, so only the network differs.
-    # Judged by average held-out accuracy.
+def compare_networks(models, seeds=range(5), **training):
+    # Each model on the same seeds, judged by average held-out accuracy. A model is a build function, or
+    # (build function, its own training settings) when models differ in training, such as augmentation;
+    # `training` applies to all of them (train_network's defaults otherwise: best of 30 epochs on the
+    # early-stopping set). For the keep rule's noise check, each model after the first also gets its
+    # disagreements with the first, per seed: images exactly one of the two gets right (~69 between two CNN seeds).
     X, y = dr.get_X_y(dr.get_data_from_csv())
     X = dr.divide_by_255(X)
+    _, X_test, _, y_test = dr.split_data(X, y)
+    truth = y_test.values
     table = pd.DataFrame(index=pd.Index(list(seeds), name='seed'))
-    for name, build in builds.items():
+    first_name, first_right = None, {}
+    for name, model in models.items():
+        build, settings = model if isinstance(model, tuple) else (model, {})
         for seed in seeds:
-            _, _, accuracy = dr.train_network(build, X, y, seed=seed, verbose=False, **training)
+            network, _, accuracy = dr.train_network(build, X, y, seed=seed, verbose=False, **{**training, **settings})
+            right = dr.predict_digits(network, X_test) == truth
             table.loc[seed, name] = accuracy
-            print(f"{name}, seed {seed}: {accuracy:.4f}")
+            line = f"{name}, seed {seed}: {accuracy:.4f}"
+            if first_name is None or first_name == name:
+                first_name, first_right[seed] = name, right
+            else:
+                table.loc[seed, f"{name} disagreements"] = disagreements = (right != first_right[seed]).sum()
+                line += f", {disagreements} disagreements with {first_name}"
+            print(line)
+    for column in table.columns[table.columns.str.endswith('disagreements')]:
+        table[column] = table[column].astype(int)
     print(table.to_string(float_format='{:.4f}'.format))
-    for name in builds:
-        print(f"{name}: mean {table[name].mean():.4f}, sd {table[name].std():.4f}")
+    for name in models:
+        gain = f", gain over {first_name} {(table[name].mean() - table[first_name].mean()) * 100:+.2f} points" \
+            if name != first_name else ""
+        print(f"{name}: mean {table[name].mean():.4f}, sd {table[name].std():.4f}{gain}")
     return table
 
 
@@ -190,4 +207,6 @@ if __name__ == '__main__':
     # the decision run: 10 epochs, last epoch kept (the reference setup then)
     # table = compare_networks({'dense': dr.build_dense_network, 'cnn': dr.build_conv_network},
     #                          epochs=10, early_stopping=False)
-    compare_networks({'cnn': dr.build_conv_network})
+    augmentation = None  # replace with the augmentation
+    compare_networks({'cnn': dr.build_conv_network,
+                      'cnn_augmented': (dr.build_conv_network, {'augmentation': augmentation})})
