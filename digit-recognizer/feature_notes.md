@@ -2,7 +2,7 @@
 
 Decisions and reasoning for Kaggle's Digit Recognizer: classify 28×28 images of handwritten digits (0 to 9). The first deep learning problem, with PyTorch. Scored by accuracy on Kaggle.
 
-Status: in progress (started 2026-11-04).
+Status: finished 2026-11-06 (started 2026-11-04). Final model: the single CNN, Kaggle 0.98960.
 
 **Who writes what** (the same split as before):
 - **The user writes:** the network, the training loop and the validation split.
@@ -208,3 +208,27 @@ Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes tha
 | **Mean** | **98.84%** | **99.11%** (sd 0.09) | ~94 |
 
 **Decision: not kept.** +0.27 points against +0.3. The disagreement check fires (83 to 104, above ~69): recomputed, sd ≈ √(√94 ÷ 8,400 ² + 0.05²) ≈ √(0.115² + 0.05²) ≈ 0.13, so 3 sd would be ~0.38: the bar only rises, the decision stands (+0.27 ≈ 2.1 sd). Prediction: direction right (doesn't clear), size off (about 23 more right, not 10). The augmented model gets right a different set of images, not just more: it disagrees with the CNN on more images than two CNN seeds do.
+
+## Summary (2026-11-06)
+
+**Final model: the single CNN** (`build_conv_network`, best of 30 epochs on the early-stopping set): held-out 98.84% over seeds 0 to 4, Kaggle **0.98960** (trained on all 42,000).
+
+| Model | Held-out accuracy | Decision |
+|---|---|---|
+| Logistic regression on pixels | 91.31% | baseline |
+| Dense 784-128-10 (10 epochs) | 96.55% (5 seeds) | kept (+5.2) |
+| Dense, early stopping | 96.93% | not kept (+0.38 vs +0.5) |
+| CNN (10 epochs) | 98.65% | kept (+2.1) |
+| CNN, early stopping (new default) | 98.84% | default by procedure |
+| 5 CNNs voting | 99.07% | not kept (+0.23 vs +0.3) |
+| CNN with augmentation | 99.11% | not kept (+0.27 vs +0.3) |
+
+Stopped here (the user): two changes fell just short of the rule, and many of the remaining mistakes look like the predicted digit to a person too. Leaderboard scores of 1.0 come from the full public MNIST, which contains Kaggle's test images with labels; honest models top out around 99.7–99.8%.
+
+## Not tried (candidates if the problem is reopened)
+
+Each would need its own prediction and keep rule, judged as a fresh test:
+
+- **Voting augmented CNNs.** Voting (+0.23) and augmentation (+0.27) each fell just short; augmented networks disagree with the plain CNN on more images, so their seed-specific mistakes may outvote differently. A new candidate, not a rescue of the two near misses: it would need a fresh comparison against the single CNN.
+- **More epochs.** The CNN's best epochs landed at 23 to 30 of 30, so the early-stopping curve may still be rising; augmentation usually needs more epochs too, because every epoch shows new versions.
+- **Dropout.** During training, `nn.Dropout(p)` sets each unit's output to 0 with probability p (0.5 is common), a new random choice for every image in every batch, and doubles the survivors (× 1 ÷ (1 − p)) so the total stays about the same. No unit can count on a particular other unit being there, so the network can't build fragile combinations that memorise single training images: each unit has to be useful on its own. It's like training many thinned networks that share weights and using them together at the end, a cheap relative of voting. Usually placed in the dense part, after `Linear(3136, 128)` and its ReLU, where about 400,000 of the CNN's 420,000 weights are. `network.train()` turns it on and `network.eval()` off (the loop already calls both, `eval()` inside `accuracy_of`). Left on during evaluation, every measurement would use a different crippled half of the network: lower and random scores.
