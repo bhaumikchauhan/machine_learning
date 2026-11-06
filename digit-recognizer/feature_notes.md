@@ -161,4 +161,4 @@ The +0.5 rule (about 3 × 0.15, set for a single model's score at 98%) is too st
 
 **Rule (the user):** a change is kept if its 5-seed average held-out accuracy beats the current model's by at least **+0.3 points** (about 2.7 sd; about 25 fewer mistakes). **Check:** count the disagreements in each comparison; if they're well above 69, recompute the sd before deciding.
 
-Observation for later: each run gets ~97 images wrong, yet two runs disagree on ~69, so most mistakes are specific to one seed. Averaging the predictions of several seeds could fix many of them.
+Observation for later: seeds 0 and 1 share 65 mistakes (both wrong); seed 0 has 42 of its own, seed 1 26. So about 60% of a run's mistakes are shared (hard images) and 30 to 40% are specific to the seed (the other run gets them right). Averaging the predictions of several seeds could fix the seed-specific ones, not the shared ones.
