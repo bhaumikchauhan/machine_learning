@@ -187,3 +187,9 @@ Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes tha
 | **Mean** | **99.07%** (sd 0.04) | | | |
 
 **Decision: not kept; the single CNN stays.** +0.23 points against the +0.3 rule (99.14%); the prediction held. Disagreements with a single CNN (30 to 48) are below the ~69 the rule's sd assumed, so the noise check doesn't change the bar. Voting costs 5× the training for about 19 fewer mistakes of 8,400. `judge_voting()` in `data_analysis.py`.
+
+## Data augmentation (started 2026-11-06)
+
+`random_shift_rotate_zoom` (written by Claude on request): each training image gets its own random rotation (±10°), shift (±10% ≈ 3 pixels) and zoom (±10%), a new draw every batch; the early-stopping and held-out images are never changed. Not flips or big rotations: they change the digit (6 ↔ 9) or make shapes nobody writes. `torchvision`'s `RandomAffine` was rejected: on a batch it gives all 128 images one shared draw (checked), and calling it per image adds ~285 s per run; the batched version (one `affine_grid` matrix per image, then `grid_sample`) costs 0.4 ms per batch. Visual check: `plots/augmentation_examples.png`.
+
+**Error analysis first (early-stopping set, not held-out):** the CNN (seed 0) gets 76 of 6,720 wrong (`plots/cnn_mistakes.png`, `plot_cnn_mistakes()`); most common 7 → 9 and 8 → 9 (5 each), 5 → 3 and 7 → 2 (4 each). The user's reading: rotation would help some, but many are impossible: several of the most confident mistakes look like the predicted digit to a person too (a "3" that looks like a 9, two "9"s that look like 4s), so the label and the drawing disagree. Augmentation can only reach the slanted, shifted or oddly sized ones.
