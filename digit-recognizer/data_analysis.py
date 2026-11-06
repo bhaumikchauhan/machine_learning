@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 from sklearn.metrics import confusion_matrix
 
 import digit_recognizer as dr
@@ -135,6 +136,33 @@ def compare_networks(models, seeds=range(5), **training):
     return table
 
 
+def plot_augmentation(n_images=6, n_versions=5):
+    # A few training images (left column) and random versions of each from random_shift_rotate_zoom,
+    # to check by eye that every version is still clearly the same digit
+    X, y = dr.get_X_y(dr.get_data_from_csv())
+    X = dr.divide_by_255(X).iloc[:n_images]
+    torch.manual_seed(0)
+    originals = torch.tensor(X.values, dtype=torch.float32)
+    versions = [dr.random_shift_rotate_zoom(originals) for _ in range(n_versions)]
+    fig, axes = plt.subplots(n_images, n_versions + 1, figsize=(1.3 * (n_versions + 1), 1.3 * n_images), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    for row in range(n_images):
+        for column, images in enumerate([originals] + versions):
+            ax = axes[row, column]
+            ax.imshow(images[row].reshape(28, 28), cmap='Greys', vmin=0, vmax=1)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for side in ax.spines.values():
+                side.set_color(GRID)
+        axes[row, 0].set_ylabel(f"label {y.iloc[row]}", color=INK_SECONDARY, fontsize=8)
+    axes[0, 0].set_title('original', color=INK_SECONDARY, fontsize=9)
+    for column in range(1, n_versions + 1):
+        axes[0, column].set_title(f'version {column}', color=MUTED, fontsize=9)
+    fig.suptitle('Random shift (±3 px), rotation (±10°) and zoom (±10%), a new draw per image', color=INK,
+                 fontsize=11, x=0.02, ha='left')
+    save(fig, 'augmentation_examples.png')
+
+
 def vote(probabilities):
     # probabilities: networks × images × 10. Each network votes for its most probable digit, the most votes wins
     # (a tie goes to the lower digit). Returns the digits and the number of ties.
@@ -207,6 +235,5 @@ if __name__ == '__main__':
     # the decision run: 10 epochs, last epoch kept (the reference setup then)
     # table = compare_networks({'dense': dr.build_dense_network, 'cnn': dr.build_conv_network},
     #                          epochs=10, early_stopping=False)
-    augmentation = None  # replace with the augmentation
     compare_networks({'cnn': dr.build_conv_network,
-                      'cnn_augmented': (dr.build_conv_network, {'augmentation': augmentation})})
+                      'cnn_augmented': (dr.build_conv_network, {'augmentation': dr.random_shift_rotate_zoom})})
