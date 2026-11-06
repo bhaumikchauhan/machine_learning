@@ -150,3 +150,15 @@ The CNN under the new default (seeds 0 to 4): held-out 98.81%, 98.85%, 98.80%, 9
 **Expected score (before submitting):** about 98.8% to 99.0%: 98.84% was measured on 26,880 training images, and 33,600 should help slightly.
 
 **Kaggle score: 98.960%** (public), inside the expected 98.8% to 99.0%. The held-out estimate carried over to Kaggle's test images.
+
+## Keep rule near 99% (decided 2026-11-06)
+
+The +0.5 rule (about 3 × 0.15, set for a single model's score at 98%) is too strict near 99%: it would need about 40 of the CNN's ~97 mistakes fixed. Recomputed noise, for a **difference** between two models judged on the same 8,400 images:
+
+- **Images:** only the images where the two models disagree change the difference, so its sd ≈ √(disagreements) ÷ 8,400. Measured: two CNN runs that differ only in seed disagree on 60 to 85 images (average ~69; each gets 91 to 107 wrong), so sd ≈ √69 ÷ 8,400 ≈ 0.10 points. (A single model's score has sd √(p(1 − p) ÷ n) = √(0.9884 × 0.0116 ÷ 8,400) ≈ 0.12.)
+- **Training:** sd over seeds 0.07 per run (98.73, 98.92, 98.85, 98.83, 98.89), 0.03 for a 5-seed average, √2 × 0.03 ≈ 0.05 for a difference of two averages.
+- **Together:** √(0.10² + 0.05²) ≈ 0.11 points. (Independent noises add as variances, not sds.)
+
+**Rule (the user):** a change is kept if its 5-seed average held-out accuracy beats the current model's by at least **+0.3 points** (about 2.7 sd; about 25 fewer mistakes). **Check:** count the disagreements in each comparison; if they're well above 69, recompute the sd before deciding.
+
+Observation for later: each run gets ~97 images wrong, yet two runs disagree on ~69, so most mistakes are specific to one seed. Averaging the predictions of several seeds could fix many of them.
