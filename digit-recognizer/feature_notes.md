@@ -195,3 +195,16 @@ Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes tha
 **Error analysis first (early-stopping set, not held-out):** the CNN (seed 0) gets 76 of 6,720 wrong (`plots/cnn_mistakes.png`, `plot_cnn_mistakes()`); most common 7 → 9 and 8 → 9 (5 each), 5 → 3 and 7 → 2 (4 each). The user's reading: rotation would help some, but many are impossible: several of the most confident mistakes look like the predicted digit to a person too (a "3" that looks like a 9, two "9"s that look like 4s), so the label and the drawing disagree. Augmentation can only reach the slanted, shifted or oddly sized ones.
 
 **Prediction (the user, before running): it won't clear the rule (99.14%); about 10 more images right** (≈ 98.96%), since many mistakes are impossible and the rule needs ~25 of ~97 fixed. Same rule and check: 5-seed mean ≥ +0.3 over the single CNN, disagreements per seed against ~69.
+
+**Result (held-out set, seeds 0 to 4):**
+
+| Seed | CNN | Augmented CNN | Disagreements |
+|---|---|---|---|
+| 0 | 98.73% | 99.15% | 102 |
+| 1 | 98.92% | 99.14% | 91 |
+| 2 | 98.85% | 98.96% | 104 |
+| 3 | 98.83% | 99.18% | 83 |
+| 4 | 98.89% | 99.13% | 92 |
+| **Mean** | **98.84%** | **99.11%** (sd 0.09) | ~94 |
+
+**Decision: not kept.** +0.27 points against +0.3. The disagreement check fires (83 to 104, above ~69): recomputed, sd ≈ √(√94 ÷ 8,400 ² + 0.05²) ≈ √(0.115² + 0.05²) ≈ 0.13, so 3 sd would be ~0.38: the bar only rises, the decision stands (+0.27 ≈ 2.1 sd). Prediction: direction right (doesn't clear), size off (about 23 more right, not 10). The augmented model gets right a different set of images, not just more: it disagrees with the CNN on more images than two CNN seeds do.
