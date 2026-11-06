@@ -1,10 +1,11 @@
 import copy
+import math
 
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from torch import nn
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.metrics import accuracy_score
+from sklearn.linear_model import LogisticRegression
 
 from sklearn.model_selection import train_test_split
 
@@ -51,6 +52,27 @@ def build_conv_network():
     )
 
 
+# Written by Claude (on request): data augmentation.
+def random_shift_rotate_zoom(X, degrees=10, shift=0.1, zoom=0.1):
+    # X: a batch of flat images (N × 784). Each image gets its own random rotation (up to ±degrees),
+    # shift (up to ±shift of the width and height, 0.1 × 28 ≈ 3 pixels) and zoom (±zoom), like
+    # torchvision's RandomAffine, which would give the whole batch one shared random draw.
+    n, device = len(X), X.device
+    images = X.reshape(n, 1, 28, 28)
+    uniform = lambda: torch.rand(n, device=device) * 2 - 1   # n random numbers between -1 and 1
+    angle = uniform() * math.radians(degrees)
+    scale = 1 + uniform() * zoom
+    # grid coordinates run from -1 to 1 across the image, so a shift of 10% of the width is 0.2
+    shift_x, shift_y = uniform() * shift * 2, uniform() * shift * 2
+    cos, sin = torch.cos(angle) / scale, torch.sin(angle) / scale
+    # one 2 × 3 matrix per image: [[cos, -sin, shift_x], [sin, cos, shift_y]] (rotate and zoom, then shift)
+    theta = torch.stack([torch.stack([cos, -sin, shift_x], dim=1),
+                         torch.stack([sin, cos, shift_y], dim=1)], dim=1)
+    # for every output pixel, where to read from in the original image; reads from outside the image give 0 (blank)
+    grid = F.affine_grid(theta, list(images.shape), align_corners=False)
+    return F.grid_sample(images, grid, align_corners=False).reshape(n, 784)
+
+
 def to_tensors(X, y, device):
     # pandas -> tensors on the GPU: pixels as float32, labels as int64 (what the loss expects)
     return (torch.tensor(X.values, dtype=torch.float32, device=device),
@@ -64,8 +86,15 @@ def accuracy_of(network, X, y):
         return (network(X).argmax(dim=1) == y).float().mean().item()
 
 
+def early_stopping_split(X_train, y_train):
+    # 20% of the training part, the same images for every seed (fixed random_state)
+    return train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+
+
 def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size=128, seed=42,
-                  early_stopping=True, verbose=True, held_out=True):
+                  early_stopping=True, verbose=True, held_out=True, augmentation=None):
+    # augmentation: a function that returns a changed copy of a training batch (such as random_shift_rotate_zoom),
+    # or None to train on the images as they are
     # the network is built here, after the seed, so the seed fixes its starting weights too
     torch.manual_seed(seed)
     # cuDNN's fastest convolution algorithms add in a varying order, so a CNN would differ run to run without this
@@ -81,7 +110,7 @@ def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size
         X_test, y_test = None, None
     if early_stopping:
         # the epoch is chosen on an early-stopping set taken from the training part; the held-out set only judges
-        X_fit, X_stop, y_fit, y_stop = train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+        X_fit, X_stop, y_fit, y_stop = early_stopping_split(X_train, y_train)
         X_stop, y_stop = to_tensors(X_stop, y_stop, device)
     else:
         # train on the whole training part and keep the last epoch
@@ -102,7 +131,10 @@ def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size
         total_loss = 0.0
         for start in range(0, len(X_fit), batch_size):
             batch = order[start:start + batch_size]
-            scores = network(X_fit[batch])              # predict: 10 scores per image
+            X_batch = X_fit[batch]
+            if augmentation:
+                X_batch = augmentation(X_batch)         # a new random version of each image, every batch
+            scores = network(X_batch)                   # predict: 10 scores per image
             loss = loss_function(scores, y_fit[batch])  # how wrong
             optimizer.zero_grad()                       # clear the previous batch's gradients
             loss.backward()                             # gradient for every weight
@@ -138,13 +170,18 @@ def get_kaggle_test_data_from_csv():
     return pd.read_csv("kaggle\\input\\digit-recognizer\\test.csv")
 
 
-def predict_digits(network, X):
-    # the highest of the 10 scores is the predicted digit
+def predict_probabilities(network, X):
+    # softmax turns each image's 10 scores into probabilities that add up to 1
     device = next(network.parameters()).device
     network.eval()
     with torch.no_grad():
         X = torch.tensor(X.values, dtype=torch.float32, device=device)
-        return network(X).argmax(dim=1).cpu().numpy()
+        return torch.softmax(network(X), dim=1).cpu().numpy()
+
+
+def predict_digits(network, X):
+    # the most probable digit (the same as the highest score)
+    return predict_probabilities(network, X).argmax(axis=1)
 
 
 def create_submission(path='submission.csv'):

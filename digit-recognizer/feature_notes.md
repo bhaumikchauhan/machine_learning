@@ -2,7 +2,7 @@
 
 Decisions and reasoning for Kaggle's Digit Recognizer: classify 28×28 images of handwritten digits (0 to 9). The first deep learning problem, with PyTorch. Scored by accuracy on Kaggle.
 
-Status: in progress (started 2026-11-04).
+Status: finished 2026-11-06 (started 2026-11-04). Final model: the single CNN, Kaggle 0.98960.
 
 **Who writes what** (the same split as before):
 - **The user writes:** the network, the training loop and the validation split.
@@ -150,3 +150,85 @@ The CNN under the new default (seeds 0 to 4): held-out 98.81%, 98.85%, 98.80%, 9
 **Expected score (before submitting):** about 98.8% to 99.0%: 98.84% was measured on 26,880 training images, and 33,600 should help slightly.
 
 **Kaggle score: 98.960%** (public), inside the expected 98.8% to 99.0%. The held-out estimate carried over to Kaggle's test images.
+
+## Keep rule near 99% (decided 2026-11-06)
+
+The +0.5 rule (about 3 × 0.15, set for a single model's score at 98%) is too strict near 99%: it would need about 40 of the CNN's ~97 mistakes fixed. Recomputed noise, for a **difference** between two models judged on the same 8,400 images:
+
+- **Images:** only the images where the two models disagree change the difference, so its sd ≈ √(disagreements) ÷ 8,400. Measured: two CNN runs that differ only in seed disagree on 60 to 85 images (average ~69; each gets 91 to 107 wrong), so sd ≈ √69 ÷ 8,400 ≈ 0.10 points. (A single model's score has sd √(p(1 − p) ÷ n) = √(0.9884 × 0.0116 ÷ 8,400) ≈ 0.12.)
+- **Training:** sd over seeds 0.07 per run (98.73, 98.92, 98.85, 98.83, 98.89), 0.03 for a 5-seed average, √2 × 0.03 ≈ 0.05 for a difference of two averages.
+- **Together:** √(0.10² + 0.05²) ≈ 0.11 points. (Independent noises add as variances, not sds.)
+
+**Rule (the user):** a change is kept if its 5-seed average held-out accuracy beats the current model's by at least **+0.3 points** (about 2.7 sd; about 25 fewer mistakes). **Check:** count the disagreements in each comparison; if they're well above 69, recompute the sd before deciding.
+
+Observation for later: seeds 0 and 1 share 65 mistakes (both wrong); seed 0 has 42 of its own, seed 1 26. So about 60% of a run's mistakes are shared (hard images) and 30 to 40% are specific to the seed (the other run gets them right). Averaging the predictions of several seeds could fix the seed-specific ones, not the shared ones.
+
+## Averaging seeds (started 2026-11-06)
+
+Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes that are seed-specific can be outvoted by the networks that get them right, the shared ones can't.
+
+**Combining method:** votes (the user's first choice: a network wrong because of its seed is outvoted by the others) or averaged probabilities (a confident network counts more). Each can be shown right with one example (a 3–2 vote of hesitant networks against two confident ones goes either way depending on the true digit), so it's settled by data: which is right more often when the two disagree.
+
+**Decision rule (before running):** on the 6,720 early-stopping images (the same for every seed; the held-out 8,400 stay for the final judgement), 5 CNNs (seeds 0 to 4): the method with more correct images wins; a tie goes to votes. The networks chose their epochs on this set, so their scores on it are a little optimistic, but equally for both methods. `compare_combinations()` in `data_analysis.py`.
+
+**Result (early-stopping set, seeds 0 to 4):** single networks 98.87%, 98.91%, 98.93%, 98.91%, 99.05% (mean 98.93%, about 72 wrong). Votes **99.08%** (62 wrong, 2 ties), averaged probabilities **99.08%** (62 wrong). They differ on only 6 images, 3 right for each. **Decision: votes** (a tie, so the rule's tie-break). The two methods hardly ever disagree: when the networks disagree, a hesitant majority against confident ones is rare.
+
+**Held-out judgement:** `judge_voting()`: 5 voting models (seeds 0–4, 5–9, …, 20–24), against the single CNN's 98.84% (seeds 0–4); kept if the mean is at least 99.14%. **Prediction (the user, before running): it won't clear the rule.** On the early-stopping set the gain was +0.15 (98.93% → 99.08%), half the +0.3 needed.
+
+**Result (held-out set):**
+
+| Seeds | Voting | Ties | First seed alone | Disagreements with it |
+|---|---|---|---|---|
+| 0–4 | 99.05% | 8 | 98.73% | 47 |
+| 5–9 | 99.12% | 6 | 99.04% | 31 |
+| 10–14 | 99.10% | 5 | 98.92% | 43 |
+| 15–19 | 99.07% | 11 | 98.86% | 48 |
+| 20–24 | 99.02% | 8 | 98.90% | 30 |
+| **Mean** | **99.07%** (sd 0.04) | | | |
+
+**Decision: not kept; the single CNN stays.** +0.23 points against the +0.3 rule (99.14%); the prediction held. Disagreements with a single CNN (30 to 48) are below the ~69 the rule's sd assumed, so the noise check doesn't change the bar. Voting costs 5× the training for about 19 fewer mistakes of 8,400. `judge_voting()` in `data_analysis.py`.
+
+## Data augmentation (started 2026-11-06)
+
+`random_shift_rotate_zoom` (written by Claude on request): each training image gets its own random rotation (±10°), shift (±10% ≈ 3 pixels) and zoom (±10%), a new draw every batch; the early-stopping and held-out images are never changed. Not flips or big rotations: they change the digit (6 ↔ 9) or make shapes nobody writes. `torchvision`'s `RandomAffine` was rejected: on a batch it gives all 128 images one shared draw (checked), and calling it per image adds ~285 s per run; the batched version (one `affine_grid` matrix per image, then `grid_sample`) costs 0.4 ms per batch. Visual check: `plots/augmentation_examples.png`.
+
+**Error analysis first (early-stopping set, not held-out):** the CNN (seed 0) gets 76 of 6,720 wrong (`plots/cnn_mistakes.png`, `plot_cnn_mistakes()`); most common 7 → 9 and 8 → 9 (5 each), 5 → 3 and 7 → 2 (4 each). The user's reading: rotation would help some, but many are impossible: several of the most confident mistakes look like the predicted digit to a person too (a "3" that looks like a 9, two "9"s that look like 4s), so the label and the drawing disagree. Augmentation can only reach the slanted, shifted or oddly sized ones.
+
+**Prediction (the user, before running): it won't clear the rule (99.14%); about 10 more images right** (≈ 98.96%), since many mistakes are impossible and the rule needs ~25 of ~97 fixed. Same rule and check: 5-seed mean ≥ +0.3 over the single CNN, disagreements per seed against ~69.
+
+**Result (held-out set, seeds 0 to 4):**
+
+| Seed | CNN | Augmented CNN | Disagreements |
+|---|---|---|---|
+| 0 | 98.73% | 99.15% | 102 |
+| 1 | 98.92% | 99.14% | 91 |
+| 2 | 98.85% | 98.96% | 104 |
+| 3 | 98.83% | 99.18% | 83 |
+| 4 | 98.89% | 99.13% | 92 |
+| **Mean** | **98.84%** | **99.11%** (sd 0.09) | ~94 |
+
+**Decision: not kept.** +0.27 points against +0.3. The disagreement check fires (83 to 104, above ~69): recomputed, sd ≈ √(√94 ÷ 8,400 ² + 0.05²) ≈ √(0.115² + 0.05²) ≈ 0.13, so 3 sd would be ~0.38: the bar only rises, the decision stands (+0.27 ≈ 2.1 sd). Prediction: direction right (doesn't clear), size off (about 23 more right, not 10). The augmented model gets right a different set of images, not just more: it disagrees with the CNN on more images than two CNN seeds do.
+
+## Summary (2026-11-06)
+
+**Final model: the single CNN** (`build_conv_network`, best of 30 epochs on the early-stopping set): held-out 98.84% over seeds 0 to 4, Kaggle **0.98960** (trained on all 42,000).
+
+| Model | Held-out accuracy | Decision |
+|---|---|---|
+| Logistic regression on pixels | 91.31% | baseline |
+| Dense 784-128-10 (10 epochs) | 96.55% (5 seeds) | kept (+5.2) |
+| Dense, early stopping | 96.93% | not kept (+0.38 vs +0.5) |
+| CNN (10 epochs) | 98.65% | kept (+2.1) |
+| CNN, early stopping (new default) | 98.84% | default by procedure |
+| 5 CNNs voting | 99.07% | not kept (+0.23 vs +0.3) |
+| CNN with augmentation | 99.11% | not kept (+0.27 vs +0.3) |
+
+Stopped here (the user): two changes fell just short of the rule, and many of the remaining mistakes look like the predicted digit to a person too. Leaderboard scores of 1.0 come from the full public MNIST, which contains Kaggle's test images with labels; honest models top out around 99.7–99.8%.
+
+## Not tried (candidates if the problem is reopened)
+
+Each would need its own prediction and keep rule, judged as a fresh test:
+
+- **Voting augmented CNNs.** Voting (+0.23) and augmentation (+0.27) each fell just short; augmented networks disagree with the plain CNN on more images, so their seed-specific mistakes may outvote differently. A new candidate, not a rescue of the two near misses: it would need a fresh comparison against the single CNN.
+- **More epochs.** The CNN's best epochs landed at 23 to 30 of 30, so the early-stopping curve may still be rising; augmentation usually needs more epochs too, because every epoch shows new versions.
+- **Dropout.** During training, `nn.Dropout(p)` sets each unit's output to 0 with probability p (0.5 is common), a new random choice for every image in every batch, and doubles the survivors (× 1 ÷ (1 − p)) so the total stays about the same. No unit can count on a particular other unit being there, so the network can't build fragile combinations that memorise single training images: each unit has to be useful on its own. It's like training many thinned networks that share weights and using them together at the end, a cheap relative of voting. Usually placed in the dense part, after `Linear(3136, 128)` and its ReLU, where about 400,000 of the CNN's 420,000 weights are. `network.train()` turns it on and `network.eval()` off (the loop already calls both, `eval()` inside `accuracy_of`). Left on during evaluation, every measurement would use a different crippled half of the network: lower and random scores.
