@@ -118,6 +118,35 @@ def compare_networks(builds, seeds=range(5), **training):
     return table
 
 
+def compare_combinations(seeds=range(5)):
+    # Votes against averaged probabilities for combining several CNNs, measured on the early-stopping set
+    # (the same 6,720 images for every seed), so the held-out set stays for the final judgement.
+    X, y = dr.get_X_y(dr.get_data_from_csv())
+    X = dr.divide_by_255(X)
+    X_train, _, y_train, _ = dr.split_data(X, y)
+    _, X_stop, _, y_stop = dr.early_stopping_split(X_train, y_train)
+    truth = y_stop.values
+    probabilities = []
+    for seed in seeds:
+        network, _, _ = dr.train_network(dr.build_conv_network, X, y, seed=seed, verbose=False)
+        probabilities.append(dr.predict_probabilities(network, X_stop))
+        print(f"seed {seed} alone: {(probabilities[-1].argmax(axis=1) == truth).mean():.4f}")
+    probabilities = np.stack(probabilities)                       # networks × images × 10
+
+    votes = probabilities.argmax(axis=2)                          # each network's digit, networks × images
+    counts = np.stack([(votes == digit).sum(axis=0) for digit in range(10)])  # votes per digit, 10 × images
+    by_vote = counts.argmax(axis=0)                               # a tie goes to the lower digit
+    ties = ((counts == counts.max(axis=0)).sum(axis=0) > 1).sum()
+    by_average = probabilities.mean(axis=0).argmax(axis=1)
+
+    vote_right, average_right = by_vote == truth, by_average == truth
+    print(f"votes: {vote_right.mean():.4f} ({(~vote_right).sum()} wrong, {ties} ties)")
+    print(f"averaged probabilities: {average_right.mean():.4f} ({(~average_right).sum()} wrong)")
+    print(f"the two differ on {(by_vote != by_average).sum()} images: votes right on {(vote_right & ~average_right).sum()}, "
+          f"probabilities right on {(average_right & ~vote_right).sum()}")
+    return probabilities, truth
+
+
 if __name__ == '__main__':
     # model, X_val, y_val = baseline()
     # plot_mistakes(confused_pairs(model, X_val, y_val))

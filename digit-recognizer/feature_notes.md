@@ -162,3 +162,13 @@ The +0.5 rule (about 3 × 0.15, set for a single model's score at 98%) is too st
 **Rule (the user):** a change is kept if its 5-seed average held-out accuracy beats the current model's by at least **+0.3 points** (about 2.7 sd; about 25 fewer mistakes). **Check:** count the disagreements in each comparison; if they're well above 69, recompute the sd before deciding.
 
 Observation for later: seeds 0 and 1 share 65 mistakes (both wrong); seed 0 has 42 of its own, seed 1 26. So about 60% of a run's mistakes are shared (hard images) and 30 to 40% are specific to the seed (the other run gets them right). Averaging the predictions of several seeds could fix the seed-specific ones, not the shared ones.
+
+## Averaging seeds (started 2026-11-06)
+
+Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes that are seed-specific can be outvoted by the networks that get them right, the shared ones can't.
+
+**Combining method:** votes (the user's first choice: a network wrong because of its seed is outvoted by the others) or averaged probabilities (a confident network counts more). Each can be shown right with one example (a 3–2 vote of hesitant networks against two confident ones goes either way depending on the true digit), so it's settled by data: which is right more often when the two disagree.
+
+**Decision rule (before running):** on the 6,720 early-stopping images (the same for every seed; the held-out 8,400 stay for the final judgement), 5 CNNs (seeds 0 to 4): the method with more correct images wins; a tie goes to votes. The networks chose their epochs on this set, so their scores on it are a little optimistic, but equally for both methods. `compare_combinations()` in `data_analysis.py`.
+
+**Result (early-stopping set, seeds 0 to 4):** single networks 98.87%, 98.91%, 98.93%, 98.91%, 99.05% (mean 98.93%, about 72 wrong). Votes **99.08%** (62 wrong, 2 ties), averaged probabilities **99.08%** (62 wrong). They differ on only 6 images, 3 right for each. **Decision: votes** (a tie, so the rule's tie-break). The two methods hardly ever disagree: when the networks disagree, a hesitant majority against confident ones is rare.

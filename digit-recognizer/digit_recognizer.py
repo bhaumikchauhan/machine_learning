@@ -64,6 +64,11 @@ def accuracy_of(network, X, y):
         return (network(X).argmax(dim=1) == y).float().mean().item()
 
 
+def early_stopping_split(X_train, y_train):
+    # 20% of the training part, the same images for every seed (fixed random_state)
+    return train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+
+
 def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size=128, seed=42,
                   early_stopping=True, verbose=True, held_out=True):
     # the network is built here, after the seed, so the seed fixes its starting weights too
@@ -81,7 +86,7 @@ def train_network(build_network, X, y, epochs=30, learning_rate=1e-3, batch_size
         X_test, y_test = None, None
     if early_stopping:
         # the epoch is chosen on an early-stopping set taken from the training part; the held-out set only judges
-        X_fit, X_stop, y_fit, y_stop = train_test_split(X_train, y_train, test_size=0.2, stratify=y_train, random_state=42)
+        X_fit, X_stop, y_fit, y_stop = early_stopping_split(X_train, y_train)
         X_stop, y_stop = to_tensors(X_stop, y_stop, device)
     else:
         # train on the whole training part and keep the last epoch
@@ -138,13 +143,18 @@ def get_kaggle_test_data_from_csv():
     return pd.read_csv("kaggle\\input\\digit-recognizer\\test.csv")
 
 
-def predict_digits(network, X):
-    # the highest of the 10 scores is the predicted digit
+def predict_probabilities(network, X):
+    # softmax turns each image's 10 scores into probabilities that add up to 1
     device = next(network.parameters()).device
     network.eval()
     with torch.no_grad():
         X = torch.tensor(X.values, dtype=torch.float32, device=device)
-        return network(X).argmax(dim=1).cpu().numpy()
+        return torch.softmax(network(X), dim=1).cpu().numpy()
+
+
+def predict_digits(network, X):
+    # the most probable digit (the same as the highest score)
+    return predict_probabilities(network, X).argmax(axis=1)
 
 
 def create_submission(path='submission.csv'):
