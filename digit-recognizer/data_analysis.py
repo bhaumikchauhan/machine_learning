@@ -1,5 +1,6 @@
 # Graphs and checks for the digit models. Written by Claude; the model code is the user's (digit_recognizer.py).
 
+import math
 import os
 
 import matplotlib
@@ -161,6 +162,36 @@ def plot_augmentation(n_images=6, n_versions=5):
     fig.suptitle('Random shift (±3 px), rotation (±10°) and zoom (±10%), a new draw per image', color=INK,
                  fontsize=11, x=0.02, ha='left')
     save(fig, 'augmentation_examples.png')
+
+
+def plot_cnn_mistakes(seed=0, n_columns=10, file_name='cnn_mistakes.png'):
+    # The CNN's mistakes on the early-stopping set (not the held-out set, which only judges), most confident first:
+    # true -> predicted digit and the network's probability for its (wrong) answer
+    X, y = dr.get_X_y(dr.get_data_from_csv())
+    X = dr.divide_by_255(X)
+    X_train, _, y_train, _ = dr.split_data(X, y)
+    _, X_stop, _, y_stop = dr.early_stopping_split(X_train, y_train)
+    network, _, _ = dr.train_network(dr.build_conv_network, X, y, seed=seed, verbose=False)
+    probabilities = dr.predict_probabilities(network, X_stop)
+    predicted, truth = probabilities.argmax(axis=1), y_stop.values
+    wrong = np.flatnonzero(predicted != truth)
+    wrong = wrong[np.argsort(-probabilities[wrong, predicted[wrong]])]
+    pairs = pd.Series([f"{t} -> {p}" for t, p in zip(truth[wrong], predicted[wrong])]).value_counts()
+    print(f"{len(wrong)} mistakes of {len(truth)}; most common (true -> predicted):")
+    print(pairs.head(10).to_string())
+
+    n_rows = math.ceil(len(wrong) / n_columns)
+    fig, axes = plt.subplots(n_rows, n_columns, figsize=(1.25 * n_columns, 1.45 * n_rows), dpi=120)
+    fig.patch.set_facecolor(SURFACE)
+    for ax in axes.flat:
+        ax.axis('off')
+    for ax, i in zip(axes.flat, wrong):
+        ax.imshow(X_stop.values[i].reshape(28, 28), cmap='Greys', vmin=0, vmax=1)
+        ax.set_title(f"{truth[i]} → {predicted[i]}  {probabilities[i, predicted[i]]:.2f}", color=INK, fontsize=8)
+    fig.suptitle(f"CNN mistakes on the early-stopping set (seed {seed}): true → predicted, probability of the "
+                 f"wrong answer", color=INK, fontsize=11, x=0.01, ha='left')
+    save(fig, file_name)
+    return pairs
 
 
 def vote(probabilities):
