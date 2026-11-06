@@ -172,3 +172,18 @@ Idea: combine 5 CNNs trained with different seeds; the 30 to 40% of mistakes tha
 **Decision rule (before running):** on the 6,720 early-stopping images (the same for every seed; the held-out 8,400 stay for the final judgement), 5 CNNs (seeds 0 to 4): the method with more correct images wins; a tie goes to votes. The networks chose their epochs on this set, so their scores on it are a little optimistic, but equally for both methods. `compare_combinations()` in `data_analysis.py`.
 
 **Result (early-stopping set, seeds 0 to 4):** single networks 98.87%, 98.91%, 98.93%, 98.91%, 99.05% (mean 98.93%, about 72 wrong). Votes **99.08%** (62 wrong, 2 ties), averaged probabilities **99.08%** (62 wrong). They differ on only 6 images, 3 right for each. **Decision: votes** (a tie, so the rule's tie-break). The two methods hardly ever disagree: when the networks disagree, a hesitant majority against confident ones is rare.
+
+**Held-out judgement:** `judge_voting()`: 5 voting models (seeds 0–4, 5–9, …, 20–24), against the single CNN's 98.84% (seeds 0–4); kept if the mean is at least 99.14%. **Prediction (the user, before running): it won't clear the rule.** On the early-stopping set the gain was +0.15 (98.93% → 99.08%), half the +0.3 needed.
+
+**Result (held-out set):**
+
+| Seeds | Voting | Ties | First seed alone | Disagreements with it |
+|---|---|---|---|---|
+| 0–4 | 99.05% | 8 | 98.73% | 47 |
+| 5–9 | 99.12% | 6 | 99.04% | 31 |
+| 10–14 | 99.10% | 5 | 98.92% | 43 |
+| 15–19 | 99.07% | 11 | 98.86% | 48 |
+| 20–24 | 99.02% | 8 | 98.90% | 30 |
+| **Mean** | **99.07%** (sd 0.04) | | | |
+
+**Decision: not kept; the single CNN stays.** +0.23 points against the +0.3 rule (99.14%); the prediction held. Disagreements with a single CNN (30 to 48) are below the ~69 the rule's sd assumed, so the noise check doesn't change the bar. Voting costs 5× the training for about 19 fewer mistakes of 8,400. `judge_voting()` in `data_analysis.py`.

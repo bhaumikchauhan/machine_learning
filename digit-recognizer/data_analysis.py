@@ -118,6 +118,15 @@ def compare_networks(builds, seeds=range(5), **training):
     return table
 
 
+def vote(probabilities):
+    # probabilities: networks × images × 10. Each network votes for its most probable digit, the most votes wins
+    # (a tie goes to the lower digit). Returns the digits and the number of ties.
+    votes = probabilities.argmax(axis=2)
+    counts = np.stack([(votes == digit).sum(axis=0) for digit in range(10)])  # votes per digit, 10 × images
+    ties = ((counts == counts.max(axis=0)).sum(axis=0) > 1).sum()
+    return counts.argmax(axis=0), ties
+
+
 def compare_combinations(seeds=range(5)):
     # Votes against averaged probabilities for combining several CNNs, measured on the early-stopping set
     # (the same 6,720 images for every seed), so the held-out set stays for the final judgement.
@@ -133,10 +142,7 @@ def compare_combinations(seeds=range(5)):
         print(f"seed {seed} alone: {(probabilities[-1].argmax(axis=1) == truth).mean():.4f}")
     probabilities = np.stack(probabilities)                       # networks × images × 10
 
-    votes = probabilities.argmax(axis=2)                          # each network's digit, networks × images
-    counts = np.stack([(votes == digit).sum(axis=0) for digit in range(10)])  # votes per digit, 10 × images
-    by_vote = counts.argmax(axis=0)                               # a tie goes to the lower digit
-    ties = ((counts == counts.max(axis=0)).sum(axis=0) > 1).sum()
+    by_vote, ties = vote(probabilities)
     by_average = probabilities.mean(axis=0).argmax(axis=1)
 
     vote_right, average_right = by_vote == truth, by_average == truth
@@ -145,6 +151,36 @@ def compare_combinations(seeds=range(5)):
     print(f"the two differ on {(by_vote != by_average).sum()} images: votes right on {(vote_right & ~average_right).sum()}, "
           f"probabilities right on {(average_right & ~vote_right).sum()}")
     return probabilities, truth
+
+
+def judge_voting(groups=5, size=5):
+    # The voting model on the held-out set: `groups` voting models of `size` CNNs each, with their own seeds
+    # (0-4, 5-9, ...), against the single CNN's mean over seeds 0-4 (the first group's members).
+    # Keep rule: +0.3 points; check the disagreements (about 69 between two single CNNs).
+    X, y = dr.get_X_y(dr.get_data_from_csv())
+    X = dr.divide_by_255(X)
+    _, X_test, _, y_test = dr.split_data(X, y)
+    truth = y_test.values
+    rows, single_accuracies = [], []
+    for group in range(groups):
+        seeds = list(range(group * size, (group + 1) * size))
+        probabilities = np.stack([dr.predict_probabilities(
+            dr.train_network(dr.build_conv_network, X, y, seed=seed, verbose=False)[0], X_test) for seed in seeds])
+        if group == 0:
+            single_accuracies = [(p.argmax(axis=1) == truth).mean() for p in probabilities]
+        by_vote, ties = vote(probabilities)
+        vote_right, first_right = by_vote == truth, probabilities[0].argmax(axis=1) == truth
+        rows.append({'seeds': f"{seeds[0]}-{seeds[-1]}", 'voting': vote_right.mean(), 'ties': ties,
+                     'first seed alone': first_right.mean(),
+                     'disagree with it': (vote_right != first_right).sum()})
+        print(rows[-1])
+    table = pd.DataFrame(rows).set_index('seeds')
+    print(table.to_string(float_format='{:.4f}'.format))
+    single_mean = np.mean(single_accuracies)
+    gain = (table['voting'].mean() - single_mean) * 100
+    print(f"single CNN mean (seeds 0-4) {single_mean:.4f}, voting mean {table['voting'].mean():.4f} "
+          f"(sd {table['voting'].std():.4f}), gain {gain:+.2f} points (keep rule: at least +0.30)")
+    return table
 
 
 if __name__ == '__main__':
