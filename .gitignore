@@ -21,3 +21,12 @@ female_3rd_class.csv
 
 # Personal notes, kept local
 assessment_after_first_solution.txt
+
+# Virtual environments inside project folders
+venv/
+
+# Local SQLite databases (created at runtime)
+*.db
+
+# Course materials (Pluralsight downloads: copyrighted, kept local)
+fast-api fundamentals/

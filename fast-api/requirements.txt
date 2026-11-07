@@ -1,0 +1,4 @@
+fastapi[standard]>=0.115   # FastAPI plus uvicorn (the server), the fastapi CLI, and other common extras
+sqlmodel>=0.0.22           # ORM: Pydantic models that are also SQLAlchemy tables
+bcrypt>=4.0                # password hashing
+pytest>=8.0                # tests
