@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md), **API** = [credit risk API](credit-api/README.md).
 
 ## Lessons from Digit Recognizer
 
@@ -285,3 +285,15 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Dropout (not tried).** During training, `nn.Dropout(p)` sets each unit's output to 0 with probability p (often 0.5), a new random choice per image per batch, and multiplies the survivors by 1 ÷ (1 − p) so the total stays about the same. No unit can rely on a particular other one, so fragile combinations that memorise single images can't form; it's like many thinned networks sharing weights, used together at the end (a cheap relative of voting). Usually in the dense part, where most weights are (*DR: about 400,000 of the CNN's 420,000 in `Linear(3136, 128)`*). `network.train()` turns it on, `network.eval()` off; left on during evaluation, every score would come from a different crippled half of the network, lower and random.
 
 **Impossible mistakes.** Some images look like a different digit than their label, even to a person; no model can fix them, so they set a ceiling. Look at the mistakes (on the early-stopping set, not the held-out set) before predicting what a change can fix. *DR: a "3" that looks like a 9, two "9"s that look like 4s, among the CNN's most confident mistakes.*
+
+## Serving a model
+
+**Training and serving are separate programs.** Training fits the model once, offline, and saves it to a file (`joblib.dump`, like serializing an object); the API loads that file once at startup and only predicts. Refitting per request would take far longer than a prediction. *API: `save_model()` in GMSC writes `model.joblib`; `lifespan` loads it.*
+
+**What serving must match from training.** The fitted model, the column names and order, the library version that saved the file, and any feature engineering (none for the boosting model, which uses the raw columns). Not the seed: it only shapes the trees during `fit`, so predictions are fixed once the model exists. Not scaling, unless the model used it: trees compare against thresholds, so units don't matter. *API: the table in credit-api/README.md.*
+
+**Column order.** A model fitted on a DataFrame remembers the column names (`feature_names_in_`) and refuses a DataFrame in another order; a numpy array has no names, so swapped columns are scored silently and wrongly. JSON key order means nothing, so the API builds the row in `feature_names_in_` order. *API: swapping age and income as numpy moved one borrower from 4% to 26% (`column_order_check` in GMSC's diagnostics.py).*
+
+**Training-serving skew.** The served model differs from the one that was validated: copied training code that drifts, a different library version, a different preprocessing step. Guards: one function that fits the model, used for both the submission and the saved file; pinned versions; a test that the API returns the probability that was submitted; checks at startup that stop a mismatched model from serving. *API: `create_and_fit_boosting_model()` in GMSC, used by both; `load_model` raises on a version or column mismatch.*
+
+**Reject unknown fields.** If a request with a typo'd field name ("monthly_incom") were accepted, the real field would default to missing, and the model would score the borrower as "income not reported": a wrong prediction with no error. `extra="forbid"` makes it a 422. *API: schemas.py.*

@@ -1,0 +1,9 @@
+# Pinned to the versions model.joblib was saved with (give-me-some-credit runs in the repo's .venv): a pickled
+# model is only guaranteed to load and predict the same with the same scikit-learn, and its arrays are numpy's.
+scikit-learn==1.9.1
+numpy==2.4.6
+pandas==3.0.6
+joblib==1.6.0
+
+fastapi[standard]>=0.115   # FastAPI plus uvicorn and the fastapi CLI
+pytest>=8.0

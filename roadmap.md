@@ -26,13 +26,13 @@ The habits behind them, written up in [concepts.md](concepts.md):
 
 ### Phase 1: Deployment 🟡
 
-**Goal:** serve one model end to end, the way a production team would. Use the Give Me Some Credit boosting model, or the CNN.
+**Goal:** serve one model end to end, the way a production team would: the Give Me Some Credit boosting model (chosen 2026-11-09).
 
 | Step | What | Status |
 |---|---|---|
 | FastAPI | Endpoints, schemas, dependencies, tests. Studied with a condensed course project in [fast-api/](fast-api/README.md). | ✅ |
-| Model endpoint | Load the model once at startup; a `predict` endpoint with validated input and output schemas. | ⬜ |
-| pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. | ⬜ |
+| Model endpoint | Load the model once at startup; a `predict` endpoint with validated input and output schemas. Done in [credit-api/](credit-api/README.md) for the Give Me Some Credit model. | ✅ |
+| pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. 10 tests in credit-api. | ✅ |
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. | ⬜ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. | ⬜ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. | ⬜ |

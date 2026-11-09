@@ -175,3 +175,9 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 - **age 0:** 1 borrower; the next youngest is 21, and the test set's youngest is 21. **Decided (2026-10-30): set to a fixed 52**, the mean age (52.3), rounded. Written as a fixed number, so nothing is fitted; for one borrower, the mean's dependence on the fold doesn't matter.
 - **NumberOfDependents missing:** 3,924 borrowers, all with missing income, so already flagged by `IncomeNotReported`. They default at 4.6%, against 5.8% for the other missing-income borrowers. **Decided (2026-10-30): fill with a fixed 0, no flag of its own.** 0 is also the most common value (86,902 borrowers). Unlike income, the fill does matter a little here, because the flag covers 32,008 borrowers and not just these 3,924; with a 1.2-point difference, a separate flag would add little.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
+
+## Serving (2026-11-09)
+
+- **Served by [credit-api/](../credit-api/README.md)** (roadmap phase 1). `save_model()` writes `model.joblib` (not in git); the user moved the fit into `create_and_fit_boosting_model()`, used by both `create_boosting_submission` and `save_model`, so the served model can't drift from the submitted one.
+- **Check:** the loaded file reproduces `submission_2.csv` on all 101,503 test borrowers (largest difference 1e-16, CSV rounding). Saved with scikit-learn 1.9.1, pinned in credit-api/requirements.txt.
+- **What the API must match** (worked out by the user, with one correction): the model, the column names and order, the scikit-learn version. Not the seed (only used in `fit`), not scaling (no scaler in this model). The user first said order doesn't matter; `column_order_check()` in diagnostics.py showed a DataFrame in another order raises a ValueError, and a numpy row is scored silently wrong (borrower 2: 4% → 26% with age and income swapped).
