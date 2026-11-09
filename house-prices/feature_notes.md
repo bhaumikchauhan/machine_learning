@@ -2,7 +2,9 @@
 
 Decisions and reasoning behind the features in [house_prices.py](house_prices.py). Task: predict `SalePrice` for 1,459 test houses from 79 columns. 1,460 training houses. Kaggle scores the RMSE between log(predicted price) and log(actual price).
 
-Status: in progress. Columns Id to HouseStyle were gone through one at a time, in the order of `data_description.txt`. That was too slow for 79 columns, so the approach changed (2026-10-26): a small baseline first (see [Baseline](#baseline)), then the remaining columns in groups, with a quick check per column and CV to decide.
+Status: finished (marked 2026-11-09). Final model: Ridge, CV RMSE 0.1118, Kaggle 0.12412 (see [Submissions](#submissions)). Lessons are in `concepts.md`. Any columns without a decision are optional leftovers (see `roadmap.md`), not needed to close the problem.
+
+Columns Id to HouseStyle were gone through one at a time, in the order of `data_description.txt`. That was too slow for 79 columns, so the approach changed (2026-10-26): a small baseline first (see [Baseline](#baseline)), then the remaining columns in groups, with a quick check per column and CV to decide.
 
 Graphs are made by [data_analysis.py](data_analysis.py) (`uv run python data_analysis.py`) and saved to `plots/`.
 
