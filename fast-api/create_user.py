@@ -13,4 +13,7 @@ if __name__ == "__main__":
     with Session(engine) as session:
         session.add(user)
         session.commit()
-    print(f"Created user {user.username}")
+        # commit() expires the object's fields, so reading one reloads it from the database. That needs an open
+        # session: after the `with` block the object is detached (like a detached JPA entity outside its
+        # EntityManager), and reading user.username there raises DetachedInstanceError.
+        print(f"Created user {user.username}")
