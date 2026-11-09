@@ -30,3 +30,4 @@ venv/
 
 # Course materials (Pluralsight downloads: copyrighted, kept local)
 fast-api fundamentals/
+*.joblib
