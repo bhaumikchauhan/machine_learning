@@ -30,4 +30,5 @@ venv/
 
 # Course materials (Pluralsight downloads: copyrighted, kept local)
 fast-api fundamentals/
+# Saved models (rebuilt by save_model(); versions go to MLflow later)
 *.joblib
