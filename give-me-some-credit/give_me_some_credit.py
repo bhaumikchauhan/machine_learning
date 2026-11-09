@@ -188,7 +188,6 @@ def create_and_fit_boosting_model():
 
 def create_boosting_submission(path='submission_2.csv'):
     # Written by Claude. The current model (boosting on the raw columns), fitted on all 150,000 training borrowers.
-    
 
     test = get_kaggle_test_data_from_csv()
     ids = test.iloc[:, 0]  # the first column holds the Id (unnamed in cs-test.csv)
