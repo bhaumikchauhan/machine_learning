@@ -303,3 +303,9 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Layer cache.** Each Dockerfile step is cached; a rebuild reruns from the first step whose input changed. So `COPY requirements.txt` and `RUN pip install` come before the code: a code edit then skips the install. *API: the user's Dockerfile.*
 
 **Inside a container, 127.0.0.1 is the container itself.** A server must listen on 0.0.0.0 to be reachable through `-p host:container` (`fastapi run`, not `fastapi dev`). *API: the first Dockerfile used `fastapi dev`.*
+
+**Container data needs a volume.** A container's writable layer is deleted with it, and every `docker run` starts a new container from the unchanged image. Data that must last goes in a volume (`-v name:/path`, storage Docker keeps separately) or in a database on another server. *API: the prediction log in `/app/data`; checked with two containers in a row.*
+
+**Prediction logging.** One record per prediction: a request id (returned to the client), the time, the model version, the inputs as received, the output and the latency. Uses: drift monitoring (inputs and predictions against training), replaying inputs through a new model before switching, and live accuracy once real outcomes arrive and are joined by the id. Written where the validated input and the output exist (the endpoint), not in middleware. *API: the `predictionlog` table.*
+
+**Model version from a hash.** A file name stays the same across retraining (`model.joblib`); a hash of the file's bytes changes whenever the model does. *API: 12 characters of SHA-256, computed at startup; MLflow's version number replaces it later.*

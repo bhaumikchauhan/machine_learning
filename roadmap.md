@@ -34,7 +34,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | Model endpoint | Load the model once at startup; a `predict` endpoint with validated input and output schemas. Done in [credit-api/](credit-api/README.md) for the Give Me Some Credit model. | ✅ |
 | pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. 10 tests in credit-api. | ✅ |
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
-| Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. | ⬜ |
+| Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. | ⬜ |
 | CI with GitHub Actions | Every push runs the tests and builds the image. | ⬜ |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |

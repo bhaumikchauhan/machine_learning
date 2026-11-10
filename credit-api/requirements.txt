@@ -4,6 +4,7 @@ scikit-learn==1.9.1
 numpy==2.4.6
 pandas==3.0.6
 joblib==1.6.0
+sqlmodel>=0.0.48
 
 fastapi[standard]>=0.115   # FastAPI plus uvicorn and the fastapi CLI
 pytest>=8.0

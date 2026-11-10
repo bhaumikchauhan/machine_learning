@@ -1,11 +1,16 @@
+import uuid
+from datetime import datetime, timedelta, timezone
+
 import joblib
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sqlmodel import select
 
+from app import app
 from predictor import SCHEMA_COLUMNS, load_model, predict_probability
-from schemas import BorrowerInput
+from schemas import BorrowerInput, PredictionLog
 
 # Kaggle test borrower 1 (cs-test.csv) and its probability in submission_2.csv, the submission Kaggle scored 0.86670
 BORROWER_1 = {"revolving_utilization": 0.88551908, "age": 43, "times_30_59_days_late": 0,
@@ -23,19 +28,23 @@ def test_predict_matches_the_kaggle_submission(client):
     assert response.json()["probability"] == pytest.approx(SUBMITTED_PROBABILITY, abs=1e-12)
 
 
+def probability_for(client, borrower):
+    # compares probabilities only: every response has its own request id
+    return client.post("/predict", json=borrower).json()["probability"]
+
+
 def test_field_order_does_not_matter(client):
     reversed_order = dict(reversed(list(BORROWER_1.items())))
-    assert client.post("/predict", json=reversed_order).json() == client.post("/predict", json=BORROWER_1).json()
+    assert probability_for(client, reversed_order) == probability_for(client, BORROWER_1)
 
 
 def test_missing_income_is_scored_as_not_reported(client):
     # left out and null are the same: both become NaN, like the 29,731 blank incomes in training
     left_out = {k: v for k, v in BORROWER_1.items() if k != "monthly_income"}
     as_null = {**BORROWER_1, "monthly_income": None}
-    response = client.post("/predict", json=left_out)
-    assert response.status_code == 200
-    assert response.json() == client.post("/predict", json=as_null).json()
-    assert response.json() != client.post("/predict", json=BORROWER_1).json()
+    assert client.post("/predict", json=left_out).status_code == 200
+    assert probability_for(client, left_out) == probability_for(client, as_null)
+    assert probability_for(client, left_out) != probability_for(client, BORROWER_1)
 
 
 @pytest.mark.parametrize("change", [
@@ -49,7 +58,30 @@ def test_invalid_input_is_422(client, change):
 
 
 def test_health(client):
-    assert client.get("/health").json() == {"status": "ok", "model": "model.joblib"}
+    health = client.get("/health").json()
+    assert health["status"] == "ok" and health["model"] == "model.joblib"
+    assert health["model_version"] == app.state.model_version and len(health["model_version"]) == 12
+
+
+# --- Prediction logging ---
+
+def test_prediction_is_logged_under_the_returned_id(client, session):
+    before = datetime.now(timezone.utc)
+    response = client.post("/predict", json=BORROWER_1).json()
+    record = session.get(PredictionLog, uuid.UUID(response["id"]))     # find by primary key
+    assert record is not None
+    assert record.probability == response["probability"]
+    assert record.model_dump(include=set(BORROWER_1)) == BORROWER_1     # the inputs as received
+    assert record.model_version == app.state.model_version
+    assert record.latency > 0
+    # SQLite gives the timestamp back without its time zone (it stores text); it was written in UTC
+    assert before - timedelta(seconds=1) <= record.timestamp.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc)
+
+
+def test_rejected_requests_are_not_logged(client, session):
+    client.post("/predict", json={**BORROWER_1, "age": 12})     # 422: never reaches the model
+    client.get("/health")
+    assert session.exec(select(PredictionLog)).all() == []
 
 
 # --- predictor.py on its own, without the model file ---
@@ -66,7 +98,8 @@ class RecordingModel:
 def test_row_is_built_in_the_models_column_order_with_nan_for_none():
     model = RecordingModel()
     borrower = BorrowerInput(**{**BORROWER_1, "monthly_income": None})
-    assert predict_probability(model, borrower) == 0.25
+    probability, latency = predict_probability(model, borrower)
+    assert probability == 0.25 and latency >= 0
     assert list(model.X.columns) == list(model.feature_names_in_)
     assert np.isnan(model.X.loc[0, "MonthlyIncome"])
 

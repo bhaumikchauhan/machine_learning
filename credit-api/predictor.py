@@ -1,5 +1,6 @@
 # Loading the model and turning one request into one prediction. Plain Python, no FastAPI, so it can be tested on
 # its own (like a @Service that the controller calls).
+import time
 import warnings
 
 import joblib
@@ -28,10 +29,16 @@ def load_model(path):
     return model
 
 
-def predict_probability(model, borrower: BorrowerInput) -> float:
+def predict_probability(model, borrower: BorrowerInput) -> tuple[float, float]:
     # One borrower → a one-row DataFrame:
     # - columns=model.feature_names_in_ puts the columns in the order of fit, whatever order the JSON had
     #   (diagnostics.py, column_order_check: a numpy row in the wrong order gives wrong probabilities silently)
     # - dtype=float turns None into NaN, the blank the model was trained with
     row = pd.DataFrame([borrower.model_dump(by_alias=True)], columns=model.feature_names_in_, dtype=float)
-    return float(model.predict_proba(row)[0, 1])      # row 0, column 1 = probability of class 1 (serious late payment)
+    # The model's own time, in milliseconds. perf_counter is a monotonic clock made for timing; the wall clock
+    # can jump when the system adjusts it.
+    start_time = time.perf_counter()
+    result = float(model.predict_proba(row)[0, 1])      # row 0, column 1 = probability of class 1 (serious late payment)
+    end_time = time.perf_counter()
+    latency = (end_time - start_time) * 1000  # Convert to milliseconds
+    return result, latency

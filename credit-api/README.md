@@ -4,10 +4,11 @@ Serves the [Give Me Some Credit](../give-me-some-credit/feature_notes.md) model 
 
 Read in this order:
 
-1. [schemas.py](schemas.py): the contract; snake_case JSON mapped to the model's column names, required vs optional fields, unknown fields rejected
+1. [schemas.py](schemas.py): the contract; snake_case JSON mapped to the model's column names, required vs optional fields, unknown fields rejected; the prediction log table
 2. [predictor.py](predictor.py): loading the model with startup checks, and turning a request into a one-row DataFrame
-3. [app.py](app.py): loading once in `lifespan`, the model as a dependency, `POST /predict` as a plain `def`, `GET /health`
-4. [tests/test_predict.py](tests/test_predict.py): the API against the Kaggle submission, input validation, `predictor.py` with a stand-in model
+3. [db.py](db.py): the log database from an environment variable (SQLite file or Postgres)
+4. [app.py](app.py): loading once in `lifespan`, the model as a dependency, `POST /predict` as a plain `def` that logs each prediction, `GET /health`
+5. [tests/](tests/conftest.py): the API against the Kaggle submission, input validation, the log records (in an in-memory database), `predictor.py` with a stand-in model
 
 ## Run it
 
@@ -25,7 +26,7 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 fastapi dev app.py      # then http://localhost:8000/docs: POST /predict, "Try it out" has borrower 1 prefilled
-pytest                  # 10 tests
+pytest                  # 12 tests; they use an in-memory database, never data/predictions.db
 ```
 
 From PowerShell without /docs:
@@ -40,15 +41,35 @@ Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType applic
 
 ```
 docker build -t credit-api .                  # -t names the image; "." is the build context
-docker run --rm -p 8000:8000 credit-api       # -p host:container port; --rm deletes the container when it stops
+docker run --rm -p 8000:8000 -v credit-data:/app/data credit-api
+# -p host:container port; --rm deletes the container when it stops;
+# -v mounts the volume credit-data at /app/data, where the prediction log is written, so the records outlive the container
 ```
 
-Then http://localhost:8000/docs, as without Docker. The image is about 560 MB (Python, scikit-learn, pandas, FastAPI).
+Then http://localhost:8000/docs, as without Docker. To read the log: `docker exec <container> python -c "..."`, or mount a folder instead of a named volume (`-v ${PWD}/data:/app/data`) and open the file locally. The image is about 560 MB (Python, scikit-learn, pandas, FastAPI).
 
 - **Requirements before code:** Docker reruns a step only when it or a step above it changed, so `pip install` comes from the cache after a code edit.
 - **`fastapi run`, not `fastapi dev`:** `dev` listens on 127.0.0.1, which inside a container is only the container itself; `run` listens on 0.0.0.0, and doesn't reload.
 - **`CMD [...]`, the exec form:** starts the server directly, so it gets the stop signal. Anything after the `]` makes Docker fall back to running the line through a shell, and the container fails at startup.
 - **Only the files the API needs:** the code, `requirements.txt` and the model. Not `venv/` (Windows binaries; the image installs its own), the tests or the training data.
+- **Data goes in a volume.** A container's own file system is deleted with it (`--rm`), and a new container starts from the unchanged image. Checked: two containers in a row on the same volume, and the second found the first one's record.
+
+## Prediction logging
+
+Every prediction is a row in the `predictionlog` table, written by the user (step 4, the tests, by Claude):
+
+| Column | Used for |
+|---|---|
+| `id` (UUID, returned to the client) | Matching the real outcome later, up to 2 years on, to measure live AUC |
+| `timestamp` (UTC) | Every drift check compares a time window with training |
+| `model_version` (12 characters of the model file's SHA-256) | Telling which model made a prediction; replaying inputs through a new model and comparing |
+| the 10 inputs, as received | Drift monitoring: are the inputs still distributed as in training? Replays. |
+| `probability` | Prediction drift; the comparison with a new model |
+| `latency` (ms in `predict_proba`) | Is the model fast enough? |
+
+- **Logged in the endpoint, not in middleware:** only the endpoint has the validated input and the probability, and only requests that reached the model get a record (no `/health`, no 422s).
+- **The log write is part of the request:** if it fails, the client gets a 500, so no prediction is served without its record. The cost is a database write per prediction; at high traffic, records go to a queue or stdout instead and are loaded in batches.
+- **`create_all` never changes an existing table.** After adding an input field, delete `data/predictions.db` locally, or use a migration tool (Alembic) once the records matter.
 
 ## What the API must match from training
 
@@ -68,4 +89,4 @@ Then http://localhost:8000/docs, as without Docker. The image is about 560 MB (P
 
 ## Next in phase 1
 
-Prediction logging, MLflow (the API loads a registered model instead of a file), CI with GitHub Actions, then a cloud deployment.
+MLflow (the API loads a registered model instead of a file), CI with GitHub Actions, then a cloud deployment.
