@@ -297,3 +297,9 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Training-serving skew.** The served model differs from the one that was validated: copied training code that drifts, a different library version, a different preprocessing step. Guards: one function that fits the model, used for both the submission and the saved file; pinned versions; a test that the API returns the probability that was submitted; checks at startup that stop a mismatched model from serving. *API: `create_and_fit_boosting_model()` in GMSC, used by both; `load_model` raises on a version or column mismatch.*
 
 **Reject unknown fields.** If a request with a typo'd field name ("monthly_incom") were accepted, the real field would default to missing, and the model would score the borrower as "income not reported": a wrong prediction with no error. `extra="forbid"` makes it a 422. *API: schemas.py.*
+
+**Docker image and container.** A Dockerfile is a build recipe; the image is the result: a Linux file system with Python, the libraries, the code and the model, plus the command that starts the app. A container is a running image, so every machine runs the same environment (like a fat jar shipped with its own JRE and OS). *API: `docker build -t credit-api .`, `docker run -p 8000:8000 credit-api`.*
+
+**Layer cache.** Each Dockerfile step is cached; a rebuild reruns from the first step whose input changed. So `COPY requirements.txt` and `RUN pip install` come before the code: a code edit then skips the install. *API: the user's Dockerfile.*
+
+**Inside a container, 127.0.0.1 is the container itself.** A server must listen on 0.0.0.0 to be reachable through `-p host:container` (`fastapi run`, not `fastapi dev`). *API: the first Dockerfile used `fastapi dev`.*

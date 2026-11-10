@@ -14,8 +14,7 @@ from fastapi import Depends, FastAPI, Request
 from predictor import load_model, predict_probability
 from schemas import BorrowerInput, PredictionOutput
 
-MODEL_PATH = Path(os.environ.get("CREDIT_MODEL_PATH",
-                                 Path(__file__).parent.parent / "give-me-some-credit" / "model.joblib"))
+MODEL_PATH = Path(os.environ.get("CREDIT_MODEL_PATH", "model.joblib"))
 
 
 @asynccontextmanager

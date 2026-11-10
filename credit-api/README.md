@@ -16,7 +16,10 @@ Read in this order:
 cd ..\give-me-some-credit
 ..\.venv\Scripts\python -c "import give_me_some_credit as g; g.save_model()"
 
-# 2. The API (from credit-api)
+# 2. Copy it next to the API (the app loads model.joblib from the folder it starts in; MLflow replaces this later)
+copy model.joblib ..\credit-api\
+
+# 3. The API (from credit-api)
 cd ..\credit-api
 python -m venv venv
 venv\Scripts\activate
@@ -30,6 +33,22 @@ From PowerShell without /docs:
 ```
 Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType application/json -Body '{"revolving_utilization": 0.8855, "age": 43, "times_30_59_days_late": 0, "debt_ratio": 0.1775, "monthly_income": 5700, "open_credit_lines": 4, "times_90_days_late": 0, "real_estate_loans": 0, "times_60_89_days_late": 0, "dependents": 0}'
 ```
+
+## Docker
+
+[Dockerfile](Dockerfile), written by the user. From credit-api, with `model.joblib` copied in (step 2 above):
+
+```
+docker build -t credit-api .                  # -t names the image; "." is the build context
+docker run --rm -p 8000:8000 credit-api       # -p host:container port; --rm deletes the container when it stops
+```
+
+Then http://localhost:8000/docs, as without Docker. The image is about 560 MB (Python, scikit-learn, pandas, FastAPI).
+
+- **Requirements before code:** Docker reruns a step only when it or a step above it changed, so `pip install` comes from the cache after a code edit.
+- **`fastapi run`, not `fastapi dev`:** `dev` listens on 127.0.0.1, which inside a container is only the container itself; `run` listens on 0.0.0.0, and doesn't reload.
+- **`CMD [...]`, the exec form:** starts the server directly, so it gets the stop signal. Anything after the `]` makes Docker fall back to running the line through a shell, and the container fails at startup.
+- **Only the files the API needs:** the code, `requirements.txt` and the model. Not `venv/` (Windows binaries; the image installs its own), the tests or the training data.
 
 ## What the API must match from training
 
@@ -49,4 +68,4 @@ Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType applic
 
 ## Next in phase 1
 
-Docker image, prediction logging, MLflow (the API loads a registered model instead of a file), CI with GitHub Actions, then a cloud deployment.
+Prediction logging, MLflow (the API loads a registered model instead of a file), CI with GitHub Actions, then a cloud deployment.
