@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md), **API** = [credit risk API](credit-api/README.md).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md), **API** = [credit risk API](credit-api/README.md), **RL** = reinforcement learning course videos (Mars rover: states 1–6, rewards 100, 0, 0, 0, 0, 40, states 1 and 6 terminal; no code in this repo).
 
 ## Lessons from Digit Recognizer
 
@@ -309,3 +309,51 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Prediction logging.** One record per prediction: a request id (returned to the client), the time, the model version, the inputs as received, the output and the latency. Uses: drift monitoring (inputs and predictions against training), replaying inputs through a new model before switching, and live accuracy once real outcomes arrive and are joined by the id. Written where the validated input and the output exist (the endpoint), not in middleware. *API: the `predictionlog` table.*
 
 **Model version from a hash.** A file name stays the same across retraining (`model.joblib`); a hash of the file's bytes changes whenever the model does. *API: 12 characters of SHA-256, computed at startup; MLflow's version number replaces it later.*
+
+## Reinforcement learning
+
+**State-action value function Q(s, a).** The return if you start in state s, take action a once, then behave optimally. Forcing only the first action makes actions comparable: everything after it is the same (optimal), so Q(s, left) vs Q(s, right) judges just that first step. The best action is argmax_a Q(s, a), and the best return is max_a Q(s, a). In real RL the policy isn't known: Q is learned first and the policy is read off it. *RL, γ = 0.5: Q(2, right) = 12.5 although right is the wrong move from 2; Q(3, right) = 100 × 0.5⁴ = 6.25 (3 → 4 → 3 → 2 → 1).*
+
+**Bellman equation.** Q(s, a) = R(s) + γ · max_a′ Q(s′, a′): "behave optimally from s′" is the best Q at s′, so Q is defined by Q, with no policy in it. Same shape as tree height, height(node) = 1 + max(height(children)): R(s) is the +1, the max over actions is the max over children, terminal states are the leaves (Q = their reward). *RL: Q(3, right) = 0 + 0.5 · max(12.5, 10) = 6.25, the same as following the path.*
+
+**Why the current state's reward is added.** Rewards are the only source of values; the recursion only carries them backward, discounted. Leaving R(s) out works only where it's 0. R(s) is the same for every action at s, so it never changes the choice at s, but it changes the choice at the states leading into s. *RL: with R(3) = −20, Q(4, left) falls from 12.5 to 2.5 and the best action at 4 becomes right (10).*
+
+**γ changes the optimal policy.** A smaller γ discounts the far future more, so a near small reward can beat a far big one, and "behave optimally after" changes with it. *RL, γ = 0.25: at state 4, left 1.5625 vs right 2.5, so right; Q(5, left) = 0.25 · 2.5 = 0.625 (5 → 4 → 5 → 6).*
+
+**Value iteration and bootstrapping.** The rover's states form a graph with cycles (3 → 4 → 3), so plain recursion would never end. Instead: start with a guess for every Q, apply Q ← R + γ · max Q to every pair, repeat until it stops changing; γ < 1 makes it converge. Each update goes one step and trusts the current estimate for the rest (bootstrapping). Unlike a tree search, the best value of each state is stored once and reused, not recomputed on every path (dynamic programming).
+
+**DQN (Deep Q-Network).** A neural network replaces the Q table, because states like the lunar lander's 8 continuous numbers can't be listed. Input x = state + one-hot action (8 + 4 = 12 numbers), output one number, the prediction of Q(s, a). Training data comes from flying the lander (random actions at first): each step gives a tuple (s, a, R, s′), with R and s′ from the simulator, and one tuple is one training example. The label y = R + γ · max Q(s′, a′) is computed, not given: R is real, max Q(s′, ·) is the network's own guess (a forward pass for each of the 4 actions at s′). A network predicts from its weights alone, so it needs no y to give that guess; y is only for training. There is one network, used for both: Q is it before a round's training, Q_new after.
+
+```python
+Q = NeuralNetwork(input_size=12, hidden=[64, 64], output_size=1)  # random weights
+buffer = []  # replay buffer: most recent 10,000 tuples
+
+def compute_y(R, s_next, Q, gamma):
+    q_values = []
+    for a2 in actions:                         # nothing, left, main, right
+        x_next = concat(s_next, one_hot(a2))
+        q_values.append(Q.predict(x_next))     # forward pass, current weights
+    return R + gamma * max(q_values)
+
+for round in range(many):
+    # 1. fly the lander and record what happens
+    s = env.reset()
+    for step in range(steps_per_round):
+        a = random_action()                    # later: pick the a with highest Q(s, a)
+        R, s_next = env.step(a)                # simulator gives reward and next state
+        buffer.append((s, a, R, s_next))
+        buffer = buffer[-10000:]               # keep only the most recent 10,000
+        s = s_next
+
+    # 2. build the training set using the current Q
+    X = []
+    y = []
+    for (s, a, R, s_next) in buffer:
+        X.append(concat(s, one_hot(a)))
+        y.append(compute_y(R, s_next, Q, gamma))
+
+    # 3. train: Q's weights become Q_new
+    Q.fit(X, y)
+```
+
+**Why DQN improves from random weights.** At an ending (landing, crash, terminal state) nothing follows, so y = R exactly, correct from round 1. Once the network has learned those, the y's one step before them are correct in the next round, and so on: correct values spread one step backward per round, and the random starting outputs are overwritten. *RL, γ = 0.5, random outputs ≈ 8: tuple (2, left → 1) gets y = 4 in round 1, 50 in round 2; tuple (3, left → 2) gets 4, then 2, then 25 in round 3.*
