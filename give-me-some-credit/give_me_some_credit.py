@@ -12,6 +12,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from joblib import dump
 import mlflow
+from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 
 TEST_SIZE = 0.2
 RANDOM_SEED = 42
@@ -19,6 +21,9 @@ N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
 TRAIN_CSV = "kaggle\\input\\GiveMeSomeCredit\\cs-training.csv"
+MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
+REGISTERED_MODEL = "credit-risk"
+CHAMPION = "champion"     # the alias the API loads: models:/credit-risk@champion
 
 SCALE_COLUMNS = ['MonthlyIncome','DebtToIncome',
                    'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines',
@@ -157,6 +162,8 @@ def train_and_log():
     mlflow.set_experiment("credit-risk")
     with mlflow.start_run():
         scores = cross_validate_tree_model(X, y)
+        for fold, auc in enumerate(scores['test_roc_auc']):
+                mlflow.log_metric("fold_auc", auc, step=fold)
         aucs = scores['test_roc_auc']
         data_hash = hashlib.sha256(Path(TRAIN_CSV).read_bytes()).hexdigest()[:12]
         mlflow.log_metric("mean_auc", aucs.mean())
@@ -173,10 +180,73 @@ def train_and_log():
                                 "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"])
     
         print(f"Model logged to MLflow with run ID: {mlflow.active_run().info.run_id}")
-    
-    
-    
     return scores
+
+
+def run_of(client, version):
+    # The training run that produced a registered version: it holds the data hash and the fold AUCs
+    return client.get_run(client.get_model_version(REGISTERED_MODEL, version).run_id)
+
+
+def fold_aucs(client, run):
+    # The fold AUCs in fold order (step), so fold i is the same rows in both runs when the data hash matches
+    history = sorted(client.get_metric_history(run.info.run_id, "fold_auc"), key=lambda metric: metric.step)
+    return np.array([metric.value for metric in history])
+
+
+def promote(version):
+    # Written by Claude. Moves the "champion" alias, the version the API loads, to `version` only if the checks
+    # pass. The alias is the production-ready mark, so the checks run here, before it moves.
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = MlflowClient()
+    version = str(version)
+    candidate = run_of(client, version)
+
+    # 1. The API's contract: the 10 training columns, all double (the API sends floats; version 1 had longs).
+    #    Compared by name, since the API builds its row by column name.
+    signature = mlflow.models.get_model_info(f"models:/{REGISTERED_MODEL}/{version}").signature
+    actual = {column["name"]: column["type"] for column in signature.inputs.to_dict()}
+    expected = {column: "double" for column in retrieve_X_And_y_without_id()[0].columns}
+    if actual != expected:
+        wrong = {name: kind for name, kind in actual.items() if expected.get(name) != kind}
+        missing = sorted(set(expected) - set(actual))
+        print(f"Version {version} not promoted: signature doesn't match the API. Wrong: {wrong}, missing: {missing}")
+        return False
+
+    # Every champion needs its fold scores, or the next candidate can't be compared with it
+    candidate_aucs = fold_aucs(client, candidate)
+    if len(candidate_aucs) != N_FOLDS * N_REPEATS:
+        print(f"Version {version} not promoted: {len(candidate_aucs)} fold AUCs logged, "
+              f"need {N_FOLDS * N_REPEATS} (rerun train_and_log)")
+        return False
+
+    try:
+        champion_version = client.get_model_version_by_alias(REGISTERED_MODEL, CHAMPION)
+    except MlflowException:
+        champion_version = None     # the first promotion: nothing to beat
+
+    if champion_version is not None:
+        if str(champion_version.version) == version:     # an int here, a str from get_model_version
+            print(f"Version {version} is already {REGISTERED_MODEL}@{CHAMPION}")
+            return True
+        champion = client.get_run(champion_version.run_id)
+
+        # 2. Same data, so the folds are the same rows and the AUCs can be compared
+        if candidate.data.params["data_hash"] != champion.data.params["data_hash"]:
+            print(f"Version {version} not promoted: trained on other data than version {champion_version.version} "
+                  f"(data_hash {candidate.data.params['data_hash']} vs {champion.data.params['data_hash']}); "
+                  f"compare the two on the same held-out rows instead")
+            return False
+
+        # 3. The keep rule against the champion, fold by fold
+        print(f"Version {version} against champion version {champion_version.version}:")
+        if not keep_rule(fold_aucs(client, champion), candidate_aucs):
+            print(f"Version {version} not promoted")
+            return False
+
+    client.set_registered_model_alias(REGISTERED_MODEL, CHAMPION, version)
+    print(f"Version {version} is now {REGISTERED_MODEL}@{CHAMPION}")
+    return True
 
 def keep_rule(current_auc, candidate_auc):
     cur_auc_mean = current_auc.mean()

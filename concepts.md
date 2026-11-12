@@ -323,6 +323,13 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 **Model registry.** A named model (`credit-risk`) with numbered versions, each linked to the run that produced it: its score, params and data. Serving asks the registry for a model instead of being handed a file. *GMSC: versions 1 and 2.*
 
+**Aliases and promotion.** An alias (`champion`) is a movable name for one version, like a release tag; it replaced MLflow's stages. Serving loads `models:/credit-risk@champion`, so a new model goes live by moving the alias and restarting, with no change to the API. The alias is the production-ready mark, so the checks run before it moves:
+- **The contract:** the signature matches what serving sends.
+- **Comparable scores:** the same data hash, so the folds are the same rows.
+- **The keep rule:** the candidate beats the champion by more than the noise, fold by fold. That needs the per-fold scores logged, not just the mean.
+
+*GMSC: `promote(version)`; version 5 is the first champion.*
+
 **Model signature.** The column names and types the model accepts, stored with it. `mlflow.pyfunc` enforces it: a float sent for an `int64` column is an error. So infer it from data shaped like what serving will send. *GMSC: version 1 rejected the API's float rows; version 2 was inferred from `X.astype(float)`.*
 
 **Safe model files.** Pickle and joblib files can run any code while loading, so a file from an untrusted source is a security risk. skops stores only data and loads only listed types; a type it doesn't know has to be trusted by name. *GMSC: `skops_trusted_types` with the boosting model's `TreePredictor`.*

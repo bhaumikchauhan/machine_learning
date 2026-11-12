@@ -193,3 +193,11 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 - **Why fit again after CV** (the user's question): the 50 fold models each trained on 120,000 rows and are only for scoring. The CV score describes the recipe; the served model is the same recipe fitted on all the rows.
 - **The skops error:** MLflow 3.18 saves scikit-learn models with skops, a format that loads only trusted types. `TreePredictor` (inside the boosting model) has to be named in `skops_trusted_types`.
 - **The signature is inferred from floats:** six training columns are `int64`, but the API sends floats. Against version 1 (int signature), `mlflow.pyfunc` rejected float rows with "Failed to enforce schema". Version 2 was inferred from `X.astype(float)`; the UI shows `age` as `double`. The model itself is unchanged, since boosting converts its input to float64.
+- **Fold scores:** each run logs the 50 fold AUCs as one metric, `fold_auc`, with the fold as the step (from version 5). The keep rule's fold win share needs them, and a mean and an sd can't give it. A first try logged 50 names (`fold_0_auc`, ...): one point per series. It was also inside `cross_validate_tree_model`, where a call outside a run would quietly start a new one.
+- **Promotion** (`promote(version)`, written by Claude at the user's request; the checks are the user's). The alias `champion` is the production-ready mark the API loads, so the checks run before it moves:
+  1. The signature is the 10 training columns, all `double`.
+  2. The candidate has the 50 fold AUCs.
+  3. If there's a champion, it has the same `data_hash` (otherwise compare on held-out rows).
+  4. If there's a champion, the candidate passes `keep_rule` against its fold AUCs.
+
+  Tested: version 1 fails check 1 (six `long` columns); versions 3 and 4 fail check 2; **version 5 became the first champion**; promoting 5 again says it already is.
