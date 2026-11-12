@@ -181,3 +181,15 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 - **Served by [credit-api/](../credit-api/README.md)** (roadmap phase 1). `save_model()` writes `model.joblib` (not in git); the user moved the fit into `create_and_fit_boosting_model()`, used by both `create_boosting_submission` and `save_model`, so the served model can't drift from the submitted one.
 - **Check:** the loaded file reproduces `submission_2.csv` on all 101,503 test borrowers (largest difference 1e-16, CSV rounding). Saved with scikit-learn 1.9.1, pinned in credit-api/requirements.txt.
 - **What the API must match** (worked out by the user, with one correction): the model, the column names and order, the scikit-learn version. Not the seed (only used in `fit`), not scaling (no scaler in this model). The user first said order doesn't matter; `column_order_check()` in diagnostics.py showed a DataFrame in another order raises a ValueError, and a numpy row is scored silently wrong (borrower 2: 4% → 26% with age and income swapped).
+
+## Tracking with MLflow (2026-11-12)
+
+- **`train_and_log()`**, written by the user: one MLflow run in the experiment `credit-risk` (`sqlite:///mlflow.db`; UI: `mlflow ui --backend-store-uri sqlite:///mlflow.db` from this folder). The run holds:
+  - the 50-fold CV AUC, as `mean_auc` and `std_auc` (0.865 ± 0.004);
+  - the model's params;
+  - `data_hash`, 12 characters of the SHA-256 of `cs-training.csv`;
+  - the model fitted on all 150,000 rows, registered as `credit-risk`.
+- **One recipe for the score and the model:** `build_boosting_model()` is used by both the CV and the final fit, and both get the same `X` and `y`. The CV runs through `cross_validate_tree_model`, so the measurement is in one place.
+- **Why fit again after CV** (the user's question): the 50 fold models each trained on 120,000 rows and are only for scoring. The CV score describes the recipe; the served model is the same recipe fitted on all the rows.
+- **The skops error:** MLflow 3.18 saves scikit-learn models with skops, a format that loads only trusted types. `TreePredictor` (inside the boosting model) has to be named in `skops_trusted_types`.
+- **The signature is inferred from floats:** six training columns are `int64`, but the API sends floats. Against version 1 (int signature), `mlflow.pyfunc` rejected float rows with "Failed to enforce schema". Version 2 was inferred from `X.astype(float)`; the UI shows `age` as `double`. The model itself is unchanged, since boosting converts its input to float64.

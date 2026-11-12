@@ -1,3 +1,6 @@
+import hashlib
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn import pipeline
@@ -8,12 +11,14 @@ from sklearn.model_selection import RepeatedStratifiedKFold, cross_validate, tra
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from joblib import dump
+import mlflow
 
 TEST_SIZE = 0.2
 RANDOM_SEED = 42
 N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
+TRAIN_CSV = "kaggle\\input\\GiveMeSomeCredit\\cs-training.csv"
 
 SCALE_COLUMNS = ['MonthlyIncome','DebtToIncome',
                    'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines',
@@ -24,7 +29,7 @@ MIN_AUC_GAIN = 0.001
 MIN_FOLD_WIN_SHARE = 0.8
 
 def get_train_data_from_csv():
-    return pd.read_csv("kaggle\\input\\GiveMeSomeCredit\\cs-training.csv")
+    return pd.read_csv(TRAIN_CSV)
 
 def get_kaggle_test_data_from_csv():
     return pd.read_csv("kaggle\\input\\GiveMeSomeCredit\\cs-test.csv")
@@ -132,14 +137,45 @@ def cross_validate_model(X, y, scale_columns=None, passthrough_columns=None):
     print(f"C per fold: min {min(Cs)}, median {np.median(Cs)}, max {max(Cs)}")
     return scores
 
-def cross_validate_tree_model(X, y):
+def build_boosting_model():
     model = HistGradientBoostingClassifier(random_state=RANDOM_SEED)
+    return model
+
+def cross_validate_tree_model(X, y):
+    model = build_boosting_model()
     pipeline = Pipeline([('model', model)])
     scores = cross_validate(pipeline, X, y, cv=repeated_folds(),
                             scoring=['roc_auc'], return_estimator=True)
     #print the mean AUC, the standard deviation across the 50 folds, and the chosen C per fold (min, median, max)
     aucs = scores['test_roc_auc']
     print(f"AUC mean: {aucs.mean():.3f} AUC std (+/- {aucs.std():.3f})")
+    return scores
+
+def train_and_log():
+    X, y = retrieve_X_And_y_without_id()
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_experiment("credit-risk")
+    with mlflow.start_run():
+        scores = cross_validate_tree_model(X, y)
+        aucs = scores['test_roc_auc']
+        data_hash = hashlib.sha256(Path(TRAIN_CSV).read_bytes()).hexdigest()[:12]
+        mlflow.log_metric("mean_auc", aucs.mean())
+        mlflow.log_metric("std_auc", aucs.std())
+        mlflow.log_param("data_hash", data_hash)
+        model = create_and_fit_boosting_model(X, y)
+        mlflow.log_params(model.get_params())
+        X_float = X.astype(float)
+        mlflow.sklearn.log_model(model, name = "credit-risk-model",
+                                 signature=mlflow.models.infer_signature(X_float, model.predict_proba(X_float)[:, 1]),
+                                 input_example=X_float.head(5),
+                                 registered_model_name="credit-risk",
+                                 skops_trusted_types=[
+                                "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"])
+    
+        print(f"Model logged to MLflow with run ID: {mlflow.active_run().info.run_id}")
+    
+    
+    
     return scores
 
 def keep_rule(current_auc, candidate_auc):
@@ -179,10 +215,16 @@ def create_submission(path='submission.csv'):
           f"median {np.median(probability):.4f}, max {probability.max():.4f}")
 
 
-def create_and_fit_boosting_model():
+def retrieve_X_And_y_without_id():
     X, y = retrieve_X_And_y()
     X = X.drop(columns=X.columns[0])  # the id column
-    model = HistGradientBoostingClassifier(random_state=RANDOM_SEED).fit(X, y)
+    return X, y
+
+def create_and_fit_boosting_model(X=None, y=None):
+    if X is None or y is None:
+        X, y = retrieve_X_And_y_without_id()
+    model = build_boosting_model()
+    model.fit(X, y)
     return model
 
 
@@ -202,16 +244,20 @@ def save_model(path='model.joblib'):
     print(f"Saved {path}")
 
 
-def main():
-    X, y = retrieve_X_And_y()
-    X, y = feature_engineering(X, y)
-    current_scores = cross_validate_model(X, y)
 
-    X, y = retrieve_X_And_y()
-    X = X.drop(columns=['id'])
-    candidate_scores = cross_validate_tree_model(X, y)
-    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
-    #test_new_features(X, y, current_scores)
+        
+
+def main():
+    train_and_log()
+    # X, y = retrieve_X_And_y()
+    # X, y = feature_engineering(X, y)
+    # current_scores = cross_validate_model(X, y)
+
+    # X, y = retrieve_X_And_y()
+    # X = X.drop(columns=['id'])
+    # candidate_scores = cross_validate_tree_model(X, y)
+    # keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+    # #test_new_features(X, y, current_scores)
 
 if __name__ == '__main__':
     main()

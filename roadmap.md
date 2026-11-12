@@ -35,7 +35,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. 10 tests in credit-api. | ✅ |
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
-| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. | ⬜ |
+| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. Training is tracked and registered (`train_and_log()` in give-me-some-credit); the API still loads the file. | 🟡 |
 | CI with GitHub Actions | Every push runs the tests and builds the image. | ⬜ |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |
 

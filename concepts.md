@@ -310,6 +310,23 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Model version from a hash.** A file name stays the same across retraining (`model.joblib`); a hash of the file's bytes changes whenever the model does. *API: 12 characters of SHA-256, computed at startup; MLflow's version number replaces it later.*
 
+**Experiment tracking.** Each training run records what's needed to compare it with other runs and to rebuild it:
+- the score (the CV mean and sd, which show whether a difference between runs is noise);
+- the params;
+- the data version (a hash of the file);
+- the code version (MLflow takes the git commit);
+- the model.
+
+A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment `credit-risk`.*
+
+**The CV score belongs to the recipe, not to one fitted model.** Cross-validation fits one model per fold, only to score it on the rows it didn't see. The model that gets shipped is the same recipe fitted on all the rows; it usually does slightly better than the CV score, having seen more data. So the score and the shipped model must come from the same code and the same data. *GMSC: `build_boosting_model()` used by both the CV and the final fit.*
+
+**Model registry.** A named model (`credit-risk`) with numbered versions, each linked to the run that produced it: its score, params and data. Serving asks the registry for a model instead of being handed a file. *GMSC: versions 1 and 2.*
+
+**Model signature.** The column names and types the model accepts, stored with it. `mlflow.pyfunc` enforces it: a float sent for an `int64` column is an error. So infer it from data shaped like what serving will send. *GMSC: version 1 rejected the API's float rows; version 2 was inferred from `X.astype(float)`.*
+
+**Safe model files.** Pickle and joblib files can run any code while loading, so a file from an untrusted source is a security risk. skops stores only data and loads only listed types; a type it doesn't know has to be trusted by name. *GMSC: `skops_trusted_types` with the boosting model's `TreePredictor`.*
+
 ## Reinforcement learning
 
 **State-action value function Q(s, a).** The return if you start in state s, take action a once, then behave optimally. Forcing only the first action makes actions comparable: everything after it is the same (optimal), so Q(s, left) vs Q(s, right) judges just that first step. The best action is argmax_a Q(s, a), and the best return is max_a Q(s, a). In real RL the policy isn't known: Q is learned first and the policy is read off it. *RL, γ = 0.5: Q(2, right) = 12.5 although right is the wrong move from 2; Q(3, right) = 100 × 0.5⁴ = 6.25 (3 → 4 → 3 → 2 → 1).*
