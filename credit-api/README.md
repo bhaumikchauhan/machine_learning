@@ -135,4 +135,4 @@ The image isn't kept yet: it's deleted with the runner. Pushing it to a containe
 
 ## Next in phase 1
 
-A cloud deployment on Azure: push the image to a container registry, run it on Container Apps over HTTPS, and a deploy job in CI.
+A cloud deployment on Azure: push the image to Azure Container Registry, run it on Container Apps over HTTPS, and a deploy job in CI. Planned in [azure_deployment_plan.md](azure_deployment_plan.md), not started yet.
