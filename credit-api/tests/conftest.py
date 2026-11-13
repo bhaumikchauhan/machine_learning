@@ -4,7 +4,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
 import db
-from app import MODEL_PATH, app
+from app import MODEL_DIR, app
 
 
 @pytest.fixture
@@ -29,9 +29,9 @@ def session(engine):
 
 @pytest.fixture
 def client(engine):
-    # The real model file, so these tests check the predictions the API actually serves.
+    # The real model (the champion in model/), so these tests check the predictions the API actually serves.
     # `with` runs the lifespan (startup and shutdown); a TestClient used without `with` skips it and has no model.
-    if not MODEL_PATH.exists():
-        pytest.skip(f"{MODEL_PATH} not found: copy it from give-me-some-credit (see README.md)")
+    if not (MODEL_DIR / "registered_model.json").exists():
+        pytest.skip(f"No model in {MODEL_DIR}/: run fetch_champion.py (see README.md)")
     with TestClient(app) as client:
         yield client

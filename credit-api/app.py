@@ -4,9 +4,8 @@
 #
 # Run (from this folder):   fastapi dev app.py      then http://localhost:8000/docs
 # Configuration from environment variables (externalised config, like Spring properties):
-#   CREDIT_MODEL_PATH    the model file, default model.joblib (copied from give-me-some-credit, see README.md)
+#   CREDIT_MODEL_DIR     the model folder, default model (the registered champion, downloaded by fetch_champion.py)
 #   PREDICTIONS_DB_URL   the prediction log database, default sqlite:///data/predictions.db (see db.py)
-import hashlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,10 +15,10 @@ from fastapi import Depends, FastAPI, Request
 from sqlmodel import Session
 
 import db
-from predictor import load_model, predict_probability
+from predictor import load_model, model_version, predict_probability
 from schemas import BorrowerInput, PredictionLog, PredictionOutput
 
-MODEL_PATH = Path(os.environ.get("CREDIT_MODEL_PATH", "model.joblib"))
+MODEL_DIR = Path(os.environ.get("CREDIT_MODEL_DIR", "model"))
 
 
 @asynccontextmanager
@@ -27,10 +26,10 @@ async def lifespan(app: FastAPI):
     # Load once at startup: loading takes far longer than a prediction. app.state holds app-wide objects
     # (a singleton bean). If loading fails, the app doesn't start, so a broken model never takes traffic.
     db.create_tables()
-    app.state.model = load_model(MODEL_PATH)
-    # The model version in each log record: a hash of the file's bytes, so any retrained model gets a new one
-    # (the file name is model.joblib every time). MLflow's version number replaces it later.
-    app.state.model_version = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()[:12]
+    app.state.model = load_model(MODEL_DIR)
+    # The model version in each log record: the registered version, e.g. "credit-risk/5" (it replaced a hash of
+    # model.joblib). The image holds one fixed version; a new champion means fetch_champion.py and a new image.
+    app.state.model_version = model_version(MODEL_DIR)
     yield
 
 
@@ -66,4 +65,4 @@ def predict(borrower: BorrowerInput, model: Model, session: SessionDep, request:
 def health(model: Model, request: Request) -> dict:
     # For a load balancer or container platform to check the app is up (like Spring Boot Actuator's /health).
     # Reaching this line means the model loaded, since the app doesn't start otherwise.
-    return {"status": "ok", "model": MODEL_PATH.name, "model_version": request.app.state.model_version}
+    return {"status": "ok", "model_version": request.app.state.model_version}

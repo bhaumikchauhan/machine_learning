@@ -32,10 +32,10 @@ The habits behind them, written up in [concepts.md](concepts.md):
 |---|---|---|
 | FastAPI | Endpoints, schemas, dependencies, tests. Studied with a condensed course project in [fast-api/](fast-api/README.md). | ✅ |
 | Model endpoint | Load the model once at startup; a `predict` endpoint with validated input and output schemas. Done in [credit-api/](credit-api/README.md) for the Give Me Some Credit model. | ✅ |
-| pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. 10 tests in credit-api. | ✅ |
+| pytest | Tests for the endpoint, the schemas and the preprocessing; the model's predictions are checked against known rows. 14 tests in credit-api. | ✅ |
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
-| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. Training is tracked and registered (`train_and_log()` in give-me-some-credit); the API still loads the file. | 🟡 |
+| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads `credit-risk@champion` into the image before it's built. | ✅ |
 | CI with GitHub Actions | Every push runs the tests and builds the image. | ⬜ |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |
 

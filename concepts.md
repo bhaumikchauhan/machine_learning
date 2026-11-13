@@ -323,7 +323,7 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 **Model registry.** A named model (`credit-risk`) with numbered versions, each linked to the run that produced it: its score, params and data. Serving asks the registry for a model instead of being handed a file. *GMSC: versions 1 and 2.*
 
-**Aliases and promotion.** An alias (`champion`) is a movable name for one version, like a release tag; it replaced MLflow's stages. Serving loads `models:/credit-risk@champion`, so a new model goes live by moving the alias and restarting, with no change to the API. The alias is the production-ready mark, so the checks run before it moves:
+**Aliases and promotion.** An alias (`champion`) is a movable name for one version, like a release tag; it replaced MLflow's stages. Serving uses whatever version `models:/credit-risk@champion` points at, so a new model goes live by moving the alias and rebuilding or restarting, with no change to the API's code. The alias is the production-ready mark, so the checks run before it moves:
 - **The contract:** the signature matches what serving sends.
 - **Comparable scores:** the same data hash, so the folds are the same rows.
 - **The keep rule:** the candidate beats the champion by more than the noise, fold by fold. That needs the per-fold scores logged, not just the mean.
@@ -332,7 +332,15 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 **Model signature.** The column names and types the model accepts, stored with it. `mlflow.pyfunc` enforces it: a float sent for an `int64` column is an error. So infer it from data shaped like what serving will send. *GMSC: version 1 rejected the API's float rows; version 2 was inferred from `X.astype(float)`.*
 
-**Safe model files.** Pickle and joblib files can run any code while loading, so a file from an untrusted source is a security risk. skops stores only data and loads only listed types; a type it doesn't know has to be trusted by name. *GMSC: `skops_trusted_types` with the boosting model's `TreePredictor`.*
+**Safe model files.** Pickle and joblib files can run any code while loading, so a file from an untrusted source is a security risk. skops stores only data and loads only listed types; a type it doesn't know has to be trusted by name. A `.skops` file is a zip archive: `schema.json` describes every object (class, module, settings) in readable JSON, and numpy `.npy` files hold the arrays. The loader checks each class in the schema against the trusted list before it builds anything. A pickle is a list of instructions that Python carries out while loading, including "call this function", so you can't see what it will do without running it. The trusted list belongs in the serving code, not in the model folder, or a tampered file could trust its own types. *GMSC: `skops_trusted_types` with the boosting model's `TreePredictor`; API: `TRUSTED_TYPES` in predictor.py.*
+
+**Fetch the model at build time, not at startup.** If the API loads from the registry at startup, every start (a restart, a second copy for more traffic, a move to another machine) needs the registry to be up, even when the model hasn't changed. Downloaded before `docker build`, the model is part of the image:
+- the image is one fixed, reproducible version, like a jar with its dependencies inside;
+- a new champion means a rebuild (CI's job);
+- rolling back means running the previous image;
+- the cloud deployment doesn't need access to the MLflow server.
+
+*API: `fetch_champion.py` writes `model/`, and the Dockerfile copies it.*
 
 ## Reinforcement learning
 

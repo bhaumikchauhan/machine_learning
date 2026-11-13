@@ -201,3 +201,4 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
   4. If there's a champion, the candidate passes `keep_rule` against its fold AUCs.
 
   Tested: version 1 fails check 1 (six `long` columns); versions 3 and 4 fail check 2; **version 5 became the first champion**; promoting 5 again says it already is.
+- **Served from the registry (2026-11-13):** `credit-api/fetch_champion.py` (the user's, with fixes) downloads the champion into `credit-api/model/` before `docker build`. The image holds `credit-risk/5`, and the API loads `model.skops` with skops, without MLflow. Checked: the Docker container's `/health` shows version 5, and borrower 1's probability is unchanged. `save_model()` and `model.joblib` are no longer used by the API.

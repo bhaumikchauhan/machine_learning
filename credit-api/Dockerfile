@@ -9,7 +9,7 @@ COPY app.py /app
 COPY db.py /app
 COPY predictor.py /app
 COPY schemas.py /app
-COPY model.joblib /app
+COPY model /app/model
 
 EXPOSE 8000
 

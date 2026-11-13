@@ -1,15 +1,19 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import joblib
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
+import skops.io
+import yaml
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sqlmodel import select
 
 from app import app
-from predictor import SCHEMA_COLUMNS, load_model, predict_probability
+from predictor import SCHEMA_COLUMNS, load_model, model_version, predict_probability
 from schemas import BorrowerInput, PredictionLog
 
 # Kaggle test borrower 1 (cs-test.csv) and its probability in submission_2.csv, the submission Kaggle scored 0.86670
@@ -59,8 +63,9 @@ def test_invalid_input_is_422(client, change):
 
 def test_health(client):
     health = client.get("/health").json()
-    assert health["status"] == "ok" and health["model"] == "model.joblib"
-    assert health["model_version"] == app.state.model_version and len(health["model_version"]) == 12
+    assert health["status"] == "ok"
+    assert health["model_version"] == app.state.model_version
+    assert health["model_version"].startswith("credit-risk/")      # the registered name and version
 
 
 # --- Prediction logging ---
@@ -104,10 +109,31 @@ def test_row_is_built_in_the_models_column_order_with_nan_for_none():
     assert np.isnan(model.X.loc[0, "MonthlyIncome"])
 
 
+def make_model_dir(tmp_path, columns, sklearn_version=sklearn.__version__):
+    # A small model folder shaped like fetch_champion.py's: model.skops, MLmodel, registered_model.json
+    X = pd.DataFrame({column: [0.0, 1.0] for column in columns})
+    skops.io.dump(HistGradientBoostingClassifier(max_iter=1).fit(X, [0, 1]), tmp_path / "model.skops")
+    mlmodel = {"flavors": {"sklearn": {"sklearn_version": sklearn_version}}}
+    (tmp_path / "MLmodel").write_text(yaml.safe_dump(mlmodel))
+    (tmp_path / "registered_model.json").write_text(json.dumps({"name": "credit-risk", "version": 7}))
+    return tmp_path
+
+
+def test_load_model_and_version_from_a_model_folder(tmp_path):
+    model_dir = make_model_dir(tmp_path, SCHEMA_COLUMNS)
+    assert set(load_model(model_dir).feature_names_in_) == set(SCHEMA_COLUMNS)
+    assert model_version(model_dir) == "credit-risk/7"
+
+
 def test_load_model_rejects_a_model_with_other_columns(tmp_path):
     # e.g. a model retrained with an engineered column the schema doesn't have: the app must not start
-    X = pd.DataFrame({column: [0.0, 1.0] for column in SCHEMA_COLUMNS[:-1] + ["DebtToIncome"]})
-    path = tmp_path / "other.joblib"
-    joblib.dump(HistGradientBoostingClassifier(max_iter=1).fit(X, [0, 1]), path)
+    model_dir = make_model_dir(tmp_path, SCHEMA_COLUMNS[:-1] + ["DebtToIncome"])
     with pytest.raises(RuntimeError, match="DebtToIncome"):
-        load_model(path)
+        load_model(model_dir)
+
+
+def test_load_model_rejects_another_scikit_learn_version(tmp_path):
+    # A model saved by another scikit-learn may load and predict differently: the app must not start
+    model_dir = make_model_dir(tmp_path, SCHEMA_COLUMNS, sklearn_version="1.0.0")
+    with pytest.raises(RuntimeError, match="1.0.0"):
+        load_model(model_dir)

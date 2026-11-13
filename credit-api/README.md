@@ -5,7 +5,7 @@ Serves the [Give Me Some Credit](../give-me-some-credit/feature_notes.md) model 
 Read in this order:
 
 1. [schemas.py](schemas.py): the contract; snake_case JSON mapped to the model's column names, required vs optional fields, unknown fields rejected; the prediction log table
-2. [predictor.py](predictor.py): loading the model with startup checks, and turning a request into a one-row DataFrame
+2. [predictor.py](predictor.py): loading the champion from `model/` with startup checks (scikit-learn version, trusted types, columns), and turning a request into a one-row DataFrame
 3. [db.py](db.py): the log database from an environment variable (SQLite file or Postgres)
 4. [app.py](app.py): loading once in `lifespan`, the model as a dependency, `POST /predict` as a plain `def` that logs each prediction, `GET /health`
 5. [tests/](tests/conftest.py): the API against the Kaggle submission, input validation, the log records (in an in-memory database), `predictor.py` with a stand-in model
@@ -13,20 +13,16 @@ Read in this order:
 ## Run it
 
 ```
-# 1. Save the model (from give-me-some-credit, with the repo's .venv; writes give-me-some-credit/model.joblib)
-cd ..\give-me-some-credit
-..\.venv\Scripts\python -c "import give_me_some_credit as g; g.save_model()"
+# 1. The model: download the current champion from the MLflow registry into model/
+#    (from credit-api, with the training venv, which has mlflow; see "The model from the registry" below)
+..\give-me-some-creditenv\Scripts\python fetch_champion.py
 
-# 2. Copy it next to the API (the app loads model.joblib from the folder it starts in; MLflow replaces this later)
-copy model.joblib ..\credit-api\
-
-# 3. The API (from credit-api)
-cd ..\credit-api
+# 2. The API
 python -m venv venv
-venv\Scripts\activate
+venv\Scriptsctivate
 pip install -r requirements.txt
 fastapi dev app.py      # then http://localhost:8000/docs: POST /predict, "Try it out" has borrower 1 prefilled
-pytest                  # 12 tests; they use an in-memory database, never data/predictions.db
+pytest                  # 14 tests; they use an in-memory database, never data/predictions.db
 ```
 
 From PowerShell without /docs:
@@ -35,9 +31,11 @@ From PowerShell without /docs:
 Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType application/json -Body '{"revolving_utilization": 0.8855, "age": 43, "times_30_59_days_late": 0, "debt_ratio": 0.1775, "monthly_income": 5700, "open_credit_lines": 4, "times_90_days_late": 0, "real_estate_loans": 0, "times_60_89_days_late": 0, "dependents": 0}'
 ```
 
+`GET /health` shows the model version being served, e.g. `{"status": "ok", "model_version": "credit-risk/5"}`.
+
 ## The model from the registry
 
-The model is trained, registered and promoted in MLflow (see [give-me-some-credit/feature_notes.md](../give-me-some-credit/feature_notes.md), "Tracking with MLflow"). `fetch_champion.py` downloads the current champion into `model/` before an image is built, so the image holds one fixed model version and the API never talks to MLflow. The API still loads `model.joblib` (steps 1 and 2 above) until it switches to `model/`.
+The model is trained, registered and promoted in MLflow (see [give-me-some-credit/feature_notes.md](../give-me-some-credit/feature_notes.md), "Tracking with MLflow"). `fetch_champion.py` downloads the current champion into `model/` before an image is built, so the image holds one fixed model version and the API never talks to MLflow. A new model goes live in four steps:
 
 ```
 # 1. Train and register a new version (from give-me-some-credit, with its venv, which has mlflow)
@@ -48,20 +46,23 @@ venv\Scripts\python -c "import give_me_some_credit as g; g.train_and_log()"   # 
 venv\Scripts\python -c "import give_me_some_credit as g; g.promote(N)"
 
 # 3. Download the champion into credit-api/model/ (model.skops, MLmodel, ..., registered_model.json with the version)
-..\give-me-some-credit\venv\Scripts\python ..\credit-api\fetch_champion.py
+..\give-me-some-creditenv\Scripts\python ..\credit-apietch_champion.py
+
+# 4. Rebuild the image (see Docker below), or restart `fastapi dev`
 
 # Optional: look at the runs and the registry in a browser, http://localhost:5000
 venv\Scripts\mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 - **No MLflow server needed:** with the default tracking URI (`sqlite:///` + give-me-some-credit/mlflow.db), the scripts read the database file directly; `mlflow ui` is only a viewer on that file. To use a tracking server instead, set `CREDIT_MLFLOW_TRACKING_URI=http://...`.
-- **Other settings:** `CREDIT_REGISTERED_MODEL` (default `credit-risk`) and `CREDIT_ALIAS` (default `champion`).
+- **Other settings:** `CREDIT_REGISTERED_MODEL` (default `credit-risk`) and `CREDIT_ALIAS` (default `champion`) for the fetch; `CREDIT_MODEL_DIR` (default `model`) for the API.
 - **No champion → exit code 1**, so a build step after it stops instead of packaging an old model.
-- **`mlflow` isn't in requirements.txt:** the API image doesn't need it, only the fetch step does, so that step runs with the training venv.
+- **`mlflow` isn't in requirements.txt:** the API image doesn't need it, only the fetch step does, so that step runs with the training venv. The API loads `model.skops` with `skops` alone.
+- **Fetched at build time, not at startup:** the API starts without the registry being reachable (restarts, more copies, the cloud), and an image is one fixed, reproducible model version; rolling back means running the previous image.
 
 ## Docker
 
-[Dockerfile](Dockerfile), written by the user. From credit-api, with `model.joblib` copied in (step 2 above):
+[Dockerfile](Dockerfile), written by the user. From credit-api, with the champion fetched into `model/` (step 1 above):
 
 ```
 docker build -t credit-api .                  # -t names the image; "." is the build context
@@ -75,7 +76,7 @@ Then http://localhost:8000/docs, as without Docker. To read the log: `docker exe
 - **Requirements before code:** Docker reruns a step only when it or a step above it changed, so `pip install` comes from the cache after a code edit.
 - **`fastapi run`, not `fastapi dev`:** `dev` listens on 127.0.0.1, which inside a container is only the container itself; `run` listens on 0.0.0.0, and doesn't reload.
 - **`CMD [...]`, the exec form:** starts the server directly, so it gets the stop signal. Anything after the `]` makes Docker fall back to running the line through a shell, and the container fails at startup.
-- **Only the files the API needs:** the code, `requirements.txt` and the model. Not `venv/` (Windows binaries; the image installs its own), the tests or the training data.
+- **Only the files the API needs:** the code, `requirements.txt` and `model/`. Not `venv/` (Windows binaries; the image installs its own), the tests or the training data.
 - **Data goes in a volume.** A container's own file system is deleted with it (`--rm`), and a new container starts from the unchanged image. Checked: two containers in a row on the same volume, and the second found the first one's record.
 
 ## Prediction logging
@@ -86,7 +87,7 @@ Every prediction is a row in the `predictionlog` table, written by the user (ste
 |---|---|
 | `id` (UUID, returned to the client) | Matching the real outcome later, up to 2 years on, to measure live AUC |
 | `timestamp` (UTC) | Every drift check compares a time window with training |
-| `model_version` (12 characters of the model file's SHA-256) | Telling which model made a prediction; replaying inputs through a new model and comparing |
+| `model_version` (the registered version, e.g. `credit-risk/5`; records from before MLflow have 12 characters of the model file's SHA-256) | Telling which model made a prediction; replaying inputs through a new model and comparing |
 | the 10 inputs, as received | Drift monitoring: are the inputs still distributed as in training? Replays. |
 | `probability` | Prediction drift; the comparison with a new model |
 | `latency` (ms in `predict_proba`) | Is the model fast enough? |
@@ -99,9 +100,9 @@ Every prediction is a row in the `predictionlog` table, written by the user (ste
 
 | Must match | How |
 |---|---|
-| The fitted model | `save_model()` fits it once; `lifespan` loads it once |
+| The fitted model | The registered champion, fetched by `fetch_champion.py`; `lifespan` loads it once |
 | Column names and order | The row is built in `model.feature_names_in_` order; the JSON's key order doesn't matter |
-| scikit-learn version | Pinned in requirements.txt; a file from another version stops the app at startup |
+| scikit-learn version | Pinned in requirements.txt; a model saved by another version (recorded in `model/MLmodel`) stops the app at startup |
 | The raw inputs | No feature engineering; `monthly_income` and `dependents` may be null or left out (NaN, as in training) |
 
 ## Decisions
@@ -109,8 +110,8 @@ Every prediction is a row in the `predictionlog` table, written by the user (ste
 - **Probability only, no approve/decline.** The cut-off is a business choice and needs calibrated probabilities (a roadmap leftover).
 - **Bounds reject impossible values** (age 18 to 120, no negative counts). Within them the model scores anything; trees treat a value beyond the training range like the largest one seen.
 - **The 96/98 late-count codes** in the Kaggle file were data-entry codes, not real counts; the API accepts them as numbers, so they still score like in training.
-- **`model.joblib` isn't in git.** It's a build output, rebuilt by `save_model()`; MLflow stores versions later in phase 1.
+- **`model/` isn't in git.** It's a build output, downloaded by `fetch_champion.py`; the versions live in the MLflow registry.
 
 ## Next in phase 1
 
-MLflow (the API loads a registered model instead of a file), CI with GitHub Actions, then a cloud deployment.
+CI with GitHub Actions, then a cloud deployment.

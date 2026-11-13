@@ -1,9 +1,11 @@
-# Pinned to the versions model.joblib was saved with (give-me-some-credit runs in the repo's .venv): a pickled
-# model is only guaranteed to load and predict the same with the same scikit-learn, and its arrays are numpy's.
+# Pinned to the versions the champion model was saved with (give-me-some-credit/venv; MLflow records them in
+# model/MLmodel and model/requirements.txt): a saved model is only guaranteed to load and predict the same with the
+# same scikit-learn, and its arrays are numpy's. load_model() refuses a model saved by another scikit-learn.
 scikit-learn==1.9.1
 numpy==2.4.6
 pandas==3.0.6
-joblib==1.6.0
+skops==0.16.0      # loads model.skops; the format MLflow saved the model in
+pyyaml>=6.0        # reads model/MLmodel
 sqlmodel>=0.0.48
 
 fastapi[standard]>=0.115   # FastAPI plus uvicorn and the fastapi CLI
