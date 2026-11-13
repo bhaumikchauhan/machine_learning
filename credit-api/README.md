@@ -35,6 +35,30 @@ From PowerShell without /docs:
 Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType application/json -Body '{"revolving_utilization": 0.8855, "age": 43, "times_30_59_days_late": 0, "debt_ratio": 0.1775, "monthly_income": 5700, "open_credit_lines": 4, "times_90_days_late": 0, "real_estate_loans": 0, "times_60_89_days_late": 0, "dependents": 0}'
 ```
 
+## The model from the registry
+
+The model is trained, registered and promoted in MLflow (see [give-me-some-credit/feature_notes.md](../give-me-some-credit/feature_notes.md), "Tracking with MLflow"). `fetch_champion.py` downloads the current champion into `model/` before an image is built, so the image holds one fixed model version and the API never talks to MLflow. The API still loads `model.joblib` (steps 1 and 2 above) until it switches to `model/`.
+
+```
+# 1. Train and register a new version (from give-me-some-credit, with its venv, which has mlflow)
+cd ..\give-me-some-credit
+venv\Scripts\python -c "import give_me_some_credit as g; g.train_and_log()"   # prints "Created version 'N' of model 'credit-risk'"
+
+# 2. Promote it: moves credit-risk@champion to version N only if the checks pass (signature, fold AUCs, data hash, keep rule)
+venv\Scripts\python -c "import give_me_some_credit as g; g.promote(N)"
+
+# 3. Download the champion into credit-api/model/ (model.skops, MLmodel, ..., registered_model.json with the version)
+..\give-me-some-credit\venv\Scripts\python ..\credit-api\fetch_champion.py
+
+# Optional: look at the runs and the registry in a browser, http://localhost:5000
+venv\Scripts\mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+- **No MLflow server needed:** with the default tracking URI (`sqlite:///` + give-me-some-credit/mlflow.db), the scripts read the database file directly; `mlflow ui` is only a viewer on that file. To use a tracking server instead, set `CREDIT_MLFLOW_TRACKING_URI=http://...`.
+- **Other settings:** `CREDIT_REGISTERED_MODEL` (default `credit-risk`) and `CREDIT_ALIAS` (default `champion`).
+- **No champion → exit code 1**, so a build step after it stops instead of packaging an old model.
+- **`mlflow` isn't in requirements.txt:** the API image doesn't need it, only the fetch step does, so that step runs with the training venv.
+
 ## Docker
 
 [Dockerfile](Dockerfile), written by the user. From credit-api, with `model.joblib` copied in (step 2 above):

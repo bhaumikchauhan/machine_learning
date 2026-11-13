@@ -34,3 +34,5 @@ fast-api fundamentals/
 *.joblib
 # MLflow's logged models and files (rebuilt by train_and_log(); the runs and registry are in mlflow.db, ignored above)
 mlruns/
+# The champion model downloaded for the API image (rebuilt by credit-api/fetch_champion.py)
+credit-api/model/

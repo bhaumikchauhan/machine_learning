@@ -158,7 +158,7 @@ def cross_validate_tree_model(X, y):
 
 def train_and_log():
     X, y = retrieve_X_And_y_without_id()
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment("credit-risk")
     with mlflow.start_run():
         scores = cross_validate_tree_model(X, y)
@@ -175,7 +175,7 @@ def train_and_log():
         mlflow.sklearn.log_model(model, name = "credit-risk-model",
                                  signature=mlflow.models.infer_signature(X_float, model.predict_proba(X_float)[:, 1]),
                                  input_example=X_float.head(5),
-                                 registered_model_name="credit-risk",
+                                 registered_model_name=REGISTERED_MODEL,
                                  skops_trusted_types=[
                                 "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"])
     
