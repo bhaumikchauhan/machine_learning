@@ -35,8 +35,8 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | pytest | Tests for the endpoint, the schemas and the preprocessing; 15 tests in credit-api, on a stand-in model: they test the API's code, and whether a model is good enough is decided at promotion. | ✅ |
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
-| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads `credit-risk@champion` into the image before it's built. | ✅ |
-| CI with GitHub Actions | Every push runs the tests and builds the image. The test job runs on every push to credit-api ([.github/workflows/credit-api.yml](.github/workflows/credit-api.yml)); the build job waits for a cloud MLflow registry the runner can reach. | 🟡 |
+| MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads the champion into the image before it's built. The registry is MLflow on Databricks Free Edition (`workspace.default.credit_risk`), reachable from CI. | ✅ |
+| CI with GitHub Actions | Every push runs the tests and builds the image. The test job runs on every push to credit-api ([.github/workflows/credit-api.yml](.github/workflows/credit-api.yml)); next, the build job: fetch the champion from Databricks, then `docker build`. | 🟡 |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |
 
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.
@@ -95,5 +95,5 @@ One end-to-end project on data I pick. It's the centrepiece of the portfolio.
 |---|---|---|
 | Leftovers | **Stacking** (House Prices blended by hand); **thresholds and calibration** (Give Me Some Credit: turning a probability into a decision, and probabilities you can trust); **learning curves** (would more data help?). Optional: the rest of House Prices' columns; dropout and voting augmented CNNs in Digit Recognizer. | Folded into phase 2 or 4 |
 | SQL | Regular practice. It comes back in time series features, pgvector and the capstone's data pipeline. | Throughout |
-| Cloud ML platform | One platform in depth: Azure ML is suggested (it fits the C# and .NET background). Workspaces, compute, registered models, managed endpoints. Know AWS SageMaker and GCP Vertex AI by name. | From phase 1's cloud step, more in phase 4 |
+| Cloud ML platform | The registry is on Databricks (managed MLflow 3, Unity Catalog), the container goes to Azure. Azure ML's MLflow follows MLflow 2 (no aliases), so it lost the registry. Know AWS SageMaker and GCP Vertex AI by name. | From phase 1's cloud step, more in phase 4 |
 | Portfolio | This GitHub repo: a README per project, the notes and lessons, a live demo link from phase 1, the capstone write-up, the Kaggle profile. | Updated as each phase finishes |

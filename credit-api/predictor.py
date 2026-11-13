@@ -49,7 +49,7 @@ def load_model(model_dir: Path):
 
 
 def model_version(model_dir: Path) -> str:
-    # The registered name and version, e.g. "credit-risk/5": the same as the models:/ URI it came from, so a log
+    # The registered name and version, e.g. "workspace.default.credit_risk/1": the same as the models:/ URI it came from, so a log
     # record leads straight back to the run in MLflow (its score, params and data hash).
     registered = json.loads((model_dir / "registered_model.json").read_text())
     return f"{registered['name']}/{registered['version']}"

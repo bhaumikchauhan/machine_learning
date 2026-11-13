@@ -1,4 +1,5 @@
 import hashlib
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -21,9 +22,14 @@ N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
 TRAIN_CSV = "kaggle\\input\\GiveMeSomeCredit\\cs-training.csv"
-MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
-REGISTERED_MODEL = "credit-risk"
-CHAMPION = "champion"     # the alias the API loads: models:/credit-risk@champion
+# MLflow on Databricks (Free Edition): runs in the workspace, models in the Unity Catalog registry. Signs in with
+# ~/.databrickscfg (or DATABRICKS_HOST and DATABRICKS_TOKEN). Training still runs here; only the records and the
+# model go there. mlflow.db holds the earlier local versions 1 to 5 and isn't used any more.
+MLFLOW_TRACKING_URI = "databricks"
+MLFLOW_REGISTRY_URI = "databricks-uc"
+EXPERIMENT = "/Shared/credit-risk"     # a workspace path
+REGISTERED_MODEL = "workspace.default.credit_risk"     # Unity Catalog: catalog.schema.model
+CHAMPION = "champion"     # the alias the API loads: models:/workspace.default.credit_risk@champion
 
 SCALE_COLUMNS = ['MonthlyIncome','DebtToIncome',
                    'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines',
@@ -156,10 +162,19 @@ def cross_validate_tree_model(X, y):
     print(f"AUC mean: {aucs.mean():.3f} AUC std (+/- {aucs.std():.3f})")
     return scores
 
+def connect_to_mlflow():
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_registry_uri(MLFLOW_REGISTRY_URI)
+    # MLflow prints the run's link with an emoji when a run ends; the Windows console's cp1252 can't encode it,
+    # and the crash comes before the run is marked finished
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+
 def train_and_log():
     X, y = retrieve_X_And_y_without_id()
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment("credit-risk")
+    connect_to_mlflow()
+    mlflow.set_experiment(EXPERIMENT)
     with mlflow.start_run():
         scores = cross_validate_tree_model(X, y)
         for fold, auc in enumerate(scores['test_roc_auc']):
@@ -176,6 +191,9 @@ def train_and_log():
                                  signature=mlflow.models.infer_signature(X_float, model.predict_proba(X_float)[:, 1]),
                                  input_example=X_float.head(5),
                                  registered_model_name=REGISTERED_MODEL,
+                                 # skops is MLflow's default, except with a Databricks tracking URI (cloudpickle),
+                                 # and the API loads skops only
+                                 serialization_format="skops",
                                  skops_trusted_types=[
                                 "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"])
     
@@ -189,15 +207,16 @@ def run_of(client, version):
 
 
 def fold_aucs(client, run):
-    # The fold AUCs in fold order (step), so fold i is the same rows in both runs when the data hash matches
-    history = sorted(client.get_metric_history(run.info.run_id, "fold_auc"), key=lambda metric: metric.step)
-    return np.array([metric.value for metric in history])
+    # The fold AUCs in fold order (step), so fold i is the same rows in both runs when the data hash matches.
+    # One value per step: on Databricks, a run that logged a model returns step 0 twice.
+    by_step = {metric.step: metric.value for metric in client.get_metric_history(run.info.run_id, "fold_auc")}
+    return np.array([by_step[step] for step in sorted(by_step)])
 
 
 def promote(version):
     # Written by Claude. Moves the "champion" alias, the version the API loads, to `version` only if the checks
     # pass. The alias is the production-ready mark, so the checks run here, before it moves.
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    connect_to_mlflow()
     client = MlflowClient()
     version = str(version)
     candidate = run_of(client, version)
@@ -226,7 +245,7 @@ def promote(version):
         champion_version = None     # the first promotion: nothing to beat
 
     if champion_version is not None:
-        if str(champion_version.version) == version:     # an int here, a str from get_model_version
+        if str(champion_version.version) == version:     # an int from a local registry, a str from Databricks
             print(f"Version {version} is already {REGISTERED_MODEL}@{CHAMPION}")
             return True
         champion = client.get_run(champion_version.run_id)
@@ -318,7 +337,8 @@ def save_model(path='model.joblib'):
         
 
 def main():
-    train_and_log()
+    #train_and_log()
+    promote(1)
     # X, y = retrieve_X_And_y()
     # X, y = feature_engineering(X, y)
     # current_scores = cross_validate_model(X, y)

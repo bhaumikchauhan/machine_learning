@@ -64,6 +64,6 @@ class PredictionLog(BorrowerInput, PredictionOutput, table=True):
     # time zone; SQLite has no timestamp type and stores text.
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc),
                                 sa_type=DateTime(timezone=True))
-    model_version: str = Field(description="The registered model and version, e.g. credit-risk/5 "
+    model_version: str = Field(description="The registered model and version, e.g. workspace.default.credit_risk/1 "
                                            "(records before MLflow have 12 characters of the model file's SHA-256)")
     latency: float = Field(description="Time spent in predict_proba, in milliseconds")

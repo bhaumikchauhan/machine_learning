@@ -2,6 +2,8 @@
 # a fixed model version and the API never talks to MLflow. Needs mlflow, which the API's image doesn't have, so it
 # runs with the training venv:
 #   ..\give-me-some-credit\venv\Scripts\python fetch_champion.py
+# The registry is MLflow on Databricks (Unity Catalog). It signs in with ~/.databrickscfg on a PC, or with the
+# DATABRICKS_HOST and DATABRICKS_TOKEN environment variables (CI).
 import json
 import os
 import shutil
@@ -13,7 +15,6 @@ from mlflow import MlflowClient, MlflowException
 
 HERE = Path(__file__).parent    # paths are relative to this file, so the script works from any folder
 MODEL_DIR = HERE / "model"
-DEFAULT_TRACKING_URI = f"sqlite:///{(HERE.parent / 'give-me-some-credit' / 'mlflow.db').as_posix()}"
 
 
 def fetch_champion():
@@ -21,10 +22,12 @@ def fetch_champion():
     Download the champion's files into model/ and record which version they are in model/registered_model.json.
     Exits with code 1 if there is no champion, so a build that runs next doesn't package an old model or none.
     """
-    mlflow_tracking_uri = os.environ.get("CREDIT_MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI)
-    registered_model = os.environ.get("CREDIT_REGISTERED_MODEL", "credit-risk")
+    mlflow_tracking_uri = os.environ.get("CREDIT_MLFLOW_TRACKING_URI", "databricks")
+    mlflow_registry_uri = os.environ.get("CREDIT_MLFLOW_REGISTRY_URI", "databricks-uc")
+    registered_model = os.environ.get("CREDIT_REGISTERED_MODEL", "workspace.default.credit_risk")
     alias = os.environ.get("CREDIT_ALIAS", "champion")
     mlflow.set_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_registry_uri(mlflow_registry_uri)
     client = MlflowClient()
     try:
         champion_version = client.get_model_version_by_alias(registered_model, alias)

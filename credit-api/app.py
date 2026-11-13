@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     # (a singleton bean). If loading fails, the app doesn't start, so a broken model never takes traffic.
     db.create_tables()
     app.state.model = load_model(MODEL_DIR)
-    # The model version in each log record: the registered version, e.g. "credit-risk/5" (it replaced a hash of
+    # The model version in each log record: the registered version, e.g. "workspace.default.credit_risk/1" (it replaced a hash of
     # model.joblib). The image holds one fixed version; a new champion means fetch_champion.py and a new image.
     app.state.model_version = model_version(MODEL_DIR)
     yield

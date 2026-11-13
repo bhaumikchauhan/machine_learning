@@ -15,11 +15,11 @@ Read in this order:
 ```
 # 1. The model: download the current champion from the MLflow registry into model/
 #    (from credit-api, with the training venv, which has mlflow; see "The model from the registry" below)
-..\give-me-some-creditenv\Scripts\python fetch_champion.py
+..\give-me-some-credit\venv\Scripts\python fetch_champion.py
 
 # 2. The API
 python -m venv venv
-venv\Scriptsctivate
+venv\Scripts\activate
 pip install -r requirements.txt
 fastapi dev app.py      # then http://localhost:8000/docs: POST /predict, "Try it out" has borrower 1 prefilled
 pytest                  # 15 tests; a stand-in model and an in-memory database, so no model/ and never data/predictions.db
@@ -31,34 +31,35 @@ From PowerShell without /docs:
 Invoke-RestMethod -Method Post http://localhost:8000/predict -ContentType application/json -Body '{"revolving_utilization": 0.8855, "age": 43, "times_30_59_days_late": 0, "debt_ratio": 0.1775, "monthly_income": 5700, "open_credit_lines": 4, "times_90_days_late": 0, "real_estate_loans": 0, "times_60_89_days_late": 0, "dependents": 0}'
 ```
 
-`GET /health` shows the model version being served, e.g. `{"status": "ok", "model_version": "credit-risk/5"}`.
+`GET /health` shows the model version being served, e.g. `{"status": "ok", "model_version": "workspace.default.credit_risk/1"}`.
 
 ## The model from the registry
 
-The model is trained, registered and promoted in MLflow (see [give-me-some-credit/feature_notes.md](../give-me-some-credit/feature_notes.md), "Tracking with MLflow"). `fetch_champion.py` downloads the current champion into `model/` before an image is built, so the image holds one fixed model version and the API never talks to MLflow. A new model goes live in four steps:
+The model is trained, registered and promoted in MLflow on Databricks (Free Edition): the runs are in the workspace experiment `/Shared/credit-risk`, the versions in the Unity Catalog registry as `workspace.default.credit_risk` (see [give-me-some-credit/feature_notes.md](../give-me-some-credit/feature_notes.md), "Tracking with MLflow"). Training still runs on this PC; only the run records and the model go to Databricks. `fetch_champion.py` downloads the current champion into `model/` before an image is built, so the image holds one fixed model version and the API never talks to MLflow. A new model goes live in four steps:
 
 ```
 # 1. Train and register a new version (from give-me-some-credit, with its venv, which has mlflow)
 cd ..\give-me-some-credit
-venv\Scripts\python -c "import give_me_some_credit as g; g.train_and_log()"   # prints "Created version 'N' of model 'credit-risk'"
+venv\Scripts\python -c "import give_me_some_credit as g; g.train_and_log()"   # prints "Created version 'N' of model 'workspace.default.credit_risk'"
 
-# 2. Promote it: moves credit-risk@champion to version N only if the checks pass (signature, fold AUCs, data hash, keep rule)
+# 2. Promote it: moves the champion alias to version N only if the checks pass (signature, fold AUCs, data hash, keep rule)
 venv\Scripts\python -c "import give_me_some_credit as g; g.promote(N)"
 
 # 3. Download the champion into credit-api/model/ (model.skops, MLmodel, ..., registered_model.json with the version)
-..\give-me-some-creditenv\Scripts\python ..\credit-apietch_champion.py
+venv\Scripts\python ..\credit-api\fetch_champion.py
 
 # 4. Rebuild the image (see Docker below), or restart `fastapi dev`
-
-# Optional: look at the runs and the registry in a browser, http://localhost:5000
-venv\Scripts\mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-- **No MLflow server needed:** with the default tracking URI (`sqlite:///` + give-me-some-credit/mlflow.db), the scripts read the database file directly; `mlflow ui` is only a viewer on that file. To use a tracking server instead, set `CREDIT_MLFLOW_TRACKING_URI=http://...`.
-- **Other settings:** `CREDIT_REGISTERED_MODEL` (default `credit-risk`) and `CREDIT_ALIAS` (default `champion`) for the fetch; `CREDIT_MODEL_DIR` (default `model`) for the API.
+The runs and the registry are in the Databricks workspace: Experiments → `/Shared/credit-risk`, and Catalog → workspace → default → credit_risk.
+
+- **Signing in:** with `~/.databrickscfg` on a PC (`[DEFAULT]` with `host` and `token`, a personal access token; never in the repo), or with the `DATABRICKS_HOST` and `DATABRICKS_TOKEN` environment variables (CI).
+- **Settings for the fetch:** `CREDIT_MLFLOW_TRACKING_URI` (default `databricks`), `CREDIT_MLFLOW_REGISTRY_URI` (default `databricks-uc`), `CREDIT_REGISTERED_MODEL` (default `workspace.default.credit_risk`), `CREDIT_ALIAS` (default `champion`). For the API: `CREDIT_MODEL_DIR` (default `model`).
 - **No champion → exit code 1**, so a build step after it stops instead of packaging an old model.
 - **`mlflow` isn't in requirements.txt:** the API image doesn't need it, only the fetch step does, so that step runs with the training venv. The API loads `model.skops` with `skops` alone.
 - **Fetched at build time, not at startup:** the API starts without the registry being reachable (restarts, more copies, the cloud), and an image is one fixed, reproducible model version; rolling back means running the previous image.
+- **Why Databricks for the registry:** Azure ML's built-in MLflow follows MLflow 2 (no LoggedModels, no aliases), and this code uses MLflow 3 and the `champion` alias. The container still goes to Azure.
+- **Before Databricks:** versions 1 to 5 were in a local `give-me-some-credit/mlflow.db`; it's kept as a record but not used. Databricks version 1 is the same model as local version 5 (same code, data and seed; borrower 1's probability is identical).
 
 ## Docker
 
@@ -87,7 +88,7 @@ Every prediction is a row in the `predictionlog` table, written by the user (ste
 |---|---|
 | `id` (UUID, returned to the client) | Matching the real outcome later, up to 2 years on, to measure live AUC |
 | `timestamp` (UTC) | Every drift check compares a time window with training |
-| `model_version` (the registered version, e.g. `credit-risk/5`; records from before MLflow have 12 characters of the model file's SHA-256) | Telling which model made a prediction; replaying inputs through a new model and comparing |
+| `model_version` (the registered version, e.g. `workspace.default.credit_risk/1`; records from before MLflow have 12 characters of the model file's SHA-256) | Telling which model made a prediction; replaying inputs through a new model and comparing |
 | the 10 inputs, as received | Drift monitoring: are the inputs still distributed as in training? Replays. |
 | `probability` | Prediction drift; the comparison with a new model |
 | `latency` (ms in `predict_proba`) | Is the model fast enough? |
@@ -124,8 +125,8 @@ The tests check the API's code, not a particular model, so they pass whichever v
 
 [.github/workflows/credit-api.yml](../.github/workflows/credit-api.yml) runs on every push that changes `credit-api/` (or the workflow itself). A fresh Ubuntu runner checks out the repo, sets up Python 3.11 (as in the Dockerfile), installs requirements.txt and runs `pytest` in `credit-api/`. The tests need no `model/`, MLflow or training data, so nothing else is needed.
 
-Not yet: building the image. The Dockerfile copies `model/`, which isn't in git, and the runner can't reach the registry (`mlflow.db` on one machine). The build job comes after an MLflow registry in the cloud.
+Not yet: building the image. The Dockerfile copies `model/`, which isn't in git; the build job will run `fetch_champion.py` against Databricks with the token as a GitHub secret, then `docker build`.
 
 ## Next in phase 1
 
-A cloud MLflow registry, then the CI build job (fetch the champion, `docker build`), then a cloud deployment.
+The CI build job (fetch the champion from Databricks, `docker build`), then a cloud deployment on Azure.
