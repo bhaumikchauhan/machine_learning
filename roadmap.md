@@ -36,7 +36,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads `credit-risk@champion` into the image before it's built. | ✅ |
-| CI with GitHub Actions | Every push runs the tests and builds the image. | ⬜ |
+| CI with GitHub Actions | Every push runs the tests and builds the image. The test job runs on every push to credit-api ([.github/workflows/credit-api.yml](.github/workflows/credit-api.yml)); the build job waits for a cloud MLflow registry the runner can reach. | 🟡 |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |
 
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.

@@ -348,6 +348,8 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 *API: `fetch_champion.py` writes `model/`, and the Dockerfile copies it.*
 
+**Continuous integration (CI).** Every push runs the checks on a fresh machine, so "it works on my machine" can't hide a missing dependency or a file that isn't in git. In GitHub Actions a workflow (`.github/workflows/*.yml` at the repo root) has a trigger (`on`), jobs (each on its own new runner) and steps. A step either uses a published action, like a Maven plugin (`actions/checkout` to get the code, `actions/setup-python`), or runs a shell command. `needs:` orders jobs, so a build starts only after the tests pass. `paths:` limits the trigger to the folders a project lives in. `defaults.run.working-directory` applies to `run:` steps only. *API: `credit-api.yml`, the test job.*
+
 ## Reinforcement learning
 
 **State-action value function Q(s, a).** The return if you start in state s, take action a once, then behave optimally. Forcing only the first action makes actions comparable: everything after it is the same (optimal), so Q(s, left) vs Q(s, right) judges just that first step. The best action is argmax_a Q(s, a), and the best return is max_a Q(s, a). In real RL the policy isn't known: Q is learned first and the policy is read off it. *RL, γ = 0.5: Q(2, right) = 12.5 although right is the wrong move from 2; Q(3, right) = 100 × 0.5⁴ = 6.25 (3 → 4 → 3 → 2 → 1).*

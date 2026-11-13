@@ -120,6 +120,12 @@ The tests check the API's code, not a particular model, so they pass whichever v
 - **The 96/98 late-count codes** in the Kaggle file were data-entry codes, not real counts; the API accepts them as numbers, so they still score like in training.
 - **`model/` isn't in git.** It's a build output, downloaded by `fetch_champion.py`; the versions live in the MLflow registry.
 
+## CI
+
+[.github/workflows/credit-api.yml](../.github/workflows/credit-api.yml) runs on every push that changes `credit-api/` (or the workflow itself). A fresh Ubuntu runner checks out the repo, sets up Python 3.11 (as in the Dockerfile), installs requirements.txt and runs `pytest` in `credit-api/`. The tests need no `model/`, MLflow or training data, so nothing else is needed.
+
+Not yet: building the image. The Dockerfile copies `model/`, which isn't in git, and the runner can't reach the registry (`mlflow.db` on one machine). The build job comes after an MLflow registry in the cloud.
+
 ## Next in phase 1
 
-CI with GitHub Actions, then a cloud deployment.
+A cloud MLflow registry, then the CI build job (fetch the champion, `docker build`), then a cloud deployment.
