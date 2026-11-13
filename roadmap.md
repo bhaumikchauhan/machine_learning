@@ -36,7 +36,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | Docker | An image for the API with pinned dependencies; it runs the same on any machine. Dockerfile in credit-api. | ✅ |
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads the champion into the image before it's built. The registry is MLflow on Databricks Free Edition (`workspace.default.credit_risk`), reachable from CI. | ✅ |
-| CI with GitHub Actions | Every push runs the tests and builds the image. The test job runs on every push to credit-api ([.github/workflows/credit-api.yml](.github/workflows/credit-api.yml)); next, the build job: fetch the champion from Databricks, then `docker build`. | 🟡 |
+| CI with GitHub Actions | Every push runs the tests and builds the image. [.github/workflows/credit-api.yml](.github/workflows/credit-api.yml): a test job, then a build job that fetches the champion from Databricks (token as a GitHub secret) and runs `docker build`. | ✅ |
 | Cloud | Deploy the container to one cloud and call it over HTTPS. | ⬜ |
 
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.

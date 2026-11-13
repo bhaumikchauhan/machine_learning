@@ -125,8 +125,14 @@ The tests check the API's code, not a particular model, so they pass whichever v
 
 [.github/workflows/credit-api.yml](../.github/workflows/credit-api.yml) runs on every push that changes `credit-api/` (or the workflow itself). A fresh Ubuntu runner checks out the repo, sets up Python 3.11 (as in the Dockerfile), installs requirements.txt and runs `pytest` in `credit-api/`. The tests need no `model/`, MLflow or training data, so nothing else is needed.
 
-Not yet: building the image. The Dockerfile copies `model/`, which isn't in git; the build job will run `fetch_champion.py` against Databricks with the token as a GitHub secret, then `docker build`.
+When the tests pass, the build job builds the image:
+
+1. It sets up Python and installs `mlflow-skinny==3.18.0`. This is MLflow's client without the server or UI: enough to fetch, and pinned to the training venv's version. It's a separate install, so MLflow stays out of the image.
+2. It runs `fetch_champion.py`, which signs in with the `DATABRICKS_HOST` and `DATABRICKS_TOKEN` repository secrets. They're passed with `env:` to that step only. The token is a separate Databricks token named `github-actions`, so it can be revoked without breaking a PC's `~/.databrickscfg`.
+3. It runs `docker build`. With no champion, the fetch exits with code 1 and the build never starts.
+
+The image isn't kept yet: it's deleted with the runner. Pushing it to a container registry comes with the Azure deployment.
 
 ## Next in phase 1
 
-The CI build job (fetch the champion from Databricks, `docker build`), then a cloud deployment on Azure.
+A cloud deployment on Azure: push the image to a container registry, run it on Container Apps over HTTPS, and a deploy job in CI.

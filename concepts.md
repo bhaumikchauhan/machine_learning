@@ -350,6 +350,15 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 **Continuous integration (CI).** Every push runs the checks on a fresh machine, so "it works on my machine" can't hide a missing dependency or a file that isn't in git. In GitHub Actions a workflow (`.github/workflows/*.yml` at the repo root) has a trigger (`on`), jobs (each on its own new runner) and steps. A step either uses a published action, like a Maven plugin (`actions/checkout` to get the code, `actions/setup-python`), or runs a shell command. `needs:` orders jobs, so a build starts only after the tests pass. `paths:` limits the trigger to the folders a project lives in. `defaults.run.working-directory` applies to `run:` steps only. *API: `credit-api.yml`, the test job.*
 
+**Secrets in CI.**
+- **Store them as secrets.** Credentials go in the CI system's secret store, never in the repo. GitHub encrypts a secret and masks it as `***` in the logs. A plain "variable" is visible to anyone with access to the repo's settings, so it isn't for tokens.
+- **Pass them to one step.** A secret reaches a step only through that step's `env:` (`${{ secrets.NAME }}`), so the other steps never see it.
+- **Use a separate token for CI.** CI gets its own token, not a copy of a personal one. Then it can be revoked or renewed without breaking anything else, and the logs show which token did what. A service principal (a non-person account) goes one step further.
+
+*API: the build job's fetch step, with `DATABRICKS_HOST` and `DATABRICKS_TOKEN`.*
+
+**Build-only tools stay out of the image.** A tool needed only to build the image (here `mlflow-skinny`, which fetches the model) is installed on the build machine, not listed in the image's requirements. The image holds what the app needs at run time. *API: the build job installs `mlflow-skinny`; requirements.txt doesn't list it.*
+
 **A managed platform's MLflow isn't the open-source one.** Each platform supports its own subset and sets its own defaults, so check the features the code relies on before choosing, and test with a throwaway model before moving. Azure ML's MLflow follows MLflow 2: no aliases. On Databricks, the default sklearn format becomes cloudpickle, and the metric history of a run that logged a model has an extra point. *GMSC: the registry moved to Databricks; `serialization_format="skops"` stated explicitly.*
 
 ## Reinforcement learning
