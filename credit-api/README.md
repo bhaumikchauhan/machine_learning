@@ -8,7 +8,7 @@ Read in this order:
 2. [predictor.py](predictor.py): loading the champion from `model/` with startup checks (scikit-learn version, trusted types, columns), and turning a request into a one-row DataFrame
 3. [db.py](db.py): the log database from an environment variable (SQLite file or Postgres)
 4. [app.py](app.py): loading once in `lifespan`, the model as a dependency, `POST /predict` as a plain `def` that logs each prediction, `GET /health`
-5. [tests/](tests/conftest.py): the API against the Kaggle submission, input validation, the log records (in an in-memory database), `predictor.py` with a stand-in model
+5. [tests/](tests/conftest.py): the API's code on a stand-in model (no `model/` needed): the API gives the model exactly the row training would, input validation, the log records (in an in-memory database), the startup checks
 
 ## Run it
 
@@ -22,7 +22,7 @@ python -m venv venv
 venv\Scriptsctivate
 pip install -r requirements.txt
 fastapi dev app.py      # then http://localhost:8000/docs: POST /predict, "Try it out" has borrower 1 prefilled
-pytest                  # 14 tests; they use an in-memory database, never data/predictions.db
+pytest                  # 15 tests; a stand-in model and an in-memory database, so no model/ and never data/predictions.db
 ```
 
 From PowerShell without /docs:
@@ -95,6 +95,14 @@ Every prediction is a row in the `predictionlog` table, written by the user (ste
 - **Logged in the endpoint, not in middleware:** only the endpoint has the validated input and the probability, and only requests that reached the model get a record (no `/health`, no 422s).
 - **The log write is part of the request:** if it fails, the client gets a 500, so no prediction is served without its record. The cost is a database write per prediction; at high traffic, records go to a queue or stdout instead and are loaded in batches.
 - **`create_all` never changes an existing table.** After adding an input field, delete `data/predictions.db` locally, or use a migration tool (Alembic) once the records matter.
+
+## What the tests check
+
+The tests check the API's code, not a particular model, so they pass whichever version is the champion and run without `model/`, MLflow or the training data (CI included). Which model is served, and whether it's good enough, is settled by `promote()` and the registry.
+
+- **A stand-in model** (conftest.py): a linear model fitted on random data, with its columns in another order than the schema. Every column has its own weight, so with a different value in every column, swapping any two changes the probability. A boosting stand-in missed a swap of two late-payment counts (its trees ignored one of them in that range); `test_the_check_above_catches_two_mixed_up_columns` checks the stand-in for this.
+- **No training-serving skew:** the API's probability for a borrower equals the model's own `predict_proba` on the same borrower written with the Kaggle column names, the way training built rows. The Kaggle-submission test this replaced pinned one model version and would have failed at the next promotion.
+- **Startup checks stay in the API:** the scikit-learn version is the API image's own, and the schema is the API's code, so only the API can check the model against them. `promote()` checks the model against the contract when it's published; the API checks it still speaks that contract when it starts.
 
 ## What the API must match from training
 

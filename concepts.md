@@ -294,7 +294,13 @@ Any shift makes one house better and the other worse by more; the best shift is 
 
 **Column order.** A model fitted on a DataFrame remembers the column names (`feature_names_in_`) and refuses a DataFrame in another order; a numpy array has no names, so swapped columns are scored silently and wrongly. JSON key order means nothing, so the API builds the row in `feature_names_in_` order. *API: swapping age and income as numpy moved one borrower from 4% to 26% (`column_order_check` in GMSC's diagnostics.py).*
 
-**Training-serving skew.** The served model differs from the one that was validated: copied training code that drifts, a different library version, a different preprocessing step. Guards: one function that fits the model, used for both the submission and the saved file; pinned versions; a test that the API returns the probability that was submitted; checks at startup that stop a mismatched model from serving. *API: `create_and_fit_boosting_model()` in GMSC, used by both; `load_model` raises on a version or column mismatch.*
+**Training-serving skew.** The served model differs from the one that was validated: copied training code that drifts, a different library version, a different preprocessing step. Guards: one function that fits the model, used for both the submission and the saved file; pinned versions; a test that the API gives the model exactly the row training would (any model, so it survives the next promotion); checks at startup that stop a mismatched model from serving. *API: `create_and_fit_boosting_model()` in GMSC, used by both; `load_model` raises on a version or column mismatch; `test_api_returns_the_models_own_probability`.*
+
+**Test the serving code, not the model.** A serving test pinned to one model's outputs fails at the next promotion even though the code didn't change, and needs the real model wherever tests run. Instead, the tests use a stand-in model, and the model's quality is decided at promotion. Both sides still check the contract:
+- **the publisher** (promotion), when the model is published;
+- **the server** (startup), against what only it knows: its library versions and its schema.
+
+**A stand-in model must be sensitive to what the test checks.** To catch two mixed-up columns, every column needs its own weight and the test row a different value per column. Then a linear model's score changes under any swap. A tree model can ignore a column in part of the range. *API: a boosting stand-in missed a swap of the 60–89 and 90-day late counts; a linear one, with a test that checks every pair, replaced it.*
 
 **Reject unknown fields.** If a request with a typo'd field name ("monthly_incom") were accepted, the real field would default to missing, and the model would score the borrower as "income not reported": a wrong prediction with no error. `extra="forbid"` makes it a 422. *API: schemas.py.*
 
