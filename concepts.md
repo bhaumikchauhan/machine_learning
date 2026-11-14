@@ -357,6 +357,21 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 *API: the build job's fetch step, with `DATABRICKS_HOST` and `DATABRICKS_TOKEN`.*
 
+**Signing in from CI without a password (OIDC).** GitHub issues each job a short-lived token that says which repo, branch or environment it's from. The cloud is set up once to trust tokens with an exact subject, and swaps the token for its own short-lived credential. No password or key is stored anywhere, so none can leak or expire.
+- **Exact subjects and environments:** subjects can't use wildcards, so the deploy job runs in a GitHub environment (`production`). The environment decides which branches may use it (`R_*`), and the cloud trusts the environment's one subject.
+- **Repo and account IDs in the subject:** GitHub puts the numeric IDs in the subject, e.g. `repo:owner@4107855/repo@1432358494:...`. A new repo created under a deleted one's name gets a new ID, so it can't inherit the trust.
+- **Least privilege:** the identity gets only what the deploy needs: push to the registry, change the one app, and read the resource group.
+
+*API: `credit-api-release.yml`, `id-credit-api-github`.*
+
+**Release branches and image tags.**
+- **One name for one release:** the release branch, the image tag and the running revision share a name (`R_26_11_14_12_38_36`).
+- **The name sorts by time:** biggest unit first, in one fixed time zone.
+- **A tag points at one image:** it's never reused, so rolling back is pointing the app at the previous tag.
+- **The pattern is enforced:** only those branches can deploy, because the environment refuses any other.
+
+*API: the release workflow.*
+
 **Build-only tools stay out of the image.** A tool needed only to build the image (here `mlflow-skinny`, which fetches the model) is installed on the build machine, not listed in the image's requirements. The image holds what the app needs at run time. *API: the build job installs `mlflow-skinny`; requirements.txt doesn't list it.*
 
 **A managed platform's MLflow isn't the open-source one.** Each platform supports its own subset and sets its own defaults, so check the features the code relies on before choosing, and test with a throwaway model before moving. Azure ML's MLflow follows MLflow 2: no aliases. On Databricks, the default sklearn format becomes cloudpickle, and the metric history of a run that logged a model has an extra point. *GMSC: the registry moved to Databricks; `serialization_format="skops"` stated explicitly.*

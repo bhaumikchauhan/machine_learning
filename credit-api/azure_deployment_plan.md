@@ -1,6 +1,6 @@
 # Azure deployment plan
 
-The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Deployed by the release workflow (step 5). The prediction log stays on the container's disk for now (decided 2026-11-14, see step 4).
+The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Deployed by the release workflow (step 5); the first release, `R_26_11_14_12_38_36`, went live 2026-11-14. The prediction log stays on the container's disk for now (decided 2026-11-14, see step 4).
 
 **Where things stand:**
 
@@ -154,7 +154,7 @@ So a shared log needs a database server:
 
 **Set up once in Azure:**
 - **The identity:** `id-credit-api-github`, a user-assigned managed identity.
-- **The trust:** a federated credential for that exact subject. It can't use wildcards, which is why the job runs in an environment instead of trusting each branch.
+- **The trust:** a federated credential for the exact subject GitHub sends: `repo:bhaumikchauhan@4107855/machine_learning@1432358494:environment:production`. It can't use wildcards, which is why the job runs in an environment instead of trusting each branch.
 - **Its roles:** `AcrPush` on the registry, `Contributor` on the container app only, and `Reader` on the resource group.
 
 **Rolling back:** point the app at an earlier tag:
@@ -163,6 +163,27 @@ So a shared log needs a database server:
 az containerapp update --name credit-api --resource-group rg-credit-api --image creditapi2611.azurecr.io/credit-api:<earlier R_ tag>
 ```
 
-**Not checked yet:** the health check shows that the app answers, but not that the new revision is the one answering.
+**Making a release** (PowerShell, from an up-to-date `deployment`; IST is UTC + 5:30 all year):
+
+```
+$b = "R_" + [DateTime]::UtcNow.AddHours(5.5).ToString("yy_MM_dd_HH_mm_ss")
+git branch $b
+git push -u origin $b
+```
+
+**Checking a release:**
+
+```
+az containerapp revision list --name credit-api --resource-group rg-credit-api --query "[].{revision:name, active:properties.active, traffic:properties.trafficWeight, image:properties.template.containers[0].image}" -o table
+```
+
+The active revision should run the new tag.
+
+**Not checked by the workflow yet:** its health check shows that the app answers, but not that the new revision is the one answering.
+
+**Done 2026-11-14:**
+- **The first try failed at the Azure sign-in** with AADSTS700213, "No matching federated identity record". GitHub's subject now includes the account's and the repo's numeric IDs, which never change and are never reused. So a new repo created under the same name can't inherit the trust. The credential had the name-only subject from the usual docs; after it was updated to the subject in the error, the sign-in worked.
+- **The name of that first branch was in UTC:** Git Bash ignores `TZ='Asia/Kolkata'`. It was deleted once the IST release was verified.
+- **The second release, `R_26_11_14_12_38_36`, passed every step.** Revision `credit-api--0000002` runs that tag with 100% of the traffic, `manual-1`'s revision is retired, and borrower 1 still gets 0.06459152202678682.
 
 **Phase 1 is done when** a public URL returns predictions from a registered model, and a push to GitHub tests and rebuilds it.

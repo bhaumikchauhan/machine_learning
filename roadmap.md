@@ -24,7 +24,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 
 ## What's left
 
-### Phase 1: Deployment 🟡
+### Phase 1: Deployment ✅
 
 **Goal:** serve one model end to end, the way a production team would: the Give Me Some Credit boosting model (chosen 2026-11-09).
 
@@ -37,11 +37,11 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads the champion into the image before it's built. The registry is MLflow on Databricks Free Edition (`workspace.default.credit_risk`), reachable from CI. | ✅ |
 | CI with GitHub Actions | Every push runs the tests and builds the image. [.github/workflows/credit-api.yml](.github/workflows/credit-api.yml): a test job, then a build job that fetches the champion from Databricks (token as a GitHub secret) and runs `docker build`. | ✅ |
-| Cloud | Deploy the container to one cloud and call it over HTTPS. Live on Azure Container Apps (centralindia), image in Azure Container Registry, pulled with a managed identity; see [credit-api/azure_deployment_plan.md](credit-api/azure_deployment_plan.md). Left: the deploy job (OIDC) and the prediction log's storage. | 🟡 |
+| Cloud | Deploy the container to one cloud and call it over HTTPS. Live on Azure Container Apps (centralindia), image in Azure Container Registry, pulled with a managed identity. A push to a release branch (`R_yy_mm_dd_hh_mm_ss`) tests, builds and deploys it, signing in to Azure with OIDC; see [credit-api/azure_deployment_plan.md](credit-api/azure_deployment_plan.md). | ✅ |
 
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.
 
-**Done when** a public URL returns predictions from a registered model, and a push to GitHub tests and rebuilds it.
+**Done when** a public URL returns predictions from a registered model, and a push to GitHub tests and rebuilds it. Done 2026-11-14: https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io, first release `R_26_11_14_12_38_36`.
 
 ### Phase 2: Time series ⬜
 

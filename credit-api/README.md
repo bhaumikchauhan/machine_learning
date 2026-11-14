@@ -12,7 +12,7 @@ Read in this order:
 
 ## Live
 
-https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io: Azure Container Apps, from the image in Azure Container Registry (see [azure_deployment_plan.md](azure_deployment_plan.md)). Try `/health` or `/docs`. It scales to zero when idle, so the first request after a quiet spell takes a few seconds. For now, the prediction log is on the container's own disk and is lost on each restart.
+https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io: Azure Container Apps, from the image in Azure Container Registry. A push to a release branch, named `R_yy_mm_dd_hh_mm_ss` in IST, tests, builds and deploys it (`.github/workflows/credit-api-release.yml`; see [azure_deployment_plan.md](azure_deployment_plan.md), step 5). Try `/health` or `/docs`. It scales to zero when idle, so the first request after a quiet spell takes a few seconds. For now, the prediction log is on the container's own disk and is lost on each restart.
 
 ## Run it
 
@@ -139,4 +139,4 @@ The image isn't kept yet: it's deleted with the runner. Pushing it to a containe
 
 ## Next in phase 1
 
-The deploy job in CI, and a home for the prediction log on Azure ([azure_deployment_plan.md](azure_deployment_plan.md)).
+Phase 1 is done. Open items: a home for the prediction log on Azure (a database server, once it's needed for monitoring or a second container), and a release check that the new revision is the one answering.
