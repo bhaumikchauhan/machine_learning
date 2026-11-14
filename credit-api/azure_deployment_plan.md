@@ -1,6 +1,6 @@
 # Azure deployment plan
 
-The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Left: the prediction log's storage and the deploy job.
+The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Left: the deploy job. The prediction log stays on the container's disk for now (decided 2026-11-14, see step 4).
 
 **Where things stand:**
 
@@ -117,6 +117,16 @@ Done 2026-11-14:
 | Accept the loss (demo only) | Nothing to set up | The log is the raw material for monitoring (phase 4) |
 | An Azure Files share mounted at `/app/data` | Small change; it costs cents | SQLite on a network share (SMB) can corrupt under concurrent writers. It's only acceptable with `--max-replicas 1` |
 | Azure Database for PostgreSQL (Flexible Server, smallest burstable size) | A real database. With SQLModel, the switch is mostly the connection string | Roughly $12–15 a month; one more resource to run |
+
+**Decided 2026-11-14: accept the loss for now.** The log stays on the container's disk, and it's lost on every restart, new version and scale to zero. It comes back when it's needed: for monitoring in phase 4, or for more than one container.
+
+**Several containers:** the API itself scales out with no changes. The model is in the image, and no request depends on another, so raising `--max-replicas` is enough. The log doesn't scale out:
+- **SQLite on the container's disk:** each container keeps its own file.
+- **SQLite on Azure Files:** several writers over the network share can corrupt the file. Even with one replica, a deploy briefly runs the old and new containers together.
+
+So a shared log needs a database server:
+- **PostgreSQL Flexible Server** (recommended): about $12–15 a month, `psycopg` plus a connection string, and pgvector in phase 3.
+- **Azure SQL Database's free offer:** free within a monthly allowance, but it needs Microsoft's ODBC driver in the image.
 
 ### 5. The deploy job in CI
 
