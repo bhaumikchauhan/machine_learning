@@ -1,6 +1,6 @@
 # Azure deployment plan
 
-The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13 and paused while the Azure account is sorted out. Nothing here has been created yet.
+The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Left: the prediction log's storage and the deploy job.
 
 **Where things stand:**
 
@@ -54,8 +54,15 @@ A resource group holds everything this project creates, so it can all be deleted
 
 ```
 az group create --name rg-credit-api --location <region>
+# a new subscription has to register each service before its first use (otherwise MissingSubscriptionRegistration);
+# the last two are for step 4
+az provider register --namespace Microsoft.ContainerRegistry --wait
+az provider register --namespace Microsoft.App --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
 az acr create --resource-group rg-credit-api --name <acr> --sku Basic     # the admin user stays off: no registry password
 ```
+
+Done 2026-11-14: `rg-credit-api` in `centralindia`, registry `creditapi2611`.
 
 ### 3. Push the image by hand once
 
@@ -67,6 +74,11 @@ docker build -t <acr>.azurecr.io/credit-api:manual-1 .
 docker push <acr>.azurecr.io/credit-api:manual-1
 az acr repository show-tags --name <acr> --repository credit-api -o table
 ```
+
+Done 2026-11-14: 12 layers pushed, tag `manual-1`.
+
+- **A layer** is one slice of the image's file system: the base image's, plus one per Dockerfile step. A later push uploads only the changed layers.
+- **The digest** (`sha256:…`) is a hash of the image's contents, so it names exactly one image forever. A tag is a movable name pointing at a digest, like the `champion` alias pointing at a model version.
 
 **Tag every image with a version, never only `latest`.** Then a tag always means the same image, and rolling back is pointing the app at the previous tag. CI will tag with the commit SHA.
 
@@ -91,6 +103,12 @@ az containerapp show --name credit-api --resource-group rg-credit-api --query pr
 - **The pull:** `--registry-identity system` gives the app a managed identity and the AcrPull role on the registry. No password is stored.
 - **The port:** `--target-port 8000` is the port `fastapi run` listens on. HTTPS on 443 comes from Azure.
 - **The check:** `https://<fqdn>/health` should show `workspace.default.credit_risk/1`, and borrower 1 (README, "Run it") should give 0.06459152202678682, as in Docker on the PC.
+
+Done 2026-11-14:
+
+- **The endpoints:** `/health` shows `workspace.default.credit_risk/1`, and borrower 1 gets 0.06459152202678682, the same as on the PC. Both answer in about 0.15 seconds once the app is warm.
+- **Plain HTTP** gets a 301 redirect to HTTPS.
+- **The first request hung:** `az containerapp create` with `--registry-identity system` first starts a placeholder revision, whose startup probe failed, then replaces it with the real one once the identity can pull. The first request arrived during that swap. `az containerapp revision list` shows which revision is serving.
 
 **A decision at this step: where the prediction log lives.** It's a SQLite file in `/app/data`. On Container Apps, a container's disk is lost on every restart, new version and scale to zero, so the log would be lost with it.
 

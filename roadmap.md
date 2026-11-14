@@ -37,7 +37,7 @@ The habits behind them, written up in [concepts.md](concepts.md):
 | Prediction logging | Log each request, prediction and latency. This is the raw material for monitoring later. A `predictionlog` table in credit-api, kept in a Docker volume. | ✅ |
 | MLflow | Track the training runs (parameters, scores, files) and register the model; the API loads a registered version. `train_and_log()` and `promote()` in give-me-some-credit; `credit-api/fetch_champion.py` downloads the champion into the image before it's built. The registry is MLflow on Databricks Free Edition (`workspace.default.credit_risk`), reachable from CI. | ✅ |
 | CI with GitHub Actions | Every push runs the tests and builds the image. [.github/workflows/credit-api.yml](.github/workflows/credit-api.yml): a test job, then a build job that fetches the champion from Databricks (token as a GitHub secret) and runs `docker build`. | ✅ |
-| Cloud | Deploy the container to one cloud and call it over HTTPS. Planned in [credit-api/azure_deployment_plan.md](credit-api/azure_deployment_plan.md): Azure Container Registry, Container Apps, a deploy job with OIDC. Paused while the Azure account is sorted out. | ⬜ |
+| Cloud | Deploy the container to one cloud and call it over HTTPS. Live on Azure Container Apps (centralindia), image in Azure Container Registry, pulled with a managed identity; see [credit-api/azure_deployment_plan.md](credit-api/azure_deployment_plan.md). Left: the deploy job (OIDC) and the prediction log's storage. | 🟡 |
 
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.
 

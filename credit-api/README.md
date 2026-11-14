@@ -10,6 +10,10 @@ Read in this order:
 4. [app.py](app.py): loading once in `lifespan`, the model as a dependency, `POST /predict` as a plain `def` that logs each prediction, `GET /health`
 5. [tests/](tests/conftest.py): the API's code on a stand-in model (no `model/` needed): the API gives the model exactly the row training would, input validation, the log records (in an in-memory database), the startup checks
 
+## Live
+
+https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io: Azure Container Apps, from the image in Azure Container Registry (see [azure_deployment_plan.md](azure_deployment_plan.md)). Try `/health` or `/docs`. It scales to zero when idle, so the first request after a quiet spell takes a few seconds. For now, the prediction log is on the container's own disk and is lost on each restart.
+
 ## Run it
 
 ```
@@ -135,4 +139,4 @@ The image isn't kept yet: it's deleted with the runner. Pushing it to a containe
 
 ## Next in phase 1
 
-A cloud deployment on Azure: push the image to Azure Container Registry, run it on Container Apps over HTTPS, and a deploy job in CI. Planned in [azure_deployment_plan.md](azure_deployment_plan.md), not started yet.
+The deploy job in CI, and a home for the prediction log on Azure ([azure_deployment_plan.md](azure_deployment_plan.md)).
