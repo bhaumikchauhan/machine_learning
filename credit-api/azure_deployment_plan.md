@@ -1,6 +1,6 @@
 # Azure deployment plan
 
-The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Left: the deploy job. The prediction log stays on the container's disk for now (decided 2026-11-14, see step 4).
+The last step of phase 1: run the credit-api container on Azure behind a public HTTPS URL, and have every push to GitHub deploy it. Planned 2026-11-13; started 2026-11-14 in `centralindia`. Created so far: the resource group `rg-credit-api`, the registry `creditapi2611` (`creditapi2611.azurecr.io`, Basic, admin user off), the Container Apps environment `cae-credit-api` and the app `credit-api`, live at https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io (image `credit-api:manual-1`, pushed by hand). Deployed by the release workflow (step 5). The prediction log stays on the container's disk for now (decided 2026-11-14, see step 4).
 
 **Where things stand:**
 
@@ -128,25 +128,41 @@ So a shared log needs a database server:
 - **PostgreSQL Flexible Server** (recommended): about $12–15 a month, `psycopg` plus a connection string, and pgvector in phase 3.
 - **Azure SQL Database's free offer:** free within a monthly allowance, but it needs Microsoft's ODBC driver in the image.
 
-### 5. The deploy job in CI
+### 5. The release workflow
 
-**Signing in:** GitHub signs in to Azure with **OIDC** (workload identity federation). Azure trusts tokens that GitHub issues for this repo and branch, so no Azure password or secret is stored in GitHub. Set it up once:
+**Which pushes deploy (decided 2026-11-14):** only release branches, named `R_yy_mm_dd_hh_mm_ss` in IST (e.g. `R_26_11_14_11_45_00`). The biggest unit comes first, so an alphabetical list of branches is also a list by time.
 
-- **An identity:** an Entra ID app registration, or a user-assigned managed identity, with a federated credential for `repo:bhaumikchauhan/machine_learning:ref:refs/heads/<branch>`.
-- **Its roles:** `AcrPush` on the registry, and permission to update the container app (e.g. `Contributor` on `rg-credit-api`).
-- **GitHub secrets:** `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`. These are identifiers, not passwords, but they're kept with the other secrets.
+**Two workflows:**
 
-**The workflow:**
+| File | Trigger | Jobs |
+|---|---|---|
+| `credit-api.yml` | Pushes changing `credit-api/` on any branch except `R_*` | test, build |
+| `credit-api-release.yml` | Any push to an `R_*` branch, with no `paths` filter | test, then release |
 
-- **Permissions:** `permissions: id-token: write` and `contents: read`, so the job can ask GitHub for its OIDC token.
-- **The steps:** sign in with the `azure/login` action. Check its current major version first: the `@v4` and `@v5` given for checkout and setup-python were out of date. Then:
-  ```
-  az acr login --name <acr>
-  docker build -t <acr>.azurecr.io/credit-api:${{ github.sha }} .
-  docker push <acr>.azurecr.io/credit-api:${{ github.sha }}
-  az containerapp update --name credit-api --resource-group rg-credit-api --image <acr>.azurecr.io/credit-api:${{ github.sha }}
-  ```
-- **Which pushes deploy:** to decide. Deploy only from `main`, and keep the test and build jobs on every branch? The work so far is on the `deployment` branch.
-- **After the deploy:** call `/health` and fail the job if the version isn't the one just fetched.
+**Why two:** a new branch cut from existing work pushes no new commits. GitHub's `paths` filter then finds no changed files and doesn't run the workflow.
+
+**The release job runs in the GitHub environment `production`:**
+- **The branch rule:** the environment allows only branches matching `R_*`.
+- **The secrets:** it holds `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`, which only jobs in this environment can read.
+- **The token:** the job's OIDC token carries the subject `repo:bhaumikchauhan/machine_learning:environment:production`.
+
+**What the job does:**
+1. It fetches the champion and signs in with `azure/login@v3`. The OIDC token needs `permissions: id-token: write`; there's no password.
+2. It builds and pushes `creditapi2611.azurecr.io/credit-api:<branch name>`, so the release branch, the image tag and the revision share one name.
+3. It runs `az containerapp update` with the new image.
+4. It checks `/health`, retrying for about 100 seconds while the new revision starts.
+
+**Set up once in Azure:**
+- **The identity:** `id-credit-api-github`, a user-assigned managed identity.
+- **The trust:** a federated credential for that exact subject. It can't use wildcards, which is why the job runs in an environment instead of trusting each branch.
+- **Its roles:** `AcrPush` on the registry, `Contributor` on the container app only, and `Reader` on the resource group.
+
+**Rolling back:** point the app at an earlier tag:
+
+```
+az containerapp update --name credit-api --resource-group rg-credit-api --image creditapi2611.azurecr.io/credit-api:<earlier R_ tag>
+```
+
+**Not checked yet:** the health check shows that the app answers, but not that the new revision is the one answering.
 
 **Phase 1 is done when** a public URL returns predictions from a registered model, and a push to GitHub tests and rebuilds it.

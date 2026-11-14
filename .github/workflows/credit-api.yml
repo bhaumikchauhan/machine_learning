@@ -1,6 +1,8 @@
 name: test-build
 on:
   push:
+    branches-ignore:
+      - 'R_*'
     paths:
       - 'credit-api/**'
       - '.github/workflows/credit-api.yml'
