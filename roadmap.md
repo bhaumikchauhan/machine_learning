@@ -42,18 +42,22 @@ The habits behind them, written up in [concepts.md](concepts.md):
 Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Strategies, Docker Foundations, Introduction to MLOps.
 
 **Done when** a public URL returns predictions from a registered model, and a push to GitHub tests and rebuilds it. Done 2026-11-14: https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io, first release `R_26_11_14_12_38_36`.
+the /docs give the API
+https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io
 
-### Phase 2: Time series ⬜
+### Phase 2: Transformers and LLMs ⬜
 
-**Problem:** Kaggle "Store Sales – Time Series Forecasting".
+**Study first** (the transformer is new; the order goes from intuition to code to the library):
 
-- **Validation over time:** train on the past, validate on the future, with expanding windows. Shuffled folds would leak the future into training.
-- **Baselines first:** last value, the same day last week, a moving average.
-- **Features:** lags, rolling means, day of week and month, holidays, promotions; each must use only data available at prediction time.
-- **Models:** gradient boosting on lag features (the usual winner); a short look at classical methods (ARIMA, exponential smoothing).
-- **Leftovers folded in here:** stacking (several models and a learned combination) and learning curves.
+| # | Resource | What it gives |
+|---|---|---|
+| 1 | 3Blue1Brown, "Neural networks" series, the chapters on GPT and attention (YouTube) | The intuition: embeddings, attention, what a transformer layer does |
+| 2 | Jay Alammar, "The Illustrated Transformer" (blog) | The architecture drawn step by step |
+| 3 | Andrej Karpathy, "Let's build GPT: from scratch, in code, spelled out" (YouTube, about 2 hours) | A small transformer written in PyTorch, building on the Digit Recognizer training loops |
+| 4 | Hugging Face LLM Course, chapters 1 to 3 (free, huggingface.co/learn) | Tokenizers, pretrained models, and fine-tuning with the `transformers` library: exactly part 1 |
+| Later | The rest of the Hugging Face course, and DeepLearning.AI's short courses on RAG | Part 2 |
+| Optional | *Natural Language Processing with Transformers* (Tunstall, von Werra, Wolf; O'Reilly) or *Hands-On Large Language Models* (Alammar, Grootendorst; O'Reilly) | A book to go deeper |
 
-### Phase 3: Transformers and LLMs ⬜
 
 **Part 1, a transformer classifier:** Kaggle "Natural Language Processing with Disaster Tweets".
 
@@ -61,6 +65,9 @@ Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Str
 - Then a pretrained transformer (for example DistilBERT) fine-tuned with Hugging Face.
 - Concepts: tokens, embeddings, attention, fine-tuning against training from scratch.
 - Deploying it stretches phase 1: a bigger model, CPU or GPU, latency, batching requests.
+- **Leftovers folded in here:**
+  - **Learning curves:** would more tweets help the TF-IDF model?
+  - **Stacking:** a learned combination of TF-IDF and the transformer.
 
 **Part 2, an LLM application:**
 
@@ -68,6 +75,17 @@ Refresher courses (Pluralsight): FastAPI Foundations (done), Python: Testing Str
 - **RAG** (retrieval-augmented generation): split documents into chunks, embed them, find the closest chunks to a question, and give them to the LLM as context.
 - **Vector databases:** they store the embeddings and find the nearest neighbours fast, using approximate indexes such as HNSW. Learn with FAISS, then build with pgvector (Postgres). Qdrant, Chroma and Pinecone are worth knowing by name. The distance ideas are the same as in clustering.
 - **Evaluation:** a test set of questions; check whether the right chunks were retrieved and whether the answers are faithful to them.
+
+### Phase 3: Time series ⬜
+
+Moved after transformers on 2026-11-14 (phase 2 doesn't depend on it). It still comes before the capstone and interview prep: forecasting is common in ML jobs and in system design questions.
+
+**Problem:** Kaggle "Store Sales – Time Series Forecasting".
+
+- **Validation over time:** train on the past, validate on the future, with expanding windows. Shuffled folds would leak the future into training.
+- **Baselines first:** last value, the same day last week, a moving average.
+- **Features:** lags, rolling means, day of week and month, holidays, promotions; each must use only data available at prediction time.
+- **Models:** gradient boosting on lag features (the usual winner); a short look at classical methods (ARIMA, exponential smoothing).
 
 ### Phase 4: Capstone ⬜
 
@@ -79,7 +97,7 @@ One end-to-end project on data I pick. It's the centrepiece of the portfolio.
 - **Monitoring:** data drift and prediction drift, using the prediction logs.
 - **Retraining:** scheduled or triggered by drift; a new version goes to the registry and replaces the old one only if it scores better.
 - **Write-up:** the problem, the decisions, the results and the lessons.
-- Could use phase 3 (search or recommendations with embeddings) if the data suits it.
+- Could use phase 2 (search or recommendations with embeddings) if the data suits it.
 
 ### Phase 5: Interview prep ⬜
 
@@ -93,7 +111,7 @@ One end-to-end project on data I pick. It's the centrepiece of the portfolio.
 
 | Track | What | When |
 |---|---|---|
-| Leftovers | **Stacking** (House Prices blended by hand); **thresholds and calibration** (Give Me Some Credit: turning a probability into a decision, and probabilities you can trust); **learning curves** (would more data help?). Optional: the rest of House Prices' columns; dropout and voting augmented CNNs in Digit Recognizer. | Folded into phase 2 or 4 |
+| Leftovers | **Stacking** (House Prices blended by hand); **thresholds and calibration** (Give Me Some Credit: turning a probability into a decision, and probabilities you can trust); **learning curves** (would more data help?). Optional: the rest of House Prices' columns; dropout and voting augmented CNNs in Digit Recognizer. | Stacking and learning curves in phase 2; thresholds and calibration in phase 4 |
 | SQL | Regular practice. It comes back in time series features, pgvector and the capstone's data pipeline. | Throughout |
 | Cloud ML platform | The registry is on Databricks (managed MLflow 3, Unity Catalog), the container goes to Azure. Azure ML's MLflow follows MLflow 2 (no aliases), so it lost the registry. Know AWS SageMaker and GCP Vertex AI by name. | From phase 1's cloud step, more in phase 4 |
 | Portfolio | This GitHub repo: a README per project, the notes and lessons, a live demo link from phase 1, the capstone write-up, the Kaggle profile. | Updated as each phase finishes |
