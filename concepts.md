@@ -2,7 +2,7 @@
 
 Concepts that came up while working on the problems in this repo, each in a few lines: what it is, and where it came up. Mostly the ones that were new, or that I had wrong at first. The per-problem `feature_notes.md` files record the decisions column by column; this file collects the ideas behind them.
 
-Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md).
+Where: **T** = [Titanic](titanic/feature_notes.md), **HP** = [House Prices](house-prices/feature_notes.md), **GMSC** = Give Me Some Credit (`give-me-some-credit/`), **CC** = [credit card clustering](credit-card-clustering/feature_notes.md), **DR** = [Digit Recognizer](digit-recognizer/feature_notes.md), **API** = [credit risk API](credit-api/README.md), **RL** = reinforcement learning course videos (Mars rover: states 1–6, rewards 100, 0, 0, 0, 0, 40, states 1 and 6 terminal; no code in this repo).
 
 ## Lessons from Digit Recognizer
 
@@ -285,3 +285,141 @@ Any shift makes one house better and the other worse by more; the best shift is 
 **Dropout (not tried).** During training, `nn.Dropout(p)` sets each unit's output to 0 with probability p (often 0.5), a new random choice per image per batch, and multiplies the survivors by 1 ÷ (1 − p) so the total stays about the same. No unit can rely on a particular other one, so fragile combinations that memorise single images can't form; it's like many thinned networks sharing weights, used together at the end (a cheap relative of voting). Usually in the dense part, where most weights are (*DR: about 400,000 of the CNN's 420,000 in `Linear(3136, 128)`*). `network.train()` turns it on, `network.eval()` off; left on during evaluation, every score would come from a different crippled half of the network, lower and random.
 
 **Impossible mistakes.** Some images look like a different digit than their label, even to a person; no model can fix them, so they set a ceiling. Look at the mistakes (on the early-stopping set, not the held-out set) before predicting what a change can fix. *DR: a "3" that looks like a 9, two "9"s that look like 4s, among the CNN's most confident mistakes.*
+
+## Serving a model
+
+**Training and serving are separate programs.** Training fits the model once, offline, and saves it to a file (`joblib.dump`, like serializing an object); the API loads that file once at startup and only predicts. Refitting per request would take far longer than a prediction. *API: `save_model()` in GMSC writes `model.joblib`; `lifespan` loads it.*
+
+**What serving must match from training.** The fitted model, the column names and order, the library version that saved the file, and any feature engineering (none for the boosting model, which uses the raw columns). Not the seed: it only shapes the trees during `fit`, so predictions are fixed once the model exists. Not scaling, unless the model used it: trees compare against thresholds, so units don't matter. *API: the table in credit-api/README.md.*
+
+**Column order.** A model fitted on a DataFrame remembers the column names (`feature_names_in_`) and refuses a DataFrame in another order; a numpy array has no names, so swapped columns are scored silently and wrongly. JSON key order means nothing, so the API builds the row in `feature_names_in_` order. *API: swapping age and income as numpy moved one borrower from 4% to 26% (`column_order_check` in GMSC's diagnostics.py).*
+
+**Training-serving skew.** The served model differs from the one that was validated: copied training code that drifts, a different library version, a different preprocessing step. Guards: one function that fits the model, used for both the submission and the saved file; pinned versions; a test that the API gives the model exactly the row training would (any model, so it survives the next promotion); checks at startup that stop a mismatched model from serving. *API: `create_and_fit_boosting_model()` in GMSC, used by both; `load_model` raises on a version or column mismatch; `test_api_returns_the_models_own_probability`.*
+
+**Test the serving code, not the model.** A serving test pinned to one model's outputs fails at the next promotion even though the code didn't change, and needs the real model wherever tests run. Instead, the tests use a stand-in model, and the model's quality is decided at promotion. Both sides still check the contract:
+- **the publisher** (promotion), when the model is published;
+- **the server** (startup), against what only it knows: its library versions and its schema.
+
+**A stand-in model must be sensitive to what the test checks.** To catch two mixed-up columns, every column needs its own weight and the test row a different value per column. Then a linear model's score changes under any swap. A tree model can ignore a column in part of the range. *API: a boosting stand-in missed a swap of the 60–89 and 90-day late counts; a linear one, with a test that checks every pair, replaced it.*
+
+**Reject unknown fields.** If a request with a typo'd field name ("monthly_incom") were accepted, the real field would default to missing, and the model would score the borrower as "income not reported": a wrong prediction with no error. `extra="forbid"` makes it a 422. *API: schemas.py.*
+
+**Docker image and container.** A Dockerfile is a build recipe; the image is the result: a Linux file system with Python, the libraries, the code and the model, plus the command that starts the app. A container is a running image, so every machine runs the same environment (like a fat jar shipped with its own JRE and OS). *API: `docker build -t credit-api .`, `docker run -p 8000:8000 credit-api`.*
+
+**Layer cache.** Each Dockerfile step is cached; a rebuild reruns from the first step whose input changed. So `COPY requirements.txt` and `RUN pip install` come before the code: a code edit then skips the install. *API: the user's Dockerfile.*
+
+**Inside a container, 127.0.0.1 is the container itself.** A server must listen on 0.0.0.0 to be reachable through `-p host:container` (`fastapi run`, not `fastapi dev`). *API: the first Dockerfile used `fastapi dev`.*
+
+**Container data needs a volume.** A container's writable layer is deleted with it, and every `docker run` starts a new container from the unchanged image. Data that must last goes in a volume (`-v name:/path`, storage Docker keeps separately) or in a database on another server. *API: the prediction log in `/app/data`; checked with two containers in a row.*
+
+**Prediction logging.** One record per prediction: a request id (returned to the client), the time, the model version, the inputs as received, the output and the latency. Uses: drift monitoring (inputs and predictions against training), replaying inputs through a new model before switching, and live accuracy once real outcomes arrive and are joined by the id. Written where the validated input and the output exist (the endpoint), not in middleware. *API: the `predictionlog` table.*
+
+**Model version from a hash.** A file name stays the same across retraining (`model.joblib`); a hash of the file's bytes changes whenever the model does. *API: 12 characters of SHA-256, computed at startup; MLflow's version number replaces it later.*
+
+**Experiment tracking.** Each training run records what's needed to compare it with other runs and to rebuild it:
+- the score (the CV mean and sd, which show whether a difference between runs is noise);
+- the params;
+- the data version (a hash of the file);
+- the code version (MLflow takes the git commit);
+- the model.
+
+A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment `credit-risk`.*
+
+**The CV score belongs to the recipe, not to one fitted model.** Cross-validation fits one model per fold, only to score it on the rows it didn't see. The model that gets shipped is the same recipe fitted on all the rows; it usually does slightly better than the CV score, having seen more data. So the score and the shipped model must come from the same code and the same data. *GMSC: `build_boosting_model()` used by both the CV and the final fit.*
+
+**Model registry.** A named model (`credit-risk`) with numbered versions, each linked to the run that produced it: its score, params and data. Serving asks the registry for a model instead of being handed a file. *GMSC: versions 1 and 2.*
+
+**Aliases and promotion.** An alias (`champion`) is a movable name for one version, like a release tag; it replaced MLflow's stages. Serving uses whatever version `models:/credit-risk@champion` points at, so a new model goes live by moving the alias and rebuilding or restarting, with no change to the API's code. The alias is the production-ready mark, so the checks run before it moves:
+- **The contract:** the signature matches what serving sends.
+- **Comparable scores:** the same data hash, so the folds are the same rows.
+- **The keep rule:** the candidate beats the champion by more than the noise, fold by fold. That needs the per-fold scores logged, not just the mean.
+
+*GMSC: `promote(version)`; version 5 is the first champion.*
+
+**Model signature.** The column names and types the model accepts, stored with it. `mlflow.pyfunc` enforces it: a float sent for an `int64` column is an error. So infer it from data shaped like what serving will send. *GMSC: version 1 rejected the API's float rows; version 2 was inferred from `X.astype(float)`.*
+
+**Safe model files.** Pickle and joblib files can run any code while loading, so a file from an untrusted source is a security risk. skops stores only data and loads only listed types; a type it doesn't know has to be trusted by name. A `.skops` file is a zip archive: `schema.json` describes every object (class, module, settings) in readable JSON, and numpy `.npy` files hold the arrays. The loader checks each class in the schema against the trusted list before it builds anything. A pickle is a list of instructions that Python carries out while loading, including "call this function", so you can't see what it will do without running it. The trusted list belongs in the serving code, not in the model folder, or a tampered file could trust its own types. *GMSC: `skops_trusted_types` with the boosting model's `TreePredictor`; API: `TRUSTED_TYPES` in predictor.py.*
+
+**Fetch the model at build time, not at startup.** If the API loads from the registry at startup, every start (a restart, a second copy for more traffic, a move to another machine) needs the registry to be up, even when the model hasn't changed. Downloaded before `docker build`, the model is part of the image:
+- the image is one fixed, reproducible version, like a jar with its dependencies inside;
+- a new champion means a rebuild (CI's job);
+- rolling back means running the previous image;
+- the cloud deployment doesn't need access to the MLflow server.
+
+*API: `fetch_champion.py` writes `model/`, and the Dockerfile copies it.*
+
+**Continuous integration (CI).** Every push runs the checks on a fresh machine, so "it works on my machine" can't hide a missing dependency or a file that isn't in git. In GitHub Actions a workflow (`.github/workflows/*.yml` at the repo root) has a trigger (`on`), jobs (each on its own new runner) and steps. A step either uses a published action, like a Maven plugin (`actions/checkout` to get the code, `actions/setup-python`), or runs a shell command. `needs:` orders jobs, so a build starts only after the tests pass. `paths:` limits the trigger to the folders a project lives in. `defaults.run.working-directory` applies to `run:` steps only. *API: `credit-api.yml`, the test job.*
+
+**Secrets in CI.**
+- **Store them as secrets.** Credentials go in the CI system's secret store, never in the repo. GitHub encrypts a secret and masks it as `***` in the logs. A plain "variable" is visible to anyone with access to the repo's settings, so it isn't for tokens.
+- **Pass them to one step.** A secret reaches a step only through that step's `env:` (`${{ secrets.NAME }}`), so the other steps never see it.
+- **Use a separate token for CI.** CI gets its own token, not a copy of a personal one. Then it can be revoked or renewed without breaking anything else, and the logs show which token did what. A service principal (a non-person account) goes one step further.
+
+*API: the build job's fetch step, with `DATABRICKS_HOST` and `DATABRICKS_TOKEN`.*
+
+**Signing in from CI without a password (OIDC).** GitHub issues each job a short-lived token that says which repo, branch or environment it's from. The cloud is set up once to trust tokens with an exact subject, and swaps the token for its own short-lived credential. No password or key is stored anywhere, so none can leak or expire.
+- **Exact subjects and environments:** subjects can't use wildcards, so the deploy job runs in a GitHub environment (`production`). The environment decides which branches may use it (`R_*`), and the cloud trusts the environment's one subject.
+- **Repo and account IDs in the subject:** GitHub puts the numeric IDs in the subject, e.g. `repo:owner@4107855/repo@1432358494:...`. A new repo created under a deleted one's name gets a new ID, so it can't inherit the trust.
+- **Least privilege:** the identity gets only what the deploy needs: push to the registry, change the one app, and read the resource group.
+
+*API: `credit-api-release.yml`, `id-credit-api-github`.*
+
+**Release branches and image tags.**
+- **One name for one release:** the release branch, the image tag and the running revision share a name (`R_26_11_14_12_38_36`).
+- **The name sorts by time:** biggest unit first, in one fixed time zone.
+- **A tag points at one image:** it's never reused, so rolling back is pointing the app at the previous tag.
+- **The pattern is enforced:** only those branches can deploy, because the environment refuses any other.
+
+*API: the release workflow.*
+
+**Build-only tools stay out of the image.** A tool needed only to build the image (here `mlflow-skinny`, which fetches the model) is installed on the build machine, not listed in the image's requirements. The image holds what the app needs at run time. *API: the build job installs `mlflow-skinny`; requirements.txt doesn't list it.*
+
+**A managed platform's MLflow isn't the open-source one.** Each platform supports its own subset and sets its own defaults, so check the features the code relies on before choosing, and test with a throwaway model before moving. Azure ML's MLflow follows MLflow 2: no aliases. On Databricks, the default sklearn format becomes cloudpickle, and the metric history of a run that logged a model has an extra point. *GMSC: the registry moved to Databricks; `serialization_format="skops"` stated explicitly.*
+
+## Reinforcement learning
+
+**State-action value function Q(s, a).** The return if you start in state s, take action a once, then behave optimally. Forcing only the first action makes actions comparable: everything after it is the same (optimal), so Q(s, left) vs Q(s, right) judges just that first step. The best action is argmax_a Q(s, a), and the best return is max_a Q(s, a). In real RL the policy isn't known: Q is learned first and the policy is read off it. *RL, γ = 0.5: Q(2, right) = 12.5 although right is the wrong move from 2; Q(3, right) = 100 × 0.5⁴ = 6.25 (3 → 4 → 3 → 2 → 1).*
+
+**Bellman equation.** Q(s, a) = R(s) + γ · max_a′ Q(s′, a′): "behave optimally from s′" is the best Q at s′, so Q is defined by Q, with no policy in it. Same shape as tree height, height(node) = 1 + max(height(children)): R(s) is the +1, the max over actions is the max over children, terminal states are the leaves (Q = their reward). *RL: Q(3, right) = 0 + 0.5 · max(12.5, 10) = 6.25, the same as following the path.*
+
+**Why the current state's reward is added.** Rewards are the only source of values; the recursion only carries them backward, discounted. Leaving R(s) out works only where it's 0. R(s) is the same for every action at s, so it never changes the choice at s, but it changes the choice at the states leading into s. *RL: with R(3) = −20, Q(4, left) falls from 12.5 to 2.5 and the best action at 4 becomes right (10).*
+
+**γ changes the optimal policy.** A smaller γ discounts the far future more, so a near small reward can beat a far big one, and "behave optimally after" changes with it. *RL, γ = 0.25: at state 4, left 1.5625 vs right 2.5, so right; Q(5, left) = 0.25 · 2.5 = 0.625 (5 → 4 → 5 → 6).*
+
+**Value iteration and bootstrapping.** The rover's states form a graph with cycles (3 → 4 → 3), so plain recursion would never end. Instead: start with a guess for every Q, apply Q ← R + γ · max Q to every pair, repeat until it stops changing; γ < 1 makes it converge. Each update goes one step and trusts the current estimate for the rest (bootstrapping). Unlike a tree search, the best value of each state is stored once and reused, not recomputed on every path (dynamic programming).
+
+**DQN (Deep Q-Network).** A neural network replaces the Q table, because states like the lunar lander's 8 continuous numbers can't be listed. Input x = state + one-hot action (8 + 4 = 12 numbers), output one number, the prediction of Q(s, a). Training data comes from flying the lander (random actions at first): each step gives a tuple (s, a, R, s′), with R and s′ from the simulator, and one tuple is one training example. The label y = R + γ · max Q(s′, a′) is computed, not given: R is real, max Q(s′, ·) is the network's own guess (a forward pass for each of the 4 actions at s′). A network predicts from its weights alone, so it needs no y to give that guess; y is only for training. There is one network, used for both: Q is it before a round's training, Q_new after.
+
+```python
+Q = NeuralNetwork(input_size=12, hidden=[64, 64], output_size=1)  # random weights
+buffer = []  # replay buffer: most recent 10,000 tuples
+
+def compute_y(R, s_next, Q, gamma):
+    q_values = []
+    for a2 in actions:                         # nothing, left, main, right
+        x_next = concat(s_next, one_hot(a2))
+        q_values.append(Q.predict(x_next))     # forward pass, current weights
+    return R + gamma * max(q_values)
+
+for round in range(many):
+    # 1. fly the lander and record what happens
+    s = env.reset()
+    for step in range(steps_per_round):
+        a = random_action()                    # later: pick the a with highest Q(s, a)
+        R, s_next = env.step(a)                # simulator gives reward and next state
+        buffer.append((s, a, R, s_next))
+        buffer = buffer[-10000:]               # keep only the most recent 10,000
+        s = s_next
+
+    # 2. build the training set using the current Q
+    X = []
+    y = []
+    for (s, a, R, s_next) in buffer:
+        X.append(concat(s, one_hot(a)))
+        y.append(compute_y(R, s_next, Q, gamma))
+
+    # 3. train: Q's weights become Q_new
+    Q.fit(X, y)
+```
+
+**Why DQN improves from random weights.** At an ending (landing, crash, terminal state) nothing follows, so y = R exactly, correct from round 1. Once the network has learned those, the y's one step before them are correct in the next round, and so on: correct values spread one step backward per round, and the random starting outputs are overwritten. *RL, γ = 0.5, random outputs ≈ 8: tuple (2, left → 1) gets y = 4 in round 1, 50 in round 2; tuple (3, left → 2) gets 4, then 2, then 25 in round 3.*

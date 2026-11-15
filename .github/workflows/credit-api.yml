@@ -1,0 +1,33 @@
+name: test-build
+on:
+  push:
+    branches-ignore:
+      - 'R_*'
+    paths:
+      - 'credit-api/**'
+      - '.github/workflows/credit-api.yml'
+defaults:
+  run:
+    working-directory: credit-api
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements.txt
+      - run: python -m pytest
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.11' }
+      - run: pip install mlflow-skinny==3.18.0
+      - run: python fetch_champion.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      - run: docker build . --tag credit-api:latest

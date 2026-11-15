@@ -1,6 +1,7 @@
 # Analysis checks for give_me_some_credit.py. Written by Claude; the model code is the user's.
 
 import numpy as np
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate
 
@@ -27,5 +28,28 @@ def real_estate_at_fixed_c(C=1.0):
     g.keep_rule(current, candidate)
 
 
+def column_order_check(n=5):
+    # Does the column order matter when predicting? The boosting model as in create_boosting_submission,
+    # then the first n Kaggle test borrowers: as trained, with age and MonthlyIncome swapped (DataFrame),
+    # and the same swap as a numpy array (no column names).
+    X, y = g.retrieve_X_And_y()
+    X = X.drop(columns=X.columns[0])
+    model = HistGradientBoostingClassifier(random_state=g.RANDOM_SEED).fit(X, y)
+
+    test = g.get_kaggle_test_data_from_csv()
+    X_test = test.drop(columns=[test.columns[0], 'SeriousDlqin2yrs']).head(n)
+    columns = list(X_test.columns)
+    i, j = columns.index('age'), columns.index('MonthlyIncome')
+    columns[i], columns[j] = columns[j], columns[i]
+    swapped = X_test[columns]
+
+    print("as trained:        ", model.predict_proba(X_test)[:, 1].round(4))
+    try:
+        print("swapped, DataFrame:", model.predict_proba(swapped)[:, 1].round(4))
+    except ValueError as error:
+        print("swapped, DataFrame: ValueError:", str(error).splitlines()[0])
+    print("swapped, numpy:    ", model.predict_proba(swapped.to_numpy())[:, 1].round(4))
+
+
 if __name__ == '__main__':
-    real_estate_at_fixed_c()
+    column_order_check()

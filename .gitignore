@@ -21,3 +21,23 @@ female_3rd_class.csv
 
 # Personal notes, kept local
 assessment_after_first_solution.txt
+
+# Virtual environments inside project folders
+venv/
+
+# Local SQLite databases (created at runtime)
+*.db
+
+# Course materials (Pluralsight downloads: copyrighted, kept local)
+fast-api fundamentals/
+# Saved models (rebuilt by save_model(); versions go to MLflow later)
+*.joblib
+# MLflow's logged models and files (rebuilt by train_and_log(); the runs and registry are in mlflow.db, ignored above)
+mlruns/
+# The champion model downloaded for the API image (rebuilt by credit-api/fetch_champion.py)
+credit-api/model/
+
+# editor settings
+.vscode/
+# a course demo environment, not a project
+mlops-mlflow-demo/

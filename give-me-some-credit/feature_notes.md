@@ -175,3 +175,37 @@ All 10 columns are numeric. Values from `cs-training.csv` (150,000 borrowers):
 - **age 0:** 1 borrower; the next youngest is 21, and the test set's youngest is 21. **Decided (2026-10-30): set to a fixed 52**, the mean age (52.3), rounded. Written as a fixed number, so nothing is fitted; for one borrower, the mean's dependence on the fold doesn't matter.
 - **NumberOfDependents missing:** 3,924 borrowers, all with missing income, so already flagged by `IncomeNotReported`. They default at 4.6%, against 5.8% for the other missing-income borrowers. **Decided (2026-10-30): fill with a fixed 0, no flag of its own.** 0 is also the most common value (86,902 borrowers). Unlike income, the fill does matter a little here, because the flag covers 32,008 borrowers and not just these 3,924; with a 1.2-point difference, a separate flag would add little.
 - **MonthlyIncome missing:** 20%. The default rate is 5.6% when it is missing and 6.9% when it is present.
+
+## Serving (2026-11-09)
+
+- **Served by [credit-api/](../credit-api/README.md)** (roadmap phase 1). `save_model()` writes `model.joblib` (not in git); the user moved the fit into `create_and_fit_boosting_model()`, used by both `create_boosting_submission` and `save_model`, so the served model can't drift from the submitted one.
+- **Check:** the loaded file reproduces `submission_2.csv` on all 101,503 test borrowers (largest difference 1e-16, CSV rounding). Saved with scikit-learn 1.9.1, pinned in credit-api/requirements.txt.
+- **What the API must match** (worked out by the user, with one correction): the model, the column names and order, the scikit-learn version. Not the seed (only used in `fit`), not scaling (no scaler in this model). The user first said order doesn't matter; `column_order_check()` in diagnostics.py showed a DataFrame in another order raises a ValueError, and a numpy row is scored silently wrong (borrower 2: 4% → 26% with age and income swapped).
+
+## Tracking with MLflow (2026-11-12)
+
+- **`train_and_log()`**, written by the user: one MLflow run in the experiment `credit-risk` (`sqlite:///mlflow.db`; UI: `mlflow ui --backend-store-uri sqlite:///mlflow.db` from this folder). The run holds:
+  - the 50-fold CV AUC, as `mean_auc` and `std_auc` (0.865 ± 0.004);
+  - the model's params;
+  - `data_hash`, 12 characters of the SHA-256 of `cs-training.csv`;
+  - the model fitted on all 150,000 rows, registered as `credit-risk`.
+- **One recipe for the score and the model:** `build_boosting_model()` is used by both the CV and the final fit, and both get the same `X` and `y`. The CV runs through `cross_validate_tree_model`, so the measurement is in one place.
+- **Why fit again after CV** (the user's question): the 50 fold models each trained on 120,000 rows and are only for scoring. The CV score describes the recipe; the served model is the same recipe fitted on all the rows.
+- **The skops error:** MLflow 3.18 saves scikit-learn models with skops, a format that loads only trusted types. `TreePredictor` (inside the boosting model) has to be named in `skops_trusted_types`.
+- **The signature is inferred from floats:** six training columns are `int64`, but the API sends floats. Against version 1 (int signature), `mlflow.pyfunc` rejected float rows with "Failed to enforce schema". Version 2 was inferred from `X.astype(float)`; the UI shows `age` as `double`. The model itself is unchanged, since boosting converts its input to float64.
+- **Fold scores:** each run logs the 50 fold AUCs as one metric, `fold_auc`, with the fold as the step (from version 5). The keep rule's fold win share needs them, and a mean and an sd can't give it. A first try logged 50 names (`fold_0_auc`, ...): one point per series. It was also inside `cross_validate_tree_model`, where a call outside a run would quietly start a new one.
+- **Promotion** (`promote(version)`, written by Claude at the user's request; the checks are the user's). The alias `champion` is the production-ready mark the API loads, so the checks run before it moves:
+  1. The signature is the 10 training columns, all `double`.
+  2. The candidate has the 50 fold AUCs.
+  3. If there's a champion, it has the same `data_hash` (otherwise compare on held-out rows).
+  4. If there's a champion, the candidate passes `keep_rule` against its fold AUCs.
+
+  Tested: version 1 fails check 1 (six `long` columns); versions 3 and 4 fail check 2; **version 5 became the first champion**; promoting 5 again says it already is.
+- **Served from the registry (2026-11-13):** `credit-api/fetch_champion.py` (the user's, with fixes) downloads the champion into `credit-api/model/` before `docker build`. The image holds `credit-risk/5`, and the API loads `model.skops` with skops, without MLflow. Checked: the Docker container's `/health` shows version 5, and borrower 1's probability is unchanged. `save_model()` and `model.joblib` are no longer used by the API.
+- **Moved to Databricks (2026-11-13):** the registry has to be reachable from CI, so it moved from `mlflow.db` to MLflow on Databricks Free Edition: experiment `/Shared/credit-risk`, model `workspace.default.credit_risk` in Unity Catalog. Azure ML was the first plan, but its MLflow follows MLflow 2: no LoggedModels and no aliases, which `promote()` and `fetch_champion.py` rely on. A throwaway connection test (a run, a registered model, the alias, a download) showed what had to change:
+  - **cloudpickle instead of skops:** with a Databricks tracking URI, MLflow's default sklearn format is cloudpickle; the API loads skops only. `log_model` now says `serialization_format="skops"`.
+  - **Step 0 twice:** in a run that logged a model, `get_metric_history` returned the first fold twice (51 values for 50 folds; the count check in `promote()` would have stopped it). `fold_aucs()` keeps one value per step.
+  - **Names and paths:** Unity Catalog names have three parts (`catalog.schema.model`, no hyphen); experiments are workspace paths, and the user's home folder didn't exist yet, so `/Shared`.
+  - **The Windows console:** MLflow prints the run's link with an emoji at the end of a run; cp1252 can't encode it, and the crash comes before the run is marked finished. `connect_to_mlflow()` switches stdout to UTF-8.
+
+  Retrained as Databricks version 1 and promoted (the first champion there). It's the same model as local version 5: same code, data and seed, and borrower 1's probability is identical.

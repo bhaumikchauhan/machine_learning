@@ -1,3 +1,7 @@
+import hashlib
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn import pipeline
@@ -7,12 +11,25 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from joblib import dump
+import mlflow
+from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 
 TEST_SIZE = 0.2
 RANDOM_SEED = 42
 N_FOLDS = 5
 # 5-fold cross-validation is repeated with a different shuffle each time, to average out lucky folds.
 N_REPEATS = 10
+TRAIN_CSV = "kaggle\\input\\GiveMeSomeCredit\\cs-training.csv"
+# MLflow on Databricks (Free Edition): runs in the workspace, models in the Unity Catalog registry. Signs in with
+# ~/.databrickscfg (or DATABRICKS_HOST and DATABRICKS_TOKEN). Training still runs here; only the records and the
+# model go there. mlflow.db holds the earlier local versions 1 to 5 and isn't used any more.
+MLFLOW_TRACKING_URI = "databricks"
+MLFLOW_REGISTRY_URI = "databricks-uc"
+EXPERIMENT = "/Shared/credit-risk"     # a workspace path
+REGISTERED_MODEL = "workspace.default.credit_risk"     # Unity Catalog: catalog.schema.model
+CHAMPION = "champion"     # the alias the API loads: models:/workspace.default.credit_risk@champion
 
 SCALE_COLUMNS = ['MonthlyIncome','DebtToIncome',
                    'NumberOfTimes90DaysLate','RevolvingUtilizationOfUnsecuredLines',
@@ -23,7 +40,7 @@ MIN_AUC_GAIN = 0.001
 MIN_FOLD_WIN_SHARE = 0.8
 
 def get_train_data_from_csv():
-    return pd.read_csv("kaggle\\input\\GiveMeSomeCredit\\cs-training.csv")
+    return pd.read_csv(TRAIN_CSV)
 
 def get_kaggle_test_data_from_csv():
     return pd.read_csv("kaggle\\input\\GiveMeSomeCredit\\cs-test.csv")
@@ -131,8 +148,12 @@ def cross_validate_model(X, y, scale_columns=None, passthrough_columns=None):
     print(f"C per fold: min {min(Cs)}, median {np.median(Cs)}, max {max(Cs)}")
     return scores
 
-def cross_validate_tree_model(X, y):
+def build_boosting_model():
     model = HistGradientBoostingClassifier(random_state=RANDOM_SEED)
+    return model
+
+def cross_validate_tree_model(X, y):
+    model = build_boosting_model()
     pipeline = Pipeline([('model', model)])
     scores = cross_validate(pipeline, X, y, cv=repeated_folds(),
                             scoring=['roc_auc'], return_estimator=True)
@@ -140,6 +161,111 @@ def cross_validate_tree_model(X, y):
     aucs = scores['test_roc_auc']
     print(f"AUC mean: {aucs.mean():.3f} AUC std (+/- {aucs.std():.3f})")
     return scores
+
+def connect_to_mlflow():
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_registry_uri(MLFLOW_REGISTRY_URI)
+    # MLflow prints the run's link with an emoji when a run ends; the Windows console's cp1252 can't encode it,
+    # and the crash comes before the run is marked finished
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+
+def train_and_log():
+    X, y = retrieve_X_And_y_without_id()
+    connect_to_mlflow()
+    mlflow.set_experiment(EXPERIMENT)
+    with mlflow.start_run():
+        scores = cross_validate_tree_model(X, y)
+        for fold, auc in enumerate(scores['test_roc_auc']):
+                mlflow.log_metric("fold_auc", auc, step=fold)
+        aucs = scores['test_roc_auc']
+        data_hash = hashlib.sha256(Path(TRAIN_CSV).read_bytes()).hexdigest()[:12]
+        mlflow.log_metric("mean_auc", aucs.mean())
+        mlflow.log_metric("std_auc", aucs.std())
+        mlflow.log_param("data_hash", data_hash)
+        model = create_and_fit_boosting_model(X, y)
+        mlflow.log_params(model.get_params())
+        X_float = X.astype(float)
+        mlflow.sklearn.log_model(model, name = "credit-risk-model",
+                                 signature=mlflow.models.infer_signature(X_float, model.predict_proba(X_float)[:, 1]),
+                                 input_example=X_float.head(5),
+                                 registered_model_name=REGISTERED_MODEL,
+                                 # skops is MLflow's default, except with a Databricks tracking URI (cloudpickle),
+                                 # and the API loads skops only
+                                 serialization_format="skops",
+                                 skops_trusted_types=[
+                                "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"])
+    
+        print(f"Model logged to MLflow with run ID: {mlflow.active_run().info.run_id}")
+    return scores
+
+
+def run_of(client, version):
+    # The training run that produced a registered version: it holds the data hash and the fold AUCs
+    return client.get_run(client.get_model_version(REGISTERED_MODEL, version).run_id)
+
+
+def fold_aucs(client, run):
+    # The fold AUCs in fold order (step), so fold i is the same rows in both runs when the data hash matches.
+    # One value per step: on Databricks, a run that logged a model returns step 0 twice.
+    by_step = {metric.step: metric.value for metric in client.get_metric_history(run.info.run_id, "fold_auc")}
+    return np.array([by_step[step] for step in sorted(by_step)])
+
+
+def promote(version):
+    # Written by Claude. Moves the "champion" alias, the version the API loads, to `version` only if the checks
+    # pass. The alias is the production-ready mark, so the checks run here, before it moves.
+    connect_to_mlflow()
+    client = MlflowClient()
+    version = str(version)
+    candidate = run_of(client, version)
+
+    # 1. The API's contract: the 10 training columns, all double (the API sends floats; version 1 had longs).
+    #    Compared by name, since the API builds its row by column name.
+    signature = mlflow.models.get_model_info(f"models:/{REGISTERED_MODEL}/{version}").signature
+    actual = {column["name"]: column["type"] for column in signature.inputs.to_dict()}
+    expected = {column: "double" for column in retrieve_X_And_y_without_id()[0].columns}
+    if actual != expected:
+        wrong = {name: kind for name, kind in actual.items() if expected.get(name) != kind}
+        missing = sorted(set(expected) - set(actual))
+        print(f"Version {version} not promoted: signature doesn't match the API. Wrong: {wrong}, missing: {missing}")
+        return False
+
+    # Every champion needs its fold scores, or the next candidate can't be compared with it
+    candidate_aucs = fold_aucs(client, candidate)
+    if len(candidate_aucs) != N_FOLDS * N_REPEATS:
+        print(f"Version {version} not promoted: {len(candidate_aucs)} fold AUCs logged, "
+              f"need {N_FOLDS * N_REPEATS} (rerun train_and_log)")
+        return False
+
+    try:
+        champion_version = client.get_model_version_by_alias(REGISTERED_MODEL, CHAMPION)
+    except MlflowException:
+        champion_version = None     # the first promotion: nothing to beat
+
+    if champion_version is not None:
+        if str(champion_version.version) == version:     # an int from a local registry, a str from Databricks
+            print(f"Version {version} is already {REGISTERED_MODEL}@{CHAMPION}")
+            return True
+        champion = client.get_run(champion_version.run_id)
+
+        # 2. Same data, so the folds are the same rows and the AUCs can be compared
+        if candidate.data.params["data_hash"] != champion.data.params["data_hash"]:
+            print(f"Version {version} not promoted: trained on other data than version {champion_version.version} "
+                  f"(data_hash {candidate.data.params['data_hash']} vs {champion.data.params['data_hash']}); "
+                  f"compare the two on the same held-out rows instead")
+            return False
+
+        # 3. The keep rule against the champion, fold by fold
+        print(f"Version {version} against champion version {champion_version.version}:")
+        if not keep_rule(fold_aucs(client, champion), candidate_aucs):
+            print(f"Version {version} not promoted")
+            return False
+
+    client.set_registered_model_alias(REGISTERED_MODEL, CHAMPION, version)
+    print(f"Version {version} is now {REGISTERED_MODEL}@{CHAMPION}")
+    return True
 
 def keep_rule(current_auc, candidate_auc):
     cur_auc_mean = current_auc.mean()
@@ -177,33 +303,51 @@ def create_submission(path='submission.csv'):
     print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
           f"median {np.median(probability):.4f}, max {probability.max():.4f}")
 
-def create_boosting_submission(path='submission_2.csv'):
-    # Written by Claude. The current model (boosting on the raw columns), fitted on all 150,000 training borrowers.
+
+def retrieve_X_And_y_without_id():
     X, y = retrieve_X_And_y()
     X = X.drop(columns=X.columns[0])  # the id column
-    model = HistGradientBoostingClassifier(random_state=RANDOM_SEED).fit(X, y)
+    return X, y
+
+def create_and_fit_boosting_model(X=None, y=None):
+    if X is None or y is None:
+        X, y = retrieve_X_And_y_without_id()
+    model = build_boosting_model()
+    model.fit(X, y)
+    return model
+
+
+def create_boosting_submission(path='submission_2.csv'):
+    # Written by Claude. The current model (boosting on the raw columns), fitted on all 150,000 training borrowers.
 
     test = get_kaggle_test_data_from_csv()
     ids = test.iloc[:, 0]  # the first column holds the Id (unnamed in cs-test.csv)
     X_test = test.drop(columns=[test.columns[0], 'SeriousDlqin2yrs'])
-    probability = model.predict_proba(X_test)[:, 1]
+    probability = create_and_fit_boosting_model().predict_proba(X_test)[:, 1]
     pd.DataFrame({'Id': ids, 'Probability': probability}).to_csv(path, index=False)
     print(f"Saved {path}: {len(ids)} rows, probability min {probability.min():.4f}, "
           f"median {np.median(probability):.4f}, max {probability.max():.4f}")
 
+def save_model(path='model.joblib'):
+    dump(create_and_fit_boosting_model(), path)
+    print(f"Saved {path}")
 
 
+
+        
 
 def main():
-    X, y = retrieve_X_And_y()
-    X, y = feature_engineering(X, y)
-    current_scores = cross_validate_model(X, y)
+    #train_and_log()
+    promote(1)
+    # X, y = retrieve_X_And_y()
+    # X, y = feature_engineering(X, y)
+    # current_scores = cross_validate_model(X, y)
 
-    X, y = retrieve_X_And_y()
-    X = X.drop(columns=['id'])
-    candidate_scores = cross_validate_tree_model(X, y)
-    keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
-    #test_new_features(X, y, current_scores)
+    # X, y = retrieve_X_And_y()
+    # X = X.drop(columns=['id'])
+    # candidate_scores = cross_validate_tree_model(X, y)
+    # keep_rule(current_scores['test_roc_auc'], candidate_scores['test_roc_auc'])
+    # #test_new_features(X, y, current_scores)
 
 if __name__ == '__main__':
     main()
