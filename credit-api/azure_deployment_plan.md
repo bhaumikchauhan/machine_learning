@@ -163,9 +163,11 @@ So a shared log needs a database server:
 az containerapp update --name credit-api --resource-group rg-credit-api --image creditapi2611.azurecr.io/credit-api:<earlier R_ tag>
 ```
 
-**Making a release** (PowerShell, from an up-to-date `deployment`; IST is UTC + 5:30 all year):
+**Making a release** (PowerShell). A release is cut from `main`, so it only ever contains work that has been merged. The first release was cut from `deployment` before the merge. IST is UTC + 5:30 all year.
 
 ```
+git switch main
+git pull --ff-only
 $b = "R_" + [DateTime]::UtcNow.AddHours(5.5).ToString("yy_MM_dd_HH_mm_ss")
 git branch $b
 git push -u origin $b
