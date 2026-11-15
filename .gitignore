@@ -36,3 +36,8 @@ fast-api fundamentals/
 mlruns/
 # The champion model downloaded for the API image (rebuilt by credit-api/fetch_champion.py)
 credit-api/model/
+
+# editor settings
+.vscode/
+# a course demo environment, not a project
+mlops-mlflow-demo/
