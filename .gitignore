@@ -41,7 +41,8 @@ credit-api/model/
 .vscode/
 # a course demo environment, not a project
 mlops-mlflow-demo/
-# GPT from scratch: the training text and the book it comes from (copyrighted, kept local)
+# GPT from scratch: the downloaded book and the training text extracted from it (download from Gutenberg, rebuild with extract_text.py)
 gpt-from-scratch/input.txt
+gpt-from-scratch/*.html
 gpt-from-scratch/*.epub
 gpt-from-scratch/*.pdf
