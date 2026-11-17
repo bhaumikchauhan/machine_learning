@@ -1,10 +1,13 @@
+from torch.nn import functional as F
 import torch
+import torch.nn as nn
 
 
 torch.manual_seed(1337)
 BATCH_SIZE=4
 BLOCK_SIZE=8
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+lr=1e-3
 
 with open("input.txt", "r", encoding="utf-8") as f:
     input_text = f.read()
@@ -44,7 +47,50 @@ def get_batch(split):
     return x, y
 
 
+class BigramLanguageModel(nn.Module):
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+
+    def forward(self, idx, targets=None):
+        logits = self.token_embedding_table(idx) # (B,T,C)
+
+        if targets is None:
+            loss = None
+        else:
+            B, T, C = logits.shape
+            logits_flattened = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            # doubt: how is B*T, C compared with B*T?
+            loss = F.cross_entropy(logits_flattened, targets)
+
+        return logits, loss
+        
+
+    def generate(self, idx, max_new_tokens):
+        for i in range(max_new_tokens):
+            logits, _ = self(idx)
+            last_time_step = logits[:,-1,:] #B,C
+            probs = F.softmax(last_time_step, dim=1) #B,C
+            next_id = torch.multinomial(probs, num_samples=1) #B,1
+            idx = torch.cat((idx, next_id), dim=1)
+        return idx
+        
 x, y = get_batch('train')
+model = BigramLanguageModel(vocab_size)
+model = model.to(DEVICE)
+logits, loss = model(x,y)
+print(f'loss is: {loss:4f}')
+
+idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
+
+out = model.generate(idx, 100)
+out_str = decode(out[0].tolist())
+
+print("output:")
+print(out_str)
+
+assert logits.shape == (4,8,65)
 
 assert vocab_size == 65
 assert len(data) == 1115394
@@ -56,5 +102,3 @@ assert len(validation_data) == 111540
 assert x.shape == (4,8)
 assert y.shape == (4,8)
 assert torch.equal(x[:, 1:], y[:, :-1])
-print(decode(x[0].tolist()))
-print(decode(y[0].tolist()))

@@ -61,7 +61,7 @@ The losses won't match his exactly: different hardware gives different random nu
 |---|---|---|---|
 | 1 | ✅ | | train 1,003,854 / val 111,540 |
 | 2 | ✅ | | randint's upper bound is exclusive: pass `len(data) - block_size` |
-| 3 | | | |
+| 3 | ✅ | 5.04 (untrained, one batch) | cross_entropy takes raw logits and applies log_softmax itself |
 | 4 | | | |
 | 5 | | | |
 | 6 | | | |
