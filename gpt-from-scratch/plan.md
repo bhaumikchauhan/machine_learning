@@ -59,7 +59,7 @@ The losses won't match his exactly: different hardware gives different random nu
 
 | Step | Done | Validation loss | Notes |
 |---|---|---|---|
-| 1 | | | |
+| 1 | ✅ | | train 1,003,854 / val 111,540 |
 | 2 | | | |
 | 3 | | | |
 | 4 | | | |
