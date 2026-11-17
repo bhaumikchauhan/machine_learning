@@ -1,0 +1,6 @@
+# PyTorch built for CUDA 13.2 (the RTX 4070 SUPER's driver supports up to 13.3); the CPU-only build would train without the GPU
+--extra-index-url https://download.pytorch.org/whl/cu132
+torch==2.15.0+cu132
+numpy==2.4.6
+# reading the EPUB's chapter files
+beautifulsoup4==4.15.0
