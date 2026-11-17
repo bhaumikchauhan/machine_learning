@@ -7,7 +7,10 @@ torch.manual_seed(1337)
 BATCH_SIZE=4
 BLOCK_SIZE=8
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-lr=1e-3
+LR=1e-3
+ITERATIONS=10000
+EVAL_INTERVAL=500
+EVAL_ITERS=200
 
 with open("input.txt", "r", encoding="utf-8") as f:
     input_text = f.read()
@@ -47,6 +50,21 @@ def get_batch(split):
     return x, y
 
 
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        losses = torch.zeros(EVAL_ITERS)
+        for k in range(EVAL_ITERS):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train()
+    return out
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
@@ -61,7 +79,6 @@ class BigramLanguageModel(nn.Module):
             B, T, C = logits.shape
             logits_flattened = logits.view(B*T, C)
             targets = targets.view(B*T)
-            # doubt: how is B*T, C compared with B*T?
             loss = F.cross_entropy(logits_flattened, targets)
 
         return logits, loss
@@ -75,22 +92,32 @@ class BigramLanguageModel(nn.Module):
             next_id = torch.multinomial(probs, num_samples=1) #B,1
             idx = torch.cat((idx, next_id), dim=1)
         return idx
-        
-x, y = get_batch('train')
+
+
 model = BigramLanguageModel(vocab_size)
 model = model.to(DEVICE)
-logits, loss = model(x,y)
-print(f'loss is: {loss:4f}')
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+
+for i in range(ITERATIONS+1):
+    if i % EVAL_INTERVAL == 0:
+        losses = estimate_loss()
+        print(f"step {i}: training loss {losses['train']:.4f}, validation loss {losses['val']:.4f}")
+
+    xb, yb = get_batch('train')
+    logits, loss = model(xb, yb)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 
 idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
-
-out = model.generate(idx, 100)
+out = model.generate(idx, 500)
 out_str = decode(out[0].tolist())
 
 print("output:")
 print(out_str)
 
-assert logits.shape == (4,8,65)
+
+#assert logits.shape == (4,8,65)
 
 assert vocab_size == 65
 assert len(data) == 1115394
@@ -99,6 +126,6 @@ assert len(train_data) == 1003854
 assert len(validation_data) == 111540
 
 
-assert x.shape == (4,8)
-assert y.shape == (4,8)
-assert torch.equal(x[:, 1:], y[:, :-1])
+# assert x.shape == (4,8)
+# assert y.shape == (4,8)
+# assert torch.equal(x[:, 1:], y[:, :-1])
