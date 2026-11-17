@@ -44,7 +44,43 @@ Build a character-level GPT by hand, following Andrej Karpathy's "Let's build GP
 
 **Check:** the loss settles near 2.5; the output has word-like shapes, spaces and line breaks.
 
-## Steps 5 to 8 (details when we get there)
+## Step 5: embeddings, position, one attention head
+
+**Settings first:** to compare with Karpathy's 2.4, use his settings for this stage: `batch_size = 32`, `block_size = 8`, `lr = 1e-3`, 5,000 steps, and a new `n_embd = 32`. Commit the old settings' result (step 4) before changing them, so each run is reproducible.
+
+### 5a. Embedding size and `lm_head`
+
+1. The token table becomes `nn.Embedding(vocab_size, n_embd)`: a row is now a 32-number description of the character, not its scores.
+2. A new `self.lm_head = nn.Linear(n_embd, vocab_size)` turns each 32-number vector into 65 scores.
+3. `forward`: `tok_emb` (B, T, n_embd), then `logits = self.lm_head(tok_emb)` (B, T, vocab_size).
+
+**Check:** the loss lands about where the bigram did (your prediction from the video discussion: still only the current character).
+
+### 5b. Position embedding
+
+1. `self.position_embedding_table = nn.Embedding(block_size, n_embd)`: one row per position.
+2. `forward`: `pos_emb` = that table looked up with `torch.arange(T, device=device)` (T, n_embd); `x = tok_emb + pos_emb` (broadcast over the batch); `logits = self.lm_head(x)`.
+
+**Check:** the loss is still about the same (random chunk starts: position alone predicts nothing). Generating 500 characters still works. If it doesn't, read the error: it says which table ran out of rows, and why.
+
+### 5c. One self-attention head
+
+1. `class Head(nn.Module)` with `head_size`:
+   - `key`, `query`, `value`: each `nn.Linear(n_embd, head_size, bias=False)`.
+   - `self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))`: a buffer, not a parameter, so the optimizer never changes it, and `.to(device)` still moves it.
+2. `forward(x)`, with x (B, T, n_embd):
+   - `k`, `q`: (B, T, head_size).
+   - `wei = q @ k.transpose(-2, -1) * head_size**-0.5`: (B, T, T). Scale by `head_size`, not by `n_embd`: they're equal here, but not once there are several heads (step 6).
+   - `masked_fill` where `tril[:T, :T] == 0` with `-inf`, then `softmax(dim=-1)`.
+   - `out = wei @ self.value(x)`: (B, T, head_size).
+3. In the model: `self.sa_head = Head(n_embd)`; in `forward`: `x = self.sa_head(tok_emb + pos_emb)`, then `lm_head`.
+
+**Check:**
+- **Shapes and weights:** for one batch, each row of `wei` sums to 1, and everything above the diagonal is 0.
+- **No peeking at the future:** run the model on a batch, change only the last character of each row, run it again. The logits at every position except the last must be identical (`torch.equal`). If they change, the mask isn't working.
+- **The loss:** about 2.4, below the bigram's 2.5.
+
+## Steps 5 to 8 at a glance
 
 | # | Add | Karpathy's validation loss |
 |---|---|---|
