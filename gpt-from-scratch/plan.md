@@ -99,7 +99,9 @@ The losses won't match his exactly: different hardware gives different random nu
 | 2 | ✅ | | randint's upper bound is exclusive: pass `len(data) - block_size` |
 | 3 | ✅ | 5.04 (untrained, one batch) | cross_entropy takes raw logits and applies log_softmax itself |
 | 4 | ✅ | 2.54 (train 2.54) | Batch 4, `lr=1e-3`: 5,000 steps gave 2.80, 10,000 gave 2.54, the bigram floor. With Adam each step moves a weight by about `lr` whatever the batch size, so the number of steps decides how far the table gets |
-| 5 | | | |
+| 5a | ✅ | 2.497 (train 2.475) | Batch 32, 5,000 steps, `lr=1e-3`. The bigram's floor with these settings is about 2.49 (trained with `lr=1e-2`; at `lr=1e-3` it was still at 2.58 after 5,000 steps). Same floor, as predicted, but reached faster: `lm_head` is shared by every character, and its small initial weights start the predictions near uniform |
+| 5b | | | |
+| 5c | | | |
 | 6 | | | |
 | 7 | | | |
 | 8 | | | |

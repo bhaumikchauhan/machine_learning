@@ -4,13 +4,14 @@ import torch.nn as nn
 
 
 torch.manual_seed(1337)
-BATCH_SIZE=4
+BATCH_SIZE=32
 BLOCK_SIZE=8
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 LR=1e-3
-ITERATIONS=10000
+ITERATIONS=5000
 EVAL_INTERVAL=500
 EVAL_ITERS=200
+n_embd = 32
 
 with open("input.txt", "r", encoding="utf-8") as f:
     input_text = f.read()
@@ -68,10 +69,12 @@ def estimate_loss():
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, targets=None):
-        logits = self.token_embedding_table(idx) # (B,T,C)
+        tok_emb = self.token_embedding_table(idx) # (B,T,n_embd)
+        logits = self.lm_head(tok_emb)
 
         if targets is None:
             loss = None
