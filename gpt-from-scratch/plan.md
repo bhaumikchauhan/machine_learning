@@ -100,7 +100,7 @@ The losses won't match his exactly: different hardware gives different random nu
 | 3 | ✅ | 5.04 (untrained, one batch) | cross_entropy takes raw logits and applies log_softmax itself |
 | 4 | ✅ | 2.54 (train 2.54) | Batch 4, `lr=1e-3`: 5,000 steps gave 2.80, 10,000 gave 2.54, the bigram floor. With Adam each step moves a weight by about `lr` whatever the batch size, so the number of steps decides how far the table gets |
 | 5a | ✅ | 2.497 (train 2.475) | Batch 32, 5,000 steps, `lr=1e-3`. The bigram's floor with these settings is about 2.49 (trained with `lr=1e-2`; at `lr=1e-3` it was still at 2.58 after 5,000 steps). Same floor, as predicted, but reached faster: `lm_head` is shared by every character, and its small initial weights start the predictions near uniform |
-| 5b | | | |
+| 5b | ✅ | 2.503 (train 2.484) | 4,481 parameters (+256 for the 8 × 32 position table). Same as 5a within noise, as predicted: chunks start at random, so a position says nothing about which character comes next. `generate` crashed at T = 9 (the table has rows 0 to 7 only), fixed by passing `idx[:, -block_size:]` to `forward` while `idx` itself keeps growing |
 | 5c | | | |
 | 6 | | | |
 | 7 | | | |
