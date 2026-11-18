@@ -7,7 +7,7 @@ Build a character-level GPT by hand, following Andrej Karpathy's "Let's build GP
 - **Layout:** one file, `gpt.py`, in Karpathy's order: hyperparameters at the top, then data, batches, model, training, generation.
 - **Seed:** `torch.manual_seed(1337)` at the top, before the model is built (the Digit Recognizer lesson: a model built before the seed starts from different weights every run).
 - **Device:** put `.to(device)` on both the model and the data. One on the GPU and the other on the CPU raises a confusing error.
-- **Commits:** one per step, once its check passes.
+- **Commits:** one per step, once its check passes, with the step's section in [learning_notes.md](learning_notes.md) (what it taught, and the predictions that went wrong).
 
 ## Step 1: data and tokenizer
 
