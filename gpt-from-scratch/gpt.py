@@ -67,6 +67,9 @@ def estimate_loss():
     model.train()
     return out
 
+
+
+
 class Head(nn.Module):
     def __init__(self, head_size) -> None:
         super().__init__()
@@ -86,13 +89,23 @@ class Head(nn.Module):
         self.wei = wei        
         return wei @ self.value(x)
 
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+
+    def forward(self, x):
+        return torch.cat([h(x) for h in self.heads], dim=2)
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
-        self.sa_head = Head(n_embd)
+        self.sa_heads = MultiHeadAttention(4, n_embd//4)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -105,7 +118,7 @@ class BigramLanguageModel(nn.Module):
         # in every one of the B blocks (broadcasting), giving (B, T, 32).
         pos_emb = self.position_embedding_table(torch.arange(T, device=DEVICE)) # (T,n_embd)
         x = tok_emb + pos_emb # (B,T,n_embd) + (T,n_embd) = B, T, n_embd
-        x = self.sa_head(x)
+        x = self.sa_heads(x)
         logits = self.lm_head(x)
 
         if targets is None:
@@ -159,12 +172,14 @@ print(out_str)
 with torch.no_grad():
     xb, yb = get_batch('train')
     model(xb, yb)  # runs Head.forward, which stores wei (B, T, T)
-wei = model.sa_head.wei
-assert wei.shape == (BATCH_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
-assert (torch.triu(wei, diagonal=1) == 0).all()
-print("wei of the first sequence in the batch:")
-print(wei[0].round(decimals=2))
+
+for i, head in enumerate(model.sa_heads.heads):
+    wei = model.sa_heads.heads[i].wei
+    assert wei.shape == (BATCH_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+    assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
+    assert (torch.triu(wei, diagonal=1) == 0).all()
+    print(f"wei of the first sequence in the batch: {i}")
+    print(wei[0].round(decimals=2))
 
 #run the model on a batch, change only the last character of each row, run it again. 
 # The logits at every position except the last must be identical (`torch.equal`). 

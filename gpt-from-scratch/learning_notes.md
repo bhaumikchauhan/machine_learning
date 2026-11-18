@@ -2,7 +2,7 @@
 
 What each step taught while building Karpathy's GPT by hand. The steps, settings and losses are in [plan.md](plan.md). These notes cover the why: the questions asked along the way, and the predictions that went wrong, since those taught the most.
 
-Status: step 5c done 2026-11-18 (started 2026-11-17). A section is added after each step, before its commit.
+Status: step 6a done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
 
 ## Setup
 
@@ -171,6 +171,23 @@ I picked A and C, ruled out B and E correctly, and missed D and F.
 
 - **Why D matters:** `wei @ v` is a weighted average and `lm_head` is linear, so the model can only add evidence up. It can't express "the character before me was `t` **and** I'm `h`, so next is `e`": that needs a nonlinearity. In the Digit Recognizer, adding one ReLU layer took the logistic baseline's 91.31% to 96.60%. Two linear layers without a ReLU collapse into one.
 - **Ruled out:** B (the mask hides the future, but the future isn't available when generating anyway) and E (without the scaling, softmax peaks at the highest score).
+
+## Step 6a: multi-head attention
+
+- **The prediction (right):** 4 heads of 8 have the same parameters as 1 head of 32: 4 × 3 × (32 × 8) = 3 × (32 × 32) = 3,072, so the total stays at 7,553. Any gain comes from the structure, not from more weights (the reverse of 5a: there, more weights without new information gained nothing). What the structure adds is four separate softmaxes, so each position gets four weighted mixes of the past instead of one.
+- **`nn.ModuleList`, not a Python list:** a plain list hides the heads from `model.parameters()`, so AdamW would never train them and `.to(DEVICE)` would never move them.
+- **The concatenation bug:** `torch.cat(..., dim=1)` gave (32, 32, 8) instead of (32, 8, 32). Each head returns (B, T, 8), and `dim=1` is T, so the four heads' rows were stacked below each other, as if each block had 32 positions. `dim=2` (or `dim=-1`, the last dimension whatever the number before it) puts the four 8-number pieces side by side within each position: 8 + 8 + 8 + 8 = 32. This one failed loudly at `lm_head`, since 8 ≠ 32; a mix-up between two dimensions of equal size would fail silently.
+- **The heads split the work.** Looking at the first block's `wei` for each head:
+
+| Head | Where most of rows 2 to 6 sits | Job, roughly |
+|---|---|---|
+| 0 | the previous character (0.82, 0.93) | "what came just before me" |
+| 1 | the previous character, or two back (0.92) | the same, further back |
+| 2 | the diagonal (0.98, 0.89, 0.99, 1.00, 0.90) | carries the current character |
+| 3 | split between itself and the previous (0.53 / 0.47) | a mix |
+
+  The weight is always on or before the diagonal, never after: the future is masked to exactly 0. This answers 5c's diagonal question from the other side: the current character reaches `lm_head` only if a head passes it on. With one head that took nearly all the weight; with four, one head takes that job and frees the others to look back.
+- **Result:** validation **2.2728** (train 2.2459), against 5c's 2.4146 and Karpathy's 2.28.
 
 ## Ahead: from the video, discussed before building
 
