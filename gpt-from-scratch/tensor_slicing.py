@@ -105,6 +105,8 @@ show("x.transpose(-2, -1)   # swap the last two dimensions: (B, T, C) -> (B, C, 
      x.transpose(-2, -1))
 a = torch.zeros(2, 3, 2, dtype=torch.long)
 b = torch.ones(2, 3, 2, dtype=torch.long)
+show("torch.a:", a)
+show("torch.b:", b)
 show("torch.cat([a, b], dim=-1)   # (2,3,2) + (2,3,2) side by side in the last dim -> (2,3,4)",
      torch.cat([a, b], dim=-1))
 show("torch.cat([a, b], dim=1)    # stacked along T instead -> (2,6,2)",
