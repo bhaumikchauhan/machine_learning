@@ -2,7 +2,7 @@
 
 What each step taught while building Karpathy's GPT by hand. The steps, settings and losses are in [plan.md](plan.md). These notes cover the why: the questions asked along the way, and the predictions that went wrong, since those taught the most.
 
-Status: step 5b done 2026-11-18 (started 2026-11-17). A section is added after each step, before its commit.
+Status: step 5c done 2026-11-18 (started 2026-11-17). A section is added after each step, before its commit.
 
 ## Setup
 
@@ -84,21 +84,23 @@ Its `forward` is plain indexing, `weight[idx]`, like `table[id]` on a Java `floa
 | `t` at 0 | [2, 1, 0] + [0.1, 0, 0] | [2.1, 1, 0] |
 
   (3 numbers instead of 32, made up.) The same character in different places gives different vectors.
-- **Broadcasting:** `pos_emb` is (T, 32) with no batch dimension, so PyTorch treats it as (1, T, 32) and adds the same position rows to every sequence in the batch.
+- **The lookup is the same as for tokens:** `torch.arange(T)` makes the ids 0 to T−1 (stopping before T, like `range`), and each id picks a row of the table. The ids are row numbers, not the values inside the rows: each row holds 32 learned numbers of its own, random at the start (N(0, 1)) like the token rows. There's no loop: all T rows are looked up in one call. In training T = 8, so the lookup returns the whole table in order.
+- **Each position adds its own pattern, number by number:** number c of the token row plus number c of the position row, for c = 0 to 31. It is not one constant (like 0.1) added to all 32 numbers; that was only a made-up example to make the change easy to see.
+- **Broadcasting:** `pos_emb` is (T, 32) with no batch dimension, so PyTorch treats it as (1, T, 32). Row t of the position table is added to the token vector at position t **in every block**, not to block t: the 8 position rows are reused across all 32 blocks. In Java terms, `out[b][t][c] = tokTable[ids[b][t]][c] + posTable[t][c]`.
 - **Adding, not concatenating:** adding keeps the vector at 32 numbers, so everything after it stays the same size. Both tables are learned, so training arranges them so that the character and the position can both still be read from the sum.
 - **Gradient through the addition:** `x = tok_emb + pos_emb` copies the gradient at each position to both rows, unchanged (see "Gradients through an addition" below).
 - **Prediction, wrong:** "yes, position is more information," then "it tells what comes before position 3." Position 3 says that three characters come before, not which ones. And chunks start at random offsets, so the next character after position 3 is as likely to be `e` as after position 5. Position alone predicts nothing: "it's all translation invariant at this stage" (Karpathy, 1:01:37).
-- **So why add it now:** it's for attention (5c). On its own, attention sees the earlier characters as an unordered set. The position numbers added to each embedding are what let it tell "the character right before me" from "the character 7 back."
+- **Position can't learn character facts.** Question asked: if position 0 always added the same numbers, and `b` is usually followed by `a`, would position help learn that? No: "`a` after `b`" is learned by `b`'s token row, which is added to every `b` at any position. Position 0's row is added to whatever character sits at position 0, so it can't carry anything about `b`. Since `lm_head` is linear, `lm_head(tok + pos) = lm_head(tok) + W @ pos`: the position row only adds a fixed set of 65 score shifts at that position, for every character.
+- **When position alone would help:** if every chunk started at the same kind of place, e.g. right after a newline, position k would mean "the k-th character of a line," and early positions predict capitals and `:` (speaker names like `ROMEO:`). Taking chunks in order (starting at 0, 8, 16…) is not enough, since multiples of 8 don't line up with anything in the text. Karpathy keeps random starts anyway: `generate` crops to the last 8 characters, which can start anywhere, so training has to cover every starting point.
+- **So why add it now:** it's for attention (5c). On its own, attention sees the earlier characters as an unordered set. The position numbers added to each embedding are what let it tell "the character right before me" from "the character 7 back." In the real model, position means "how far back is that other character," not "where am I in the text."
 - **T is not always `block_size`.** `B, T = idx.shape` reads T from the input. In training T is always 8, but in `generate` `idx` grows by one character per loop: T = 1, 2, … 501. That's why the lookup uses `torch.arange(T)`, not `torch.arange(BLOCK_SIZE)`.
 - **The crash at T = 9:** the table has rows 0 to 7 only, and its shape is fixed in `__init__` (the optimizer holds that exact tensor). So position 8 is out of range, like Java's `ArrayIndexOutOfBoundsException`. The table doesn't grow and the index doesn't wrap (my first two guesses). On the GPU it can show up as a CUDA "device-side assert".
 - **The fix:** pass the **last** 8 characters, `idx[:, -BLOCK_SIZE:]`, to the model, and keep appending to the full `idx`. The last 8, because the next character depends on the most recent ones, and the last time step must be the newest character.
 - **Result:** 2.503 with 4,481 parameters (+256 for the position table): the same as 5a within noise, as worked out.
 
-## Ahead: from the video, discussed before building
+## Step 5c: one self-attention head
 
-To move into the step that builds each one.
-
-### What an average loses (leads to 5c)
+### What an average loses
 
 Making each position the average of itself and the earlier ones gives it context, but it's "extremely lossy":
 
@@ -107,7 +109,7 @@ Making each position the average of itself and the earlier ones gives it context
 | Order and position: `abc` and `cba` average the same | Position embeddings (5b) |
 | Every earlier character counts equally | Self-attention: weights computed from the data (query · key) |
 
-### How attention learns (5c)
+### How attention learns
 
 Transpose, `masked_fill` and softmax are fixed plumbing that knows nothing about language. What the head knows is in the three learned layers:
 
@@ -125,6 +127,35 @@ Nobody chooses what the channels mean. If "the previous character was a vowel" h
 
 **CNN vs. attention:** in both you choose how many channels (`Conv2d(1, 32, 3)`, `head_size = 16`), never what they mean. The difference is what's built in. A CNN knows a pixel is brightness and that neighbours belong together. Attention knows almost nothing: a character id is just a number, and which positions get combined is learned per input. That's why attention needs more data, and why it can find patterns no one built in.
 
+### The code
+
+- **`head_size**-0.5`:** a negative exponent means "one over," so it's 1 / √head_size, written as a multiplication (`Math.pow(headSize, -0.5)` in Java). For 32 it's 0.177.
+- **`tril` is a buffer** (`register_buffer`), not a parameter: the optimizer never changes it, but `.to(DEVICE)` still moves it. `tril[:T, :T]` crops it for `generate`, where T can be less than 8.
+- **Parameters:** 7,553, which is 5b's 4,481 plus 3 × (32 × 32) for key, query and value (no biases).
+
+### The checks
+
+**Rows of `wei` sum to 1, and everything above the diagonal is 0.** `wei` is a local variable in `Head.forward`, so the head stores it (`self.wei = wei`) for the check to read after one batch. Then `wei.sum(dim=-1)` (one sum per row, shape (B, T)) is compared with ones, and `torch.triu(wei, diagonal=1)` (the part above the diagonal) with zeros. The check runs on a fresh batch: `generate` ran last, so `self.wei` still held generation's (1, 8, 8).
+
+| Check | Value | Exact? | Compare with |
+|---|---|---|---|
+| Above the diagonal | e^(−inf) = 0 | yes: 0 is exact in floats | `== 0` |
+| Row sums | 8 rounded divisions added up | no: float32 keeps about 7 digits, so 0.99999994 or 1.0000001 | `torch.allclose` |
+
+The same reason Java compares doubles with a tolerance: `0.1 + 0.2 == 0.3` is False.
+
+**No peeking at the future:** run a batch, change only the last character of each block, run again. Positions 0 to 6 can't see position 7, so their logits must be identical (`torch.equal(logits_1[:, :-1], logits_2[:, :-1])`); position 7 sees its own new character, so its logits must change in every block.
+
+- **The first version tested 1 block of 32.** `x_block = xb[:, -1]` is the last column, shape (32,), so `x_block[7]` was block 7's last character only. Both asserts still passed, because they were loose: 31 blocks had identical inputs, and `not torch.equal(...)` passes when any single value differs.
+- **The fix:** change the whole column on a copy (`xb2 = xb.clone()`; `xb[:, -1]` is a view, so writing to it changes `xb` itself), with `torch.where(last != 0, last // 2, 1)`. `x if cond else y` works on one number but raises "Boolean value of Tensor with more than one value is ambiguous" on a tensor; `torch.where` picks element by element. Then check the last position block by block: `(logits_1[:, -1] != logits_2[:, -1]).any(dim=-1).all()`.
+- **Testing the test:** with the `masked_fill` line removed, the `wei` check fails, and with that check also removed, the no-peeking check fails. A check is only worth having if it fails when the thing it guards is broken.
+
+### Result
+
+Validation **2.4146** (train 2.3970), against 2.50 for 5b and Karpathy's 2.4. The first attention head beats the bigram's floor.
+
+A trained `wei` (the first block of a batch) puts most of each row's weight on the diagonal, the position itself: 0.91, 0.91, 0.71, 0.99, 0.69, 0.97, with a little on the one or two characters before. Open: why.
+
 ### Why one head only takes the loss from 2.5 to 2.4
 
 I picked A and C, ruled out B and E correctly, and missed D and F.
@@ -138,6 +169,10 @@ I picked A and C, ruled out B and E correctly, and missed D and F.
 
 - **Why D matters:** `wei @ v` is a weighted average and `lm_head` is linear, so the model can only add evidence up. It can't express "the character before me was `t` **and** I'm `h`, so next is `e`": that needs a nonlinearity. In the Digit Recognizer, adding one ReLU layer took the logistic baseline's 91.31% to 96.60%. Two linear layers without a ReLU collapse into one.
 - **Ruled out:** B (the mask hides the future, but the future isn't available when generating anyway) and E (without the scaling, softmax peaks at the highest score).
+
+## Ahead: from the video, discussed before building
+
+To move into the step that builds each one.
 
 ### Gradients through an addition
 
