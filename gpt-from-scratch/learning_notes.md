@@ -154,7 +154,9 @@ The same reason Java compares doubles with a tolerance: `0.1 + 0.2 == 0.3` is Fa
 
 Validation **2.4146** (train 2.3970), against 2.50 for 5b and Karpathy's 2.4. The first attention head beats the bigram's floor.
 
-A trained `wei` (the first block of a batch) puts most of each row's weight on the diagonal, the position itself: 0.91, 0.91, 0.71, 0.99, 0.69, 0.97, with a little on the one or two characters before. Open: why.
+A trained `wei` (the first block of a batch) puts most of each row's weight on the diagonal, the position itself: 0.91, 0.91, 0.71, 0.99, 0.69, 0.97, with a little on the one or two characters before.
+
+**Why the diagonal:** `x = self.sa_head(x)` replaces x, so `lm_head` sees only the head's weighted mix of values. The current character, the single most useful one (the bigram's 2.5), reaches `lm_head` only if the head picks its own position, so training pushes the diagonal up and spends the little that's left on the previous characters (the gain from 2.50 to 2.41). Not the mask (it only zeroes the future; an untrained row 1 is about 50/50), not the scaling (it divides a whole row by the same number), and not too little training (more steps sharpen what helps). The residual in step 7, `x = x + self.sa(x)`, carries the current character past the head, freeing the head to look at the earlier characters.
 
 ### Why one head only takes the loss from 2.5 to 2.4
 
