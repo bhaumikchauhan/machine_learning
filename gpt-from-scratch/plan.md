@@ -110,6 +110,47 @@ Build a character-level GPT by hand, following Andrej Karpathy's "Let's build GP
 - **The no-peeking test still passes.** Think about why it must, before running it.
 - **The loss:** about 2.24.
 
+## Step 7: blocks, residual connections, layer norm
+
+**Settings:** the same as step 6, so each change is compared with 6b's 2.234.
+
+### 7a. `Block`, stacked three times
+
+1. `class Block(nn.Module)` with `n_embd` and `n_head`:
+   - `head_size = n_embd // n_head`.
+   - `self.sa = MultiHeadAttention(n_head, head_size)` and `self.ffwd = FeedForward(n_embd)`.
+   - `forward(x)`: `x = self.sa(x)`, then `x = self.ffwd(x)`. Attention gathers from the past positions, then the feed-forward layer works on what each position gathered. A block does both, once.
+2. In the model: `self.blocks = nn.Sequential(Block(n_embd, 4), Block(n_embd, 4), Block(n_embd, 4))` replaces `sa_heads` and `ffwd`. In `forward`: `x = self.blocks(x)`, then `lm_head`. `nn.Sequential` passes the output of each block to the next, like a chain of filters in Spring.
+3. The checks name the heads by their old path. They become `model.blocks[0].sa.heads` (the first block's heads), and the parameter assert needs 3 blocks.
+
+**Check:**
+- **Parameters:** work out the count before running, then print it.
+- **The no-peeking test still passes,** with 3 blocks.
+- **The loss:** before running, predict: does a model three times as deep go below 6b's 2.234?
+
+### 7b. Residual connections, `proj`, a wider feed-forward
+
+1. **Residuals,** in `Block.forward`: `x = x + self.sa(x)`, then `x = x + self.ffwd(x)`. Each layer adds a change to x instead of replacing it, so the token and position vectors are carried through every block (the diagonal problem from 5c). In backprop, an addition passes the gradient to both inputs unchanged, so the gradient reaches the first block intact.
+2. **`proj`,** in `MultiHeadAttention`: `self.proj = nn.Linear(n_embd, n_embd)`, applied to the concatenated heads before they are returned. The heads' outputs are 4 separate pieces side by side; `proj` mixes them back into one 32-number change for the residual stream.
+3. **A wider feed-forward:** `nn.Sequential(nn.Linear(n_embd, 4 * n_embd), nn.ReLU(), nn.Linear(4 * n_embd, n_embd))`. The middle is 128 wide (the paper's 512 → 2,048 → 512); the second `Linear` brings it back to 32, so it can be added to x.
+
+**Check:**
+- **Parameters:** work out what `proj` and the wider feed-forward add per block, then the total.
+- **The no-peeking test still passes.**
+- **The loss:** about 2.08. Compare train and val: a gap starts to open.
+
+### 7c. Layer norm
+
+1. `nn.LayerNorm(n_embd)` normalises each position's 32 numbers to mean 0 and standard deviation 1, then multiplies by a learned scale and adds a learned shift (32 each). It works within one position, across the last dimension: not across the batch, as batch norm does.
+2. In `Block`: `self.ln1` and `self.ln2`, applied **before** each layer: `x = x + self.sa(self.ln1(x))`, `x = x + self.ffwd(self.ln2(x))`. The paper normalises after the addition; GPT normalises before (pre-norm), and the residual path itself stays untouched.
+3. In the model: a final `self.ln_f = nn.LayerNorm(n_embd)` after the blocks, before `lm_head`.
+
+**Check:**
+- **Parameters:** how many does one `LayerNorm(32)` have, and how many layer norms are there?
+- **Layer norm itself:** for one batch, the output of `ln_f` has a mean near 0 and a standard deviation near 1 along the last dimension, before the scale and shift have learned anything (check it on an untrained model).
+- **The no-peeking test still passes.** Think about why: does a layer norm mix positions?
+- **The loss:** about 2.06.
+
 ## Steps 5 to 8 at a glance
 
 | # | Add | Karpathy's validation loss |
