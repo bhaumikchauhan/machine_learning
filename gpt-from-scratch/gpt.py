@@ -1,4 +1,5 @@
-from typing import Any
+import time
+import Stopwatch
 
 from torch.nn import functional as F
 import torch
@@ -101,15 +102,18 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.proj = nn.Linear(n_embd, n_embd)
 
     def forward(self, x):
-        return torch.cat([h(x) for h in self.heads], dim=2)
+        x = torch.cat([h(x) for h in self.heads], dim=2)
+        x = self.proj(x)
+        return x
 
 
 class FeedForward(nn.Module):
     def __init__(self, n_embd) -> None:
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(n_embd, n_embd), nn.ReLU())
+        self.net = nn.Sequential(nn.Linear(n_embd, 4 * n_embd), nn.ReLU(), nn.Linear(4 * n_embd, n_embd))
 
     def forward(self, x):
         return self.net(x)
@@ -123,8 +127,8 @@ class Block(nn.Module):
         self.ffwd = FeedForward(n_embd)
 
     def forward(self, x):
-        x = self.sa(x)
-        x = self.ffwd(x)
+        x = x + self.sa(x)
+        x = x + self.ffwd(x)
         return x
 
 class BigramLanguageModel(nn.Module):
@@ -178,6 +182,7 @@ class BigramLanguageModel(nn.Module):
             idx = torch.cat((idx, next_id), dim=1)
         return idx
 
+sw = Stopwatch.Stopwatch()
 
 model = BigramLanguageModel(vocab_size)
 model = model.to(DEVICE)
@@ -185,9 +190,10 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
 
 
-
+start = time.perf_counter()
 for i in range(ITERATIONS+1):
     if i % EVAL_INTERVAL == 0:
+        print(f"Time elapsed: {sw.elapsed}")
         losses = estimate_loss()
         print(f"step {i}: training loss {losses['train']:.4f}, validation loss {losses['val']:.4f}")
 
@@ -223,21 +229,28 @@ for i, head in enumerate(model.blocks[0].sa.heads):
 #calculate all the weights:
 # layers: 
 weights_in_token_embedding = vocab_size * n_embd
-weights_in_poistion_embedding = BLOCK_SIZE * n_embd
+weights_in_position_embedding = BLOCK_SIZE * n_embd
+weights_in_lm_head = n_embd * vocab_size + vocab_size
+
 weights_in_Key_in_head = n_embd * 8
 weights_in_Query_in_head = n_embd * 8
 weights_in_Value_in_head = n_embd * 8
 number_of_heads = 4
+weights_of_proj_in_ma = n_embd * n_embd + n_embd
 all_weights_in_all_heads = number_of_heads * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
+weights_of_mha = weights_of_proj_in_ma + all_weights_in_all_heads
 num_blocks = 3
-weights_and_bias__in_ffwd = n_embd * n_embd + n_embd
-weights_in_one_block = all_weights_in_all_heads + weights_and_bias__in_ffwd
+weights_and_bias_in_ffwd =((n_embd * 4 * n_embd) + (4*n_embd)) + ((4*n_embd*n_embd) + n_embd)
+weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd
 weights_in_all_blocks = num_blocks * weights_in_one_block
-weights_in_lm_head = n_embd * vocab_size + vocab_size
 
-total_number_of_weights = weights_in_token_embedding + weights_in_poistion_embedding + weights_in_all_blocks + weights_in_lm_head
+expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head
+actual_weights = sum(p.numel() for p in model.parameters())
 
-assert sum(p.numel() for p in model.parameters()) == total_number_of_weights
+print(f"weights expected: {expected_weights}")
+print(f"weights actual: {actual_weights}")
+
+assert actual_weights == expected_weights
 
 
 #run the model on a batch, change only the last character of each row, run it again. 

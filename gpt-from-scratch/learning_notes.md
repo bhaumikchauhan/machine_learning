@@ -235,15 +235,33 @@ I picked A and C, ruled out B and E correctly, and missed D and F.
 - **Forward:** `x = layer(x)` replaces x 6 times. In 5c one replacement already meant the character survived only if the head kept it. Now every layer has to learn to pass it on, and the ReLU zeroes the negative half each time, before the layer above has anything useful to work with.
 - Both halves are fixed by residuals (7b): `x = x + layer(x)` keeps x in the stream and gives the gradient a direct path back.
 
-## Ahead: from the video, discussed before building
+## Step 7b: residuals, `proj`, a wider feed-forward
 
-To move into the step that builds each one.
+Three changes: `x = x + self.sa(x)` and `x = x + self.ffwd(x)` in `Block`; `proj = Linear(32, 32)` after the heads' `cat`; the feed-forward becomes 32 → 128 → 32. Per block: 3,072 (heads) + 1,056 (`proj`) + 4,224 + 4,128 (feed-forward) = 12,480, so 3 × 12,480 + 4,481 = **41,921**.
 
-### Gradients through an addition
+| | 6b | 7a | 7b |
+|---|---|---|---|
+| Parameters | 8,609 | 16,865 | 41,921 |
+| Validation loss | 2.2342 | 2.3787 | **2.0927** |
+| Training loss | 2.2059 | 2.3708 | 2.0008 |
+| At step 500 (val) | | 3.1313 | 2.3733 |
+
+- **The residuals fixed 7a:** at step 500 the loss is already 2.37 (7a was at 3.13). The same 3 blocks, now with a direct path for x and for the gradient. Karpathy: 2.08.
+- **The text has more real words** ("And they", "Whith full him", "you love", "under", "son", "my of"), and character names with a colon on their own line.
+- **A gap opens:** train is 0.09 below val (0.03 in 6b). With 41,921 parameters the model starts to memorise the training text. Layer norm (7c) and dropout (step 8) are aimed at this.
+
+### Why `proj` is a `Linear`, not a fixed mix
+
+- **The question:** if the 4 heads' outputs sit side by side and `proj` is meant to mix them, why not mix them by hand?
+- **We don't know the right mix.** What each head does is only decided during training (in 6a: one kept the current character, two looked back one or two characters, one mixed). A `Linear` is a learned mix: each of its 32 outputs is a weighted sum of all 32 inputs.
+- **Fixed mixes lose things:** summing or averaging the 4 pieces gives 8 numbers, not 32, so it can't be added to x, and it blurs what each head found.
+- **The real reason is the residual:** without `proj`, `x + cat(heads)` adds head 0's output to channels 0 to 7 of x only, head 1's to 8 to 15, and so on: each head could write to its own quarter of the stream only. With `proj`, every head can write to all 32 channels.
+
+### From the video: gradients through an addition
 
 At `z = x + y`, the gradient is **copied** to both inputs, not split: ∂z/∂x = ∂z/∂y = 1, so both get the full g. With x = 3, y = 4 and L = z², both get 14. Multiplication instead scales each by the other input. When a value is used in two places, its gradients from both uses are summed.
 
-### Residual connections (step 7)
+### From the video: residual connections
 
 - **Prediction:** with `x = x + block(x)` and a block that passes almost no gradient back, the incoming x still gets about **g**: the full gradient through the direct path, plus nearly nothing through the block. (I wasn't sure at first; drawing the two paths answered it.)
 - **The problem without them:** a chain of blocks multiplies their local gradients. At 0.5 per block, 6 blocks give 0.016 and 20 give 0.000001: the early layers stop learning.
