@@ -218,6 +218,6 @@ The losses won't match his exactly: different hardware gives different random nu
 | 7a | ✅ | 2.379 (train 2.371) | 16,865 parameters (3 blocks of 4,128). Worse than 6b, against the prediction: 6 layers that each replace x, so the gradient reaching the embeddings is a product of 6 local gradients, and the character has to be passed on by every layer. Still falling at 5,000 steps |
 | 7b | ✅ | 2.093 (train 2.001) | 41,921 parameters (+1,056 for `proj` and +7,296 for the wider feed-forward, per block). Residuals fixed 7a: 2.37 already at step 500 (7a: 3.13). More real words in the text. Train is 0.09 below val: the gap starts to open |
 | 7c | ✅ | 2.058 (train 1.973) | 42,369 parameters (+448: 7 layer norms of 64). The check on a fresh model: `ln_f`'s output has mean 0 and std 1 per position (`std` needs `correction=0`). The gap stays about 0.09: layer norm helps training, not memorising |
-| 8a | | | |
+| 8a | ✅ | 2.058 (train 1.973) | Identical to 7c, as it must be: `N_HEAD`, `N_LAYER` and the blocks built in a loop. Two typed-in numbers in the parameter count (head size 8, layer norm 64) were right only at 32 wide; now from the settings |
 | 8b | | | |
 | 8c | | | |

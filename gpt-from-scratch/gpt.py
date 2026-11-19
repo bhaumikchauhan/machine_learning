@@ -14,7 +14,9 @@ LR=1e-3
 ITERATIONS=5000
 EVAL_INTERVAL=500
 EVAL_ITERS=200
-n_embd = 32
+N_EMBD = 32
+N_HEAD = 4
+N_LAYER = 3
 
 with open("input.txt", "r", encoding="utf-8") as f:
     input_text = f.read()
@@ -74,9 +76,9 @@ def estimate_loss():
 class Head(nn.Module):
     def __init__(self, head_size) -> None:
         super().__init__()
-        self.key = nn.Linear(n_embd, head_size, bias=False)
-        self.query = nn.Linear(n_embd, head_size, bias=False)
-        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.key = nn.Linear(N_EMBD, head_size, bias=False)
+        self.query = nn.Linear(N_EMBD, head_size, bias=False)
+        self.value = nn.Linear(N_EMBD, head_size, bias=False)
         self.register_buffer('tril', torch.tril(torch.ones(BLOCK_SIZE, BLOCK_SIZE)))
 
     def forward(self, x):
@@ -102,7 +104,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        self.proj = nn.Linear(n_embd, n_embd)
+        self.proj = nn.Linear(N_EMBD, N_EMBD)
 
     def forward(self, x):
         x = torch.cat([h(x) for h in self.heads], dim=2)
@@ -136,11 +138,11 @@ class Block(nn.Module):
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
-        self.lm_head = nn.Linear(n_embd, vocab_size)
-        self.blocks = nn.Sequential(Block(n_embd, 4), Block(n_embd, 4), Block(n_embd, 4))
-        self.ln_f = LayerNorm(n_embd)
+        self.token_embedding_table = nn.Embedding(vocab_size, N_EMBD)
+        self.position_embedding_table = nn.Embedding(BLOCK_SIZE, N_EMBD)
+        self.lm_head = nn.Linear(N_EMBD, vocab_size)
+        self.blocks = nn.Sequential(*[Block(N_EMBD, N_HEAD) for _ in range(N_LAYER)])
+        self.ln_f = LayerNorm(N_EMBD)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -241,22 +243,21 @@ for i, head in enumerate(model.blocks[0].sa.heads):
 
 #calculate all the weights:
 # layers: 
-weights_in_token_embedding = vocab_size * n_embd
-weights_in_position_embedding = BLOCK_SIZE * n_embd
-layer_norm_weights = 64
-weights_in_lm_head = n_embd * vocab_size + vocab_size
+weights_in_token_embedding = vocab_size * N_EMBD
+weights_in_position_embedding = BLOCK_SIZE * N_EMBD
+layer_norm_weights = N_EMBD + N_EMBD
+weights_in_lm_head = N_EMBD * vocab_size + vocab_size
 
-weights_in_Key_in_head = n_embd * 8
-weights_in_Query_in_head = n_embd * 8
-weights_in_Value_in_head = n_embd * 8
-number_of_heads = 4
-weights_of_proj_in_ma = n_embd * n_embd + n_embd
-all_weights_in_all_heads = number_of_heads * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
+HEAD_SIZE = N_EMBD//N_HEAD
+weights_in_Key_in_head = N_EMBD * HEAD_SIZE
+weights_in_Query_in_head = N_EMBD * HEAD_SIZE
+weights_in_Value_in_head = N_EMBD * HEAD_SIZE
+weights_of_proj_in_ma = N_EMBD * N_EMBD + N_EMBD
+all_weights_in_all_heads = N_HEAD * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
 weights_of_mha = weights_of_proj_in_ma + all_weights_in_all_heads
-num_blocks = 3
-weights_and_bias_in_ffwd =((n_embd * 4 * n_embd) + (4*n_embd)) + ((4*n_embd*n_embd) + n_embd)
+weights_and_bias_in_ffwd =((N_EMBD * 4 * N_EMBD) + (4*N_EMBD)) + ((4*N_EMBD*N_EMBD) + N_EMBD)
 weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd + (2*layer_norm_weights)
-weights_in_all_blocks = num_blocks * weights_in_one_block
+weights_in_all_blocks = N_LAYER * weights_in_one_block
 
 expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head + layer_norm_weights
 actual_weights = sum(p.numel() for p in model.parameters())

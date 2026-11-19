@@ -318,3 +318,17 @@ At `z = x + y`, the gradient is **copied** to both inputs, not split: ∂z/∂x 
 - Karpathy: 2.06. All the checks pass: the layer norm, `wei`, the parameter count and no-peeking.
 - **The gap is about the same:** layer norm helps the model train, it doesn't stop it memorising. That's dropout's job (step 8).
 - Step 7 overall: 2.234 → 2.058, from 3 blocks that only work with residuals.
+
+### Asked after 7c: why not one layer norm before the blocks?
+
+- **The question:** normalise x once before `self.blocks`, so every block gets a normalised x, and drop the two per block.
+- **The size drifts after every addition, and those are inside the blocks.** `x = x + sa(x)` grows x, then the feed-forward reads the grown x, then block 2, block 3. One norm at the start covers only the first of the 6 places a layer reads the stream.
+- **On the stream itself** (`x = ln(x)`), it would also break the pure addition, and with it the gradient's direct path back to the embeddings.
+- **The saving is small:** 64 parameters per layer norm, 448 for all seven, out of 42,369.
+
+## Step 8a: hyperparameters instead of fixed numbers
+
+- `N_EMBD`, `N_HEAD = 4`, `N_LAYER = 3` at the top, and the blocks built in a loop: `nn.Sequential(*[Block(N_EMBD, N_HEAD) for _ in range(N_LAYER)])`. The `*` unpacks the list into separate arguments, like Java's varargs.
+- **The check: the same result, exactly.** 42,369 parameters, and every loss line identical to 7c, down to 2.0582. Same seed, same model, built in the same order: a refactor that changes a number has changed the model.
+- **Typed-in numbers that happen to be right:** after the refactor the parameter count still had `N_EMBD * 8` (the head size, right only for 32 / 4) and `layer_norm_weights = 64` (right only for 32). Both were correct today and would have failed the assert at 8c's settings. They became `HEAD_SIZE` and `N_EMBD + N_EMBD`. The `4` in the feed-forward stays: `FeedForward` is written with `4 * n_embd`, so it's part of the design, not of the settings.
+- The formula, run on its own with 8c's settings, already gives the count Karpathy prints, before any training.
