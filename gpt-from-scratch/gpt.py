@@ -115,14 +115,25 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
+class Block(nn.Module):
+    def __init__(self, n_embd, n_head) -> None:
+        super().__init__()
+        head_size = n_embd // n_head
+        self.sa = MultiHeadAttention(n_head, head_size)
+        self.ffwd = FeedForward(n_embd)
+
+    def forward(self, x):
+        x = self.sa(x)
+        x = self.ffwd(x)
+        return x
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
-        self.sa_heads = MultiHeadAttention(4, n_embd//4)
-        self.ffwd = FeedForward(n_embd)
+        self.blocks = nn.Sequential(Block(n_embd, 4), Block(n_embd, 4), Block(n_embd, 4))
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -135,7 +146,7 @@ class BigramLanguageModel(nn.Module):
         # in every one of the B blocks (broadcasting), giving (B, T, 32).
         pos_emb = self.position_embedding_table(torch.arange(T, device=DEVICE)) # (T,n_embd)
         x = tok_emb + pos_emb # (B,T,n_embd) + (T,n_embd) = B, T, n_embd
-        x = self.sa_heads(x)
+        #x = self.sa_heads(x)
         # each head returns (B, T, head_size)
         # then MultiHeadAttention concatenates over last dimension
         # so x.shape is (B, T, 4*head_size)
@@ -143,7 +154,8 @@ class BigramLanguageModel(nn.Module):
         # That only works because 32 divides evenly by 4. 
         # With n_embd = 30 and 4 heads, 30 // 4 is 7, and 4 × 7 = 28. 
         # x would come out as (B, T, 28), and lm_head's Linear(30, 65) would fail
-        x = self.ffwd(x)
+        #x = self.ffwd(x)
+        x = self.blocks(x)
         logits = self.lm_head(x)
 
         if targets is None:
@@ -198,8 +210,10 @@ with torch.no_grad():
     xb, yb = get_batch('train')
     model(xb, yb)  # runs Head.forward, which stores wei (B, T, T)
 
-for i, head in enumerate(model.sa_heads.heads):
-    wei = model.sa_heads.heads[i].wei
+
+
+for i, head in enumerate(model.blocks[0].sa.heads):
+    wei = head.wei
     assert wei.shape == (BATCH_SIZE, BLOCK_SIZE, BLOCK_SIZE)
     assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
     assert (torch.triu(wei, diagonal=1) == 0).all()
@@ -215,10 +229,13 @@ weights_in_Query_in_head = n_embd * 8
 weights_in_Value_in_head = n_embd * 8
 number_of_heads = 4
 all_weights_in_all_heads = number_of_heads * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
+num_blocks = 3
 weights_and_bias__in_ffwd = n_embd * n_embd + n_embd
+weights_in_one_block = all_weights_in_all_heads + weights_and_bias__in_ffwd
+weights_in_all_blocks = num_blocks * weights_in_one_block
 weights_in_lm_head = n_embd * vocab_size + vocab_size
 
-total_number_of_weights = weights_in_token_embedding + weights_in_poistion_embedding + all_weights_in_all_heads + weights_and_bias__in_ffwd + weights_in_lm_head
+total_number_of_weights = weights_in_token_embedding + weights_in_poistion_embedding + weights_in_all_blocks + weights_in_lm_head
 
 assert sum(p.numel() for p in model.parameters()) == total_number_of_weights
 

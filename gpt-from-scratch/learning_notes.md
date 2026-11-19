@@ -218,6 +218,23 @@ I picked A and C, ruled out B and E correctly, and missed D and F.
 - **The shape after `sa_heads`:** each head returns (B, T, 8); the concatenation is (B, T, 4 × 8) = (B, T, n_embd) again, because `head_size = n_embd // 4`. That needs `n_embd` to divide evenly: with 30 and 4 heads, 4 × 7 = 28, and `lm_head`'s `Linear(30, 65)` would fail. Karpathy's final settings: 384 = 6 × 64.
 - **Result:** validation **2.2342** (train 2.2059), against 6a's 2.2728 and Karpathy's 2.24.
 
+## Step 7a: three blocks, no residuals
+
+`Block` = multi-head attention, then feed-forward. `nn.Sequential` chains 3 of them, each block's output going into the next. The checks moved to `model.blocks[0].sa.heads`, and the parameter assert counts the blocks: 3 × (3,072 + 1,056) + 4,481 = **16,865**.
+
+| | 6b | 7a |
+|---|---|---|
+| Parameters | 8,609 | 16,865 |
+| Validation loss | 2.2342 | **2.3787** |
+| Training loss | 2.2059 | 2.3708 |
+
+- **Prediction (wrong):** deeper is better, because the extra attention and feed-forward layers get more chances to adjust the weights. The loss went **up**.
+- **Not a capacity problem:** 3 blocks can do everything 1 block can (the other two could learn to pass x through). The model is harder to *train*: it was still at 3.13 after 500 steps, and still falling at 5,000.
+- **"More steps" is a fix, not the reason:** a 6b-sized model reached 2.23 in the same 5,000 steps. The question is why this one learns more slowly.
+- **Backward:** the gradient for the token table is the product of the local gradients of all 6 layers above it (the chain rule). Each one can shrink it, so the embeddings get a small gradient and learn slowly: vanishing gradients, as in RNNs.
+- **Forward:** `x = layer(x)` replaces x 6 times. In 5c one replacement already meant the character survived only if the head kept it. Now every layer has to learn to pass it on, and the ReLU zeroes the negative half each time, before the layer above has anything useful to work with.
+- Both halves are fixed by residuals (7b): `x = x + layer(x)` keeps x in the stream and gives the gradient a direct path back.
+
 ## Ahead: from the video, discussed before building
 
 To move into the step that builds each one.
