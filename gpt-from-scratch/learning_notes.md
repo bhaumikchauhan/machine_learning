@@ -2,7 +2,7 @@
 
 What each step taught while building Karpathy's GPT by hand. The steps, settings and losses are in [plan.md](plan.md). These notes cover the why: the questions asked along the way, and the predictions that went wrong, since those taught the most.
 
-Status: step 6 done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
+Status: step 7 done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
 
 ## Setup
 
@@ -248,7 +248,7 @@ Three changes: `x = x + self.sa(x)` and `x = x + self.ffwd(x)` in `Block`; `proj
 
 - **The residuals fixed 7a:** at step 500 the loss is already 2.37 (7a was at 3.13). The same 3 blocks, now with a direct path for x and for the gradient. Karpathy: 2.08.
 - **The text has more real words** ("And they", "Whith full him", "you love", "under", "son", "my of"), and character names with a colon on their own line.
-- **A gap opens:** train is 0.09 below val (0.03 in 6b). With 41,921 parameters the model starts to memorise the training text. Layer norm (7c) and dropout (step 8) are aimed at this.
+- **A gap opens:** train is 0.09 below val (0.03 in 6b). With 41,921 parameters the model starts to memorise the training text. Dropout (step 8) is aimed at this; layer norm (7c) is not.
 
 ### Why `proj` is a `Linear`, not a fixed mix
 
@@ -270,3 +270,51 @@ At `z = x + y`, the gradient is **copied** to both inputs, not split: ∂z/∂x 
 - **The residual stream:** x flows from the embeddings to `lm_head`, and each layer reads from it and adds its result back. It also keeps the character's own embedding in the stream: `x = self.sa_head(x)` in 5c replaces it.
 - **What it adds to the code:** `proj` (a `Linear` back to `n_embd`, so the heads' output can be added to x), and pre-norm, `x = x + self.sa(self.ln1(x))`, with the layer norm on the branch so the direct path stays a pure addition.
 - From ResNet (2015), which trained 152-layer image networks. Karpathy's model has 6 blocks; GPT-3 has 96.
+
+## Step 7c: layer norm
+
+### What it does
+
+`nn.LayerNorm(32)` takes one position's 32 numbers and rescales them to mean 0 and standard deviation 1, then multiplies by a learned γ and adds a learned β (32 each, starting at 1 and 0). With 4 numbers instead of 32:
+
+| Step | Result |
+|---|---|
+| x | [2, 4, 6, 8] |
+| Subtract the mean (5) | [−3, −1, 1, 3] |
+| Divide by the std, √((9+1+1+9)/4) = 2.24 | [−1.34, −0.45, 0.45, 1.34] |
+| × γ + β | unchanged at the start (γ = 1, β = 0) |
+
+- **Within one position, across the last dimension.** Batch norm instead normalises each channel across the batch. Layer norm doesn't depend on the other blocks in the batch, and it can't mix positions, so the no-peeking test still passes.
+- **γ and β** let the model undo the normalisation where that helps, for example if a channel should stay large.
+
+### Why it helps
+
+- **The residual stream grows:** x = x + sa(x) + ffwd(x) + …, every layer adds to it, so its size drifts block by block and during training.
+- **The layers reading it have to chase that size.** Attention suffers most: large inputs give large q·k scores, the softmax becomes nearly one-hot, and its gradients become tiny (the reason for `head_size**-0.5` in 5c).
+- **Pre-norm:** `x + self.sa(self.ln1(x))`. The norm is on the branch, so each layer gets its input at a fixed size and the stream itself stays a pure addition: the gradient's direct path is untouched. The paper normalised after the addition; GPT moved it before. `ln_f` does the same for `lm_head`.
+- **Like converting amounts to one currency** before a service compares them: the service no longer needs to know how big the input came in.
+- **A small gain here** (Karpathy: 2.08 → 2.06): 3 blocks don't drift far. It matters with many blocks (GPT-3 has 96).
+
+### Parameters
+
+- **Prediction (half right):** one layer norm before attention, one before the feed-forward, one before `lm_head`: 3. The kinds were right, the count wasn't: `ln1` and `ln2` are inside `Block`, which is built 3 times, so it's 3 × 2 + 1 = **7** layer norms.
+- 7 × 64 = 448, so 41,921 + 448 = **42,369**.
+
+### The check
+
+- `ln_f`'s output, stored in `forward` as `self.ln_f_output` (B, T, 32), from a **fresh, untrained** model: after training, γ and β have moved, so the output is no longer mean 0, std 1. A new model built after training leaves the training run unchanged.
+- `mean(dim=-1)` gives (B, T): one mean per position, which is what to check, since each position is normalised on its own. `allclose` against zeros (`atol=1e-5`), the same pattern as `wei.sum(dim=-1)` against ones.
+- `std(dim=-1, correction=0)`: `std` divides by n − 1 by default, layer norm by n. With n = 32 the default gives about 1.016 and the assert fails.
+
+### Result
+
+| | 7b | 7c |
+|---|---|---|
+| Parameters | 41,921 | 42,369 |
+| Validation loss | 2.0927 | **2.0582** |
+| Training loss | 2.0008 | 1.9727 |
+| Gap | 0.092 | 0.086 |
+
+- Karpathy: 2.06. All the checks pass: the layer norm, `wei`, the parameter count and no-peeking.
+- **The gap is about the same:** layer norm helps the model train, it doesn't stop it memorising. That's dropout's job (step 8).
+- Step 7 overall: 2.234 → 2.058, from 3 blocks that only work with residuals.

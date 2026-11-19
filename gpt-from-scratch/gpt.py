@@ -1,7 +1,7 @@
 import time
 import Stopwatch
 
-from torch.nn import functional as F
+from torch.nn import LayerNorm, functional as F
 import torch
 import torch.nn as nn
 
@@ -125,10 +125,12 @@ class Block(nn.Module):
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embd)
+        self.ln1 = LayerNorm(n_embd)
+        self.ln2 = LayerNorm(n_embd)
 
     def forward(self, x):
-        x = x + self.sa(x)
-        x = x + self.ffwd(x)
+        x = x + self.sa(self.ln1(x))
+        x = x + self.ffwd(self.ln2(x))
         return x
 
 class BigramLanguageModel(nn.Module):
@@ -138,6 +140,7 @@ class BigramLanguageModel(nn.Module):
         self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         self.blocks = nn.Sequential(Block(n_embd, 4), Block(n_embd, 4), Block(n_embd, 4))
+        self.ln_f = LayerNorm(n_embd)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -160,7 +163,9 @@ class BigramLanguageModel(nn.Module):
         # x would come out as (B, T, 28), and lm_head's Linear(30, 65) would fail
         #x = self.ffwd(x)
         x = self.blocks(x)
-        logits = self.lm_head(x)
+        self.ln_f_output = self.ln_f(x)
+        logits = self.lm_head(self.ln_f_output)
+
 
         if targets is None:
             loss = None
@@ -190,7 +195,6 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
 
 
-start = time.perf_counter()
 for i in range(ITERATIONS+1):
     if i % EVAL_INTERVAL == 0:
         print(f"Time elapsed: {sw.elapsed}")
@@ -210,6 +214,15 @@ out_str = decode(out[0].tolist())
 print("output:")
 print(out_str)
 
+with torch.no_grad():
+    model2 = BigramLanguageModel(vocab_size).to(DEVICE)
+    xb, _ = get_batch('train')
+    model2(xb)
+    out = model2.ln_f_output
+    mean = out.mean(dim=-1)                  # (B, T)
+    std  = out.std(dim=-1, correction=0)     # (B, T)
+    assert torch.allclose(mean, torch.zeros_like(mean), atol=1e-5)
+    assert torch.allclose(std, torch.ones_like(std), atol=1e-3)
 
 # Check: the attention weights of one batch. Each row of wei sums to 1, and everything above the diagonal is 0.
 with torch.no_grad():
@@ -230,6 +243,7 @@ for i, head in enumerate(model.blocks[0].sa.heads):
 # layers: 
 weights_in_token_embedding = vocab_size * n_embd
 weights_in_position_embedding = BLOCK_SIZE * n_embd
+layer_norm_weights = 64
 weights_in_lm_head = n_embd * vocab_size + vocab_size
 
 weights_in_Key_in_head = n_embd * 8
@@ -241,16 +255,18 @@ all_weights_in_all_heads = number_of_heads * (weights_in_Key_in_head + weights_i
 weights_of_mha = weights_of_proj_in_ma + all_weights_in_all_heads
 num_blocks = 3
 weights_and_bias_in_ffwd =((n_embd * 4 * n_embd) + (4*n_embd)) + ((4*n_embd*n_embd) + n_embd)
-weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd
+weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd + (2*layer_norm_weights)
 weights_in_all_blocks = num_blocks * weights_in_one_block
 
-expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head
+expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head + layer_norm_weights
 actual_weights = sum(p.numel() for p in model.parameters())
 
 print(f"weights expected: {expected_weights}")
 print(f"weights actual: {actual_weights}")
 
 assert actual_weights == expected_weights
+
+
 
 
 #run the model on a batch, change only the last character of each row, run it again. 
