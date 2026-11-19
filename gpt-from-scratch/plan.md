@@ -133,6 +133,6 @@ The losses won't match his exactly: different hardware gives different random nu
 | 5b | ✅ | 2.503 (train 2.484) | 4,481 parameters (+256 for the 8 × 32 position table). Same as 5a within noise, as predicted: chunks start at random, so a position says nothing about which character comes next. `generate` crashed at T = 9 (the table has rows 0 to 7 only), fixed by passing `idx[:, -block_size:]` to `forward` while `idx` itself keeps growing |
 | 5c | ✅ | 2.415 (train 2.397) | 7,553 parameters (+3 × 32 × 32 for key, query, value). Both checks pass: rows of `wei` sum to 1 with zeros above the diagonal, and changing each block's last character leaves the logits at positions 0 to 6 identical. Both fail with the mask removed. A trained `wei` puts most weight on the diagonal |
 | 6a | ✅ | 2.273 (train 2.246) | 4 heads of 8: still 7,553 parameters, so the gain is from the structure. The heads split the work: one carries the current character (its weight on the diagonal), two look at the previous one or two characters, one mixes. `cat` along `dim=1` gave (32, 32, 8); it has to be the last dimension |
-| 6b | | | |
+| 6b | ✅ | 2.234 (train 2.206) | 8,609 parameters (+1,056: 32 × 32 and a bias of 32), checked by an assert that adds up the layers. The no-peeking test still passes: the mask keeps each position's vector to its own past, and `Linear` works within one position |
 | 7 | | | |
 | 8 | | | |

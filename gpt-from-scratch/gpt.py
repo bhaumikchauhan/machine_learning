@@ -86,8 +86,15 @@ class Head(nn.Module):
         # (B, T, head_size) @ (B, head_size, T) -> (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         wei = F.softmax(wei, dim=-1)
-        self.wei = wei        
-        return wei @ self.value(x)
+        self.wei = wei # (B, T, T)
+        x = self.value(x) # (B, T, head_size)
+        x = wei @ x # (B, T, head_size)
+        # (B, T, T) @ (B, T, head_size) 
+        # B remains same so
+        # (T, T) @ (T, head_size), results in (T, head_size)
+        return x
+         
+    
 
 
 class MultiHeadAttention(nn.Module):
@@ -99,6 +106,15 @@ class MultiHeadAttention(nn.Module):
         return torch.cat([h(x) for h in self.heads], dim=2)
 
 
+class FeedForward(nn.Module):
+    def __init__(self, n_embd) -> None:
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(n_embd, n_embd), nn.ReLU())
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
@@ -106,6 +122,7 @@ class BigramLanguageModel(nn.Module):
         self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         self.sa_heads = MultiHeadAttention(4, n_embd//4)
+        self.ffwd = FeedForward(n_embd)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -119,6 +136,14 @@ class BigramLanguageModel(nn.Module):
         pos_emb = self.position_embedding_table(torch.arange(T, device=DEVICE)) # (T,n_embd)
         x = tok_emb + pos_emb # (B,T,n_embd) + (T,n_embd) = B, T, n_embd
         x = self.sa_heads(x)
+        # each head returns (B, T, head_size)
+        # then MultiHeadAttention concatenates over last dimension
+        # so x.shape is (B, T, 4*head_size)
+        # head_size is n_embd//4, x becomes (B, T, n_embd)
+        # That only works because 32 divides evenly by 4. 
+        # With n_embd = 30 and 4 heads, 30 // 4 is 7, and 4 × 7 = 28. 
+        # x would come out as (B, T, 28), and lm_head's Linear(30, 65) would fail
+        x = self.ffwd(x)
         logits = self.lm_head(x)
 
         if targets is None:
@@ -180,6 +205,23 @@ for i, head in enumerate(model.sa_heads.heads):
     assert (torch.triu(wei, diagonal=1) == 0).all()
     print(f"wei of the first sequence in the batch: {i}")
     print(wei[0].round(decimals=2))
+
+#calculate all the weights:
+# layers: 
+weights_in_token_embedding = vocab_size * n_embd
+weights_in_poistion_embedding = BLOCK_SIZE * n_embd
+weights_in_Key_in_head = n_embd * 8
+weights_in_Query_in_head = n_embd * 8
+weights_in_Value_in_head = n_embd * 8
+number_of_heads = 4
+all_weights_in_all_heads = number_of_heads * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
+weights_and_bias__in_ffwd = n_embd * n_embd + n_embd
+weights_in_lm_head = n_embd * vocab_size + vocab_size
+
+total_number_of_weights = weights_in_token_embedding + weights_in_poistion_embedding + all_weights_in_all_heads + weights_and_bias__in_ffwd + weights_in_lm_head
+
+assert sum(p.numel() for p in model.parameters()) == total_number_of_weights
+
 
 #run the model on a batch, change only the last character of each row, run it again. 
 # The logits at every position except the last must be identical (`torch.equal`). 

@@ -2,13 +2,22 @@
 
 What each step taught while building Karpathy's GPT by hand. The steps, settings and losses are in [plan.md](plan.md). These notes cover the why: the questions asked along the way, and the predictions that went wrong, since those taught the most.
 
-Status: step 6a done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
+Status: step 6 done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
 
 ## Setup
 
 - **The global Python has `torch 2.15.0+cpu`, the CPU-only build.** It trains without complaint, just on the CPU and hours slower. Check `torch.cuda.is_available()` in the environment you actually run. This folder's venv has `torch 2.15.0+cu132`.
 - **CUDA versions:** the driver supports CUDA 13.3, but PyTorch publishes builds only up to 13.2. A driver runs builds made for older CUDA versions, so cu132 works.
 - **Hardware:** Karpathy trained the final model for about 15 minutes on an A100 (a data-centre GPU, 40 or 80 GB). The RTX 4070 SUPER's 12 GB is enough for his full settings, just slower.
+
+## Tensors: dimensions and slicing
+
+Runnable examples in [tensor_slicing.py](tensor_slicing.py).
+
+- **Picture a 3-D tensor as sheets stacked front to back.** `torch.arange(24).view(2, 3, 4)` is two 3 × 4 sheets: the front one holds 0 to 11, the one behind it 12 to 23. Dimension 0 is which sheet, dimension 1 which row, dimension 2 which column. The outermost dimension holds both sheets; the innermost is the numbers within a row. Like Java's `int[2][3][4]`.
+- **In the model:** `tok_emb` (32, 8, 32) is 32 sheets (blocks), each 8 rows (positions) of 32 numbers (`n_embd`, the length of each vector). The 65 vectors live in the table (65, 32), a separate tensor; the output holds 256 copies picked from it, `tok_emb[b, t] = table[idx[b, t]]`.
+- **One entry per dimension, separated by commas.** An integer removes that dimension (`x[0]` is (3, 4)); a slice keeps it (`x[0:1]` is (1, 3, 4)); `:` alone means all of it. `x[0:2]` on (3, 3, 4) keeps the first two sheets: (2, 3, 4).
+- **In a 2-D (2, 3) matrix, dimension 0 is the rows and dimension 1 the columns,** in the shape's order. `sum(dim=0)` gives one sum per column, because the dimension you name is the one that disappears: it adds down through the 2 rows.
 
 ## Choosing the training text
 
@@ -188,6 +197,26 @@ I picked A and C, ruled out B and E correctly, and missed D and F.
 
   The weight is always on or before the diagonal, never after: the future is masked to exactly 0. This answers 5c's diagonal question from the other side: the current character reaches `lm_head` only if a head passes it on. With one head that took nearly all the weight; with four, one head takes that job and frees the others to look back.
 - **Result:** validation **2.2728** (train 2.2459), against 5c's 2.4146 and Karpathy's 2.28.
+
+## Step 6b: feed-forward
+
+- **Parameters (predicted 32 × 32 at first):** `nn.Linear(32, 32)` has a bias too, so 1,024 + 32 = **1,056**. ReLU is max(0, x) per number and has nothing to learn. The total is 8,609, checked in gpt.py by adding up the layers:
+
+| Layer | Count |
+|---|---|
+| Token table, 65 × 32 | 2,080 |
+| Position table, 8 × 32 | 256 |
+| Key, query, value: 4 heads × 3 × (32 × 8) | 3,072 |
+| Feed-forward, 32 × 32 + 32 | 1,056 |
+| `lm_head`, 32 × 65 + 65 | 2,145 |
+| **Total** | **8,609** |
+
+  No parameters: the `tril` buffer, ReLU, softmax, `cat`.
+- **Why it can't break the no-peeking test (option B):** two parts are needed. The mask makes each position's vector hold only its own past; and `nn.Linear` acts on the last dimension only, so position 3's output uses only position 3's vector. "Attention only looked back" alone isn't enough: position 4's vector, right next to it, holds position 4, and a layer that mixed positions could pull it into position 3.
+- **How `nn.Linear` handles (B, T, 32):** it computes `x @ W.T + b`, (B, T, 32) @ (32, out) + (out,). The last dimension is used up and replaced; B and T are not named, so they're kept, and the same `W` is applied at every (b, t). In the sheets picture, every row of every sheet is transformed on its own. `lm_head` doesn't know its 32 numbers came from 4 heads joined together.
+- **Batched matrix multiply, `wei @ v`:** (B, T, T) @ (B, T, head_size). B is matched block by block, and each block is an ordinary (T, T) @ (T, head_size) = (T, head_size): the inner sizes match and disappear. Row t of `wei` holds position t's weights, so row t of the result is the weighted sum of the value vectors: with weights [0.2, 0.3, 0.5] and values [10, 20], [30, 40], [50, 60], it's [36, 46].
+- **The shape after `sa_heads`:** each head returns (B, T, 8); the concatenation is (B, T, 4 × 8) = (B, T, n_embd) again, because `head_size = n_embd // 4`. That needs `n_embd` to divide evenly: with 30 and 4 heads, 4 × 7 = 28, and `lm_head`'s `Linear(30, 65)` would fail. Karpathy's final settings: 384 = 6 × 64.
+- **Result:** validation **2.2342** (train 2.2059), against 6a's 2.2728 and Karpathy's 2.24.
 
 ## Ahead: from the video, discussed before building
 
