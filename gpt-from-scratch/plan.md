@@ -219,5 +219,5 @@ The losses won't match his exactly: different hardware gives different random nu
 | 7b | ✅ | 2.093 (train 2.001) | 41,921 parameters (+1,056 for `proj` and +7,296 for the wider feed-forward, per block). Residuals fixed 7a: 2.37 already at step 500 (7a: 3.13). More real words in the text. Train is 0.09 below val: the gap starts to open |
 | 7c | ✅ | 2.058 (train 1.973) | 42,369 parameters (+448: 7 layer norms of 64). The check on a fresh model: `ln_f`'s output has mean 0 and std 1 per position (`std` needs `correction=0`). The gap stays about 0.09: layer norm helps training, not memorising |
 | 8a | ✅ | 2.058 (train 1.973) | Identical to 7c, as it must be: `N_HEAD`, `N_LAYER` and the blocks built in a loop. Two typed-in numbers in the parameter count (head size 8, layer norm 64) were right only at 32 wide; now from the settings |
-| 8b | | | |
+| 8b | ✅ | 2.132 (train 2.087) | Dropout 0.2 at the small settings: the gap halved (0.085 to 0.045) but validation got worse. The model is too small to memorise much, so dropout mostly took away capacity. The `wei` and no-peeking checks fail in training mode; `model.eval()` before `generate` fixes both |
 | 8c | | | |

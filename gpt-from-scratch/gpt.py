@@ -17,6 +17,7 @@ EVAL_ITERS=200
 N_EMBD = 32
 N_HEAD = 4
 N_LAYER = 3
+DROP_OUT = 0.2
 
 with open("input.txt", "r", encoding="utf-8") as f:
     input_text = f.read()
@@ -80,6 +81,7 @@ class Head(nn.Module):
         self.query = nn.Linear(N_EMBD, head_size, bias=False)
         self.value = nn.Linear(N_EMBD, head_size, bias=False)
         self.register_buffer('tril', torch.tril(torch.ones(BLOCK_SIZE, BLOCK_SIZE)))
+        self.drop_out = nn.Dropout(DROP_OUT)
 
     def forward(self, x):
         B,T,n_embed = x.shape
@@ -89,6 +91,7 @@ class Head(nn.Module):
         # (B, T, head_size) @ (B, head_size, T) -> (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         wei = F.softmax(wei, dim=-1)
+        wei = self.drop_out(wei)
         self.wei = wei # (B, T, T)
         x = self.value(x) # (B, T, head_size)
         x = wei @ x # (B, T, head_size)
@@ -105,17 +108,19 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
         self.proj = nn.Linear(N_EMBD, N_EMBD)
+        self.drop_out = nn.Dropout(DROP_OUT)
 
     def forward(self, x):
         x = torch.cat([h(x) for h in self.heads], dim=2)
         x = self.proj(x)
+        x = self.drop_out(x)
         return x
 
 
 class FeedForward(nn.Module):
     def __init__(self, n_embd) -> None:
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(n_embd, 4 * n_embd), nn.ReLU(), nn.Linear(4 * n_embd, n_embd))
+        self.net = nn.Sequential(nn.Linear(n_embd, 4 * n_embd), nn.ReLU(), nn.Linear(4 * n_embd, n_embd), nn.Dropout(DROP_OUT))
 
     def forward(self, x):
         return self.net(x)
@@ -209,6 +214,7 @@ for i in range(ITERATIONS+1):
     loss.backward()
     optimizer.step()
 
+model.eval()
 idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
 out = model.generate(idx, 500)
 out_str = decode(out[0].tolist())
@@ -216,6 +222,9 @@ out_str = decode(out[0].tolist())
 print("output:")
 print(out_str)
 
+
+
+# checks and validations
 with torch.no_grad():
     model2 = BigramLanguageModel(vocab_size).to(DEVICE)
     xb, _ = get_batch('train')

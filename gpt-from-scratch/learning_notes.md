@@ -332,3 +332,36 @@ At `z = x + y`, the gradient is **copied** to both inputs, not split: ∂z/∂x 
 - **The check: the same result, exactly.** 42,369 parameters, and every loss line identical to 7c, down to 2.0582. Same seed, same model, built in the same order: a refactor that changes a number has changed the model.
 - **Typed-in numbers that happen to be right:** after the refactor the parameter count still had `N_EMBD * 8` (the head size, right only for 32 / 4) and `layer_norm_weights = 64` (right only for 32). Both were correct today and would have failed the assert at 8c's settings. They became `HEAD_SIZE` and `N_EMBD + N_EMBD`. The `4` in the feed-forward stays: `FeedForward` is written with `4 * n_embd`, so it's part of the design, not of the settings.
 - The formula, run on its own with 8c's settings, already gives the count Karpathy prints, before any training.
+
+## Step 8b: dropout, at the small settings
+
+`DROP_OUT = 0.2`, in three places: on `wei` after the softmax, after `proj`, and as the last layer of the feed-forward. In training mode `nn.Dropout` sets a random 20% to 0 and scales the rest by 1 / 0.8 = 1.25, so the expected total stays the same. In eval mode it returns its input unchanged.
+
+### Which checks survive dropout
+
+The model is in training mode after the loop (`estimate_loss` ends with `model.train()`), so dropout is active during the checks.
+
+| Check | With dropout active | Why |
+|---|---|---|
+| Layer norm | passes | `ln_f` normalises whatever reaches it, zeros included |
+| `wei` | **fails** | stored after dropout: some entries 0, the rest × 1.25, so rows don't sum to 1 |
+| Parameters | passes | dropout has no parameters |
+| No-peeking | **fails** | each forward pass drops a different random 20%, so positions 0 to 6 differ between the two runs even with the same input |
+
+- **I first thought no-peeking would pass:** the weights don't change between the two runs, but which numbers are dropped does (options helped). The test would fail without the mask being broken: it can't tell the two causes apart.
+- **The fix is one `model.eval()`,** placed before `generate`, so the text is also sampled with the whole network (it was sampled in training mode before).
+- **`eval()` sets a flag, it doesn't run anything:** it sets `self.training = False` on every module, and `nn.Dropout` checks it on each call. I thought the `wei` check passed only because `generate` ran first, but the check runs its own forward pass, `model(xb, yb)`, which overwrites `self.wei`. The mode at that call is all that matters.
+- **`nn.Dropout`, not `F.dropout`:** the function form defaults to `training=True` and drops even in eval mode.
+
+### Result
+
+| | 7c | 8b |
+|---|---|---|
+| Validation loss | 2.0582 | **2.1317** |
+| Training loss | 1.9727 | 2.0871 |
+| Gap | 0.085 | **0.045** |
+
+- **Prediction (mostly right):** the gap shrinks, because the training loss rises while validation stays about the same. The gap halved and training rose, but validation got **worse** by 0.07.
+- **Why it hurt:** 42,369 parameters is small for the text, so the model was short of capacity, not memorising much (a gap of 0.085). Dropout had little memorising to remove, and it switched off 20% of a model that was already too small.
+- **Not because the text is small:** a smaller text is easier to memorise, so dropout would help more. What matters is the size of the model against the text: about 24 characters per parameter here, about 0.1 at 8c's 10.8 million. That's why Karpathy adds dropout only when he scales up.
+- The reported training loss is measured in eval mode (`estimate_loss`), so it's not raised by dropout noise: the model really fits the training text less well.
