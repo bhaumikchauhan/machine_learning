@@ -46,3 +46,4 @@ gpt-from-scratch/input.txt
 gpt-from-scratch/*.html
 gpt-from-scratch/*.epub
 gpt-from-scratch/*.pdf
+gpt-from-scratch/output.txt

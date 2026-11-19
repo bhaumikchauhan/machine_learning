@@ -151,6 +151,46 @@ Build a character-level GPT by hand, following Andrej Karpathy's "Let's build GP
 - **The no-peeking test still passes.** Think about why: does a layer norm mix positions?
 - **The loss:** about 2.06.
 
+## Step 8: scale up, dropout, the long run
+
+Done in three parts, so the long run is only started once the code is known to be right.
+
+### 8a. Hyperparameters instead of fixed numbers
+
+1. Two new settings at the top: `n_head = 4` and `n_layer = 3`.
+2. The blocks: `nn.Sequential(*[Block(n_embd, n_head) for _ in range(n_layer)])`. The `*` unpacks the list into separate arguments, like Java's varargs.
+3. The parameter calculation uses the settings, not the 8, 4 and 3 typed in: `head_size = n_embd // n_head`, `n_head` heads, `n_layer` blocks.
+
+**Check:** nothing about the model has changed, so with the same seed you get exactly **42,369** parameters and **2.0582** again. A different loss means something has changed.
+
+### 8b. Dropout
+
+1. A new setting, `dropout = 0.2`. During training, `nn.Dropout(dropout)` sets a random 20% of its input to 0 and scales the rest by 1 / 0.8, so the expected total stays the same. In `model.eval()` it does nothing.
+2. Three places, each just before something is added back or used:
+   - `Head`: on `wei`, after the softmax (some characters randomly can't be attended to);
+   - `MultiHeadAttention`: after `proj`;
+   - `FeedForward`: as the last layer of `net`.
+3. It works against memorising: no unit can rely on one particular other unit being there, so the model has to spread what it learns. It's like a team where anyone may be absent on a given day, so the knowledge can't live in one person.
+
+**Check:**
+- **The checks after training:** before running, think about what dropout does to them. Which of them still pass as they are, and what must change?
+- **The loss:** still at the small settings. Before running, predict: does the validation loss go below 7c's 2.058, and what happens to the gap of 0.09?
+
+### 8c. Karpathy's final settings, the long run
+
+1. The settings: `batch_size = 64`, `block_size = 256`, `lr = 3e-4`, `n_embd = 384`, `n_head = 6`, `n_layer = 6`, `dropout = 0.2`, still 5,000 steps with an estimate every 500.
+2. **Before the long run:**
+   - work out the parameter count from the settings;
+   - the `wei` check prints each head's 8 × 8 matrix: at 256 × 256 that's unreadable, so print only `wei[0, :8, :8]`;
+   - time 100 steps first and work out how long 5,000 will take (Karpathy: about 15 minutes on an A100, a larger GPU than the 4070 SUPER);
+   - save the trained weights with `torch.save(model.state_dict(), "model.pt")`, so generating more text doesn't need another run (`model.pt` goes in `.gitignore`).
+3. Generate more text at the end, for example 2,000 characters, and save it in `output.txt` with the losses.
+
+**Check:**
+- **Parameters:** your count matches the printed one.
+- **The checks still pass** at the new sizes.
+- **The loss:** about 1.48. The text should read like Shakespeare at a distance: names, line breaks, real words, mostly nonsense sentences.
+
 ## Steps 5 to 8 at a glance
 
 | # | Add | Karpathy's validation loss |
@@ -178,4 +218,6 @@ The losses won't match his exactly: different hardware gives different random nu
 | 7a | ✅ | 2.379 (train 2.371) | 16,865 parameters (3 blocks of 4,128). Worse than 6b, against the prediction: 6 layers that each replace x, so the gradient reaching the embeddings is a product of 6 local gradients, and the character has to be passed on by every layer. Still falling at 5,000 steps |
 | 7b | ✅ | 2.093 (train 2.001) | 41,921 parameters (+1,056 for `proj` and +7,296 for the wider feed-forward, per block). Residuals fixed 7a: 2.37 already at step 500 (7a: 3.13). More real words in the text. Train is 0.09 below val: the gap starts to open |
 | 7c | ✅ | 2.058 (train 1.973) | 42,369 parameters (+448: 7 layer norms of 64). The check on a fresh model: `ln_f`'s output has mean 0 and std 1 per position (`std` needs `correction=0`). The gap stays about 0.09: layer norm helps training, not memorising |
-| 8 | | | |
+| 8a | | | |
+| 8b | | | |
+| 8c | | | |
