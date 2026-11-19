@@ -2,7 +2,7 @@
 
 What each step taught while building Karpathy's GPT by hand. The steps, settings and losses are in [plan.md](plan.md). These notes cover the why: the questions asked along the way, and the predictions that went wrong, since those taught the most.
 
-Status: step 7 done 2026-11-19 (started 2026-11-17). A section is added after each step, before its commit.
+Status: all 8 steps done 2026-11-20 (started 2026-11-17). A section is added after each step, before its commit.
 
 ## Setup
 
@@ -365,3 +365,63 @@ The model is in training mode after the loop (`estimate_loss` ends with `model.t
 - **Why it hurt:** 42,369 parameters is small for the text, so the model was short of capacity, not memorising much (a gap of 0.085). Dropout had little memorising to remove, and it switched off 20% of a model that was already too small.
 - **Not because the text is small:** a smaller text is easier to memorise, so dropout would help more. What matters is the size of the model against the text: about 24 characters per parameter here, about 0.1 at 8c's 10.8 million. That's why Karpathy adds dropout only when he scales up.
 - The reported training loss is measured in eval mode (`estimate_loss`), so it's not raised by dropout noise: the model really fits the training text less well.
+
+## Step 8c: Karpathy's final settings, the long run
+
+Batch 64, block 256, `lr` 3e-4, 384 wide, 6 heads of 64, 6 blocks, dropout 0.2, 5,000 steps. **10,788,929 parameters**, from the formula of 8a before any training, and the same as Karpathy's.
+
+### How long it takes
+
+- **Prediction:** 1 minute per 100 steps, so about 50 minutes. The first timing said 31 seconds, but the clock included the step-0 estimate: 400 forward passes against about 300 forward-pass equivalents for 100 training steps (a backward pass costs about two forwards). That gave about 0.13 s per step and an estimate of about 15 minutes.
+- **Measured:** 80 seconds per 500 steps, estimate included, and **13 minutes 42 seconds** in all (Karpathy: about 15 on an A100). The small model took about 90 seconds.
+
+### The gap
+
+- **The question at step 1500 (gap 0.21):** at step 5000, will the gap be smaller, the same or bigger? From four reasons, I picked A and D, both right, so: bigger.
+  - **A (right):** each training character is seen about 80 times over 5,000 steps (64 × 256 per step), so the model keeps fitting the exact text it keeps seeing.
+  - **B (wrong):** "dropout stops memorising." It slows it down.
+  - **C (half right):** real patterns help both losses, but memorising grows at the same time and only helps the training loss.
+  - **D (right):** 10.8 million parameters for 1 million training characters is room to store the text.
+
+| Step | Train | Val | Gap |
+|---|---|---|---|
+| 500 | 1.8937 | 2.0042 | 0.11 |
+| 1500 | 1.3955 | 1.6072 | 0.21 |
+| 3000 | 1.2021 | 1.4993 | 0.30 |
+| 3500 | 1.1602 | 1.4899 | 0.33 |
+| 4500 | 1.0879 | **1.4856** | 0.40 |
+| 5000 | 1.0546 | 1.4994 | **0.45** |
+
+- **Validation stopped improving around step 3000** (1.499, then 1.490, 1.491, 1.486, 1.499), while training kept falling by about 0.04 per 500 steps. The last 2,000 steps were mostly memorising. The best validation, 1.4856 at step 4500, matches Karpathy's 1.48; the final weights are from step 5000 (1.4994).
+- Saving the weights at the best validation (early stopping, as in Digit Recognizer) would have kept 1.4856.
+
+### The text
+
+Reads like Shakespeare at a distance: names and line breaks, real words, the rhythm of verse, and sentences that mean nothing:
+
+```
+Where thy prince. Come, we may; this last
+She old Clarence, and hagg's virginicly study:
+Commend them and Barnardine's fall,
+Thou mayst do it, I will speak no foot;
+```
+
+From 8 characters of context and 42,369 parameters (2.06) to 256 characters and 10.8 million (1.49).
+
+### The checks at full size
+
+All pass at T = 256: the layer norm on a fresh model, `wei` (printed as an 8 × 8 corner, `wei[0, :8, :8]`), the parameter count, and no-peeking (positions 0 to 254 identical when only character 255 changes). The trained weights are in `model.pt` (52 MB, gitignored), so more text can be generated without another run.
+
+## The whole build
+
+| Step | Validation loss | Parameters | What changed |
+|---|---|---|---|
+| 4 | 2.54 | 4,225 | Bigram, trained |
+| 5c | 2.415 | 7,553 | One attention head |
+| 6a | 2.273 | 7,553 | 4 heads of 8 |
+| 6b | 2.234 | 8,609 | Feed-forward |
+| 7a | 2.379 | 16,865 | 3 blocks, no residuals: worse |
+| 7b | 2.093 | 41,921 | Residuals, `proj`, a 4× feed-forward |
+| 7c | 2.058 | 42,369 | Layer norm |
+| 8b | 2.132 | 42,369 | Dropout at the small size: worse |
+| 8c | 1.499 (best 1.486) | 10,788,929 | Karpathy's settings |

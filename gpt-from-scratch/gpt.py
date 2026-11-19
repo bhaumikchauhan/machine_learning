@@ -7,16 +7,16 @@ import torch.nn as nn
 
 
 torch.manual_seed(1337)
-BATCH_SIZE=32
-BLOCK_SIZE=8
+BATCH_SIZE=64
+BLOCK_SIZE=256
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-LR=1e-3
+LR=3e-4
 ITERATIONS=5000
 EVAL_INTERVAL=500
 EVAL_ITERS=200
-N_EMBD = 32
-N_HEAD = 4
-N_LAYER = 3
+N_EMBD = 384
+N_HEAD = 6
+N_LAYER = 6
 DROP_OUT = 0.2
 
 with open("input.txt", "r", encoding="utf-8") as f:
@@ -214,6 +214,9 @@ for i in range(ITERATIONS+1):
     loss.backward()
     optimizer.step()
 
+print(f"Time elapsed: {sw.elapsed}")
+torch.save(model.state_dict(), 'model.pt')
+
 model.eval()
 idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
 out = model.generate(idx, 500)
@@ -248,7 +251,7 @@ for i, head in enumerate(model.blocks[0].sa.heads):
     assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
     assert (torch.triu(wei, diagonal=1) == 0).all()
     print(f"wei of the first sequence in the batch: {i}")
-    print(wei[0].round(decimals=2))
+    print(wei[0,:8,:8].round(decimals=2))
 
 #calculate all the weights:
 # layers: 
