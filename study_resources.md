@@ -35,7 +35,23 @@ It has three courses:
 |---|---|---|
 | Convolutional Neural Network (playlist; the first 7 videos) | YouTube, Learn With Jay | https://www.youtube.com/watch?v=E5Z7FQp7AQQ&list=PLuhqtP7jdD8CD6rOWy20INGM44kULvrHu |
 
-## 5. Building and deploying a model
+## 5. Transformers and LLMs
+
+The resources for Phase 2 (GPT from scratch + HuggingFace), in the order studied.
+
+| Resource | Source | Link |
+|---|---|---|
+| Neural networks series: the chapters on GPT and attention | YouTube, 3Blue1Brown | https://www.youtube.com/watch?v=wjZofJX0v4M |
+| The Illustrated Transformer | Blog, Jay Alammar | https://jalammar.github.io/illustrated-transformer |
+| Stanford CME295 Transformers & LLMs, Lecture 1 – Transformer (Autumn 2025) | YouTube, Stanford | https://www.youtube.com/watch?v=Ub3GoFaUcds |
+| Let's build GPT: from scratch, in code, spelled out (~2 hours) | YouTube, Andrej Karpathy | https://www.youtube.com/watch?v=kCc8FmEb1nY |
+| Word Embedding and Word2Vec, Clearly Explained!!! | YouTube, StatQuest with Josh Starmer | https://www.youtube.com/watch?v=viZrOnJclY0 |
+| Word Embedding in PyTorch + Lightning | YouTube, StatQuest with Josh Starmer | https://www.youtube.com/watch?v=Qf06XDYXCXI |
+| HuggingFace LLM Course, chapters 1–3 | huggingface.co/learn | https://huggingface.co/learn/llm-course |
+
+Build notes in [gpt-from-scratch/](gpt-from-scratch/learning_notes.md). Concepts in [concepts.md](concepts.md) under "Language models and Transformers".
+
+## 6. Building and deploying a model
 
 The credit risk API ([credit-api/](credit-api/README.md)) serves the Give Me Some Credit model. It covers the API, tests, Docker, prediction logging, MLflow, CI and a cloud deployment.
 

@@ -54,6 +54,8 @@ https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io
 | 1 | 3Blue1Brown, "Neural networks" series, the chapters on GPT and attention (YouTube) | The intuition: embeddings, attention, what a transformer layer does |
 | 2 | Jay Alammar, "The Illustrated Transformer" (blog) | The architecture drawn step by step |
 | 3 | Andrej Karpathy, "Let's build GPT: from scratch, in code, spelled out" (YouTube, about 2 hours) | A small transformer written in PyTorch, building on the Digit Recognizer training loops |
+| 3a | StatQuest, "Word Embedding and Word2Vec, Clearly Explained!!!" (YouTube) | Word embeddings and how Word2Vec learns them — watched alongside Karpathy |
+| 3b | StatQuest, "Word Embedding in PyTorch + Lightning" (YouTube) | Implementing word embeddings in PyTorch — watched alongside Karpathy |
 | 4 | Hugging Face LLM Course, chapters 1 to 3 (free, huggingface.co/learn) | Tokenizers, pretrained models, and fine-tuning with the `transformers` library: exactly part 1 |
 | Later | The rest of the Hugging Face course, and DeepLearning.AI's short courses on RAG | Part 2 |
 | Optional | *Natural Language Processing with Transformers* (Tunstall, von Werra, Wolf; O'Reilly) or *Hands-On Large Language Models* (Alammar, Grootendorst; O'Reilly) | A book to go deeper |
@@ -106,6 +108,7 @@ One end-to-end project on data I pick. It's the centrepiece of the portfolio.
 - **SQL:** joins, aggregations, window functions, query-writing exercises.
 - **Python coding:** data-structure problems (easy and medium), pandas.
 - **Telling the story:** each portfolio project in two minutes; backend experience framed as production ML strength.
+- **RLHF (Reinforcement Learning from Human Feedback):** how frontier models are aligned after SFT — humans rank pairs of outputs instead of writing full demonstrations, a reward model is trained on those rankings, and the LLM is fine-tuned with RL to maximise the reward. Covers: why SFT alone doesn't scale (annotation cost), the reward model, PPO and alternatives (DPO), and the trade-offs.
 
 ## Alongside the phases
 
