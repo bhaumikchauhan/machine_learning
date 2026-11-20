@@ -499,6 +499,11 @@ From 8 characters of context and 42,369 parameters (2.06) to 256 characters and 
 
 All pass at T = 256: the layer norm on a fresh model, `wei` (printed as an 8 × 8 corner, `wei[0, :8, :8]`), the parameter count, and no-peeking (positions 0 to 254 identical when only character 255 changes). The trained weights are in `model.pt` (52 MB, gitignored), so more text can be generated without another run.
 
+## After step 8: training behind `__main__`
+
+- **Decision: move training, generation and the checks into functions** (`train_and_generate()`, `checks_and_validations(model)`) called under `if __name__ == "__main__":`. Without the guard, importing the model class from gpt.py (for example, to load `model.pt` and generate more text) would run the whole 14-minute training.
+- **The rerun gave 1.4958 (train 1.0543) against 1.4994 (train 1.0546).** Not the refactor: the seed still runs at import and the random calls come in the same order. With the same seed, CUDA doesn't promise bit-identical runs unless deterministic algorithms are turned on, and at 64 × 256 positions per batch tiny rounding differences grow over 5,000 steps. A difference of 0.004 is within the validation loss's own movement over the last 2,000 steps (1.486 to 1.499). At the small settings, reruns had matched exactly.
+
 ## The whole build
 
 | Step | Validation loss | Parameters | What changed |

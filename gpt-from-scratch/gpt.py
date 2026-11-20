@@ -58,7 +58,7 @@ def get_batch(split):
 
 
 @torch.no_grad()
-def estimate_loss():
+def estimate_loss(model):
     out = {}
     model.eval()
     for split in ['train', 'val']:
@@ -194,130 +194,132 @@ class BigramLanguageModel(nn.Module):
             idx = torch.cat((idx, next_id), dim=1)
         return idx
 
-sw = Stopwatch.Stopwatch()
+def train_and_generate():
+    sw = Stopwatch.Stopwatch()
+    model = BigramLanguageModel(vocab_size)
+    model = model.to(DEVICE)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
-model = BigramLanguageModel(vocab_size)
-model = model.to(DEVICE)
-optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+    for i in range(ITERATIONS+1):
+        if i % EVAL_INTERVAL == 0:
+            print(f"Time elapsed: {sw.elapsed}")
+            losses = estimate_loss(model)
+            print(f"step {i}: training loss {losses['train']:.4f}, validation loss {losses['val']:.4f}")
 
+        xb, yb = get_batch('train')
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
+    print(f"Time elapsed: {sw.elapsed}")
+    torch.save(model.state_dict(), 'model.pt')
 
-for i in range(ITERATIONS+1):
-    if i % EVAL_INTERVAL == 0:
-        print(f"Time elapsed: {sw.elapsed}")
-        losses = estimate_loss()
-        print(f"step {i}: training loss {losses['train']:.4f}, validation loss {losses['val']:.4f}")
+    model.eval()
+    idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
+    out = model.generate(idx, 500)
+    out_str = decode(out[0].tolist())
 
-    xb, yb = get_batch('train')
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+    print("output:")
+    print(out_str)
 
-print(f"Time elapsed: {sw.elapsed}")
-torch.save(model.state_dict(), 'model.pt')
+    return model
 
-model.eval()
-idx = torch.zeros((1,1), dtype=torch.long, device=DEVICE)
-out = model.generate(idx, 500)
-out_str = decode(out[0].tolist())
-
-print("output:")
-print(out_str)
-
-
-
-# checks and validations
-with torch.no_grad():
-    model2 = BigramLanguageModel(vocab_size).to(DEVICE)
-    xb, _ = get_batch('train')
-    model2(xb)
-    out = model2.ln_f_output
-    mean = out.mean(dim=-1)                  # (B, T)
-    std  = out.std(dim=-1, correction=0)     # (B, T)
-    assert torch.allclose(mean, torch.zeros_like(mean), atol=1e-5)
-    assert torch.allclose(std, torch.ones_like(std), atol=1e-3)
+def checks_and_validations(model):
+    with torch.no_grad():
+        model2 = BigramLanguageModel(vocab_size).to(DEVICE)
+        xb, _ = get_batch('train')
+        model2(xb)
+        out = model2.ln_f_output
+        mean = out.mean(dim=-1)                  # (B, T)
+        std  = out.std(dim=-1, correction=0)     # (B, T)
+        assert torch.allclose(mean, torch.zeros_like(mean), atol=1e-5)
+        assert torch.allclose(std, torch.ones_like(std), atol=1e-3)
 
 # Check: the attention weights of one batch. Each row of wei sums to 1, and everything above the diagonal is 0.
-with torch.no_grad():
-    xb, yb = get_batch('train')
-    model(xb, yb)  # runs Head.forward, which stores wei (B, T, T)
+    with torch.no_grad():
+        xb, yb = get_batch('train')
+        model(xb, yb)  # runs Head.forward, which stores wei (B, T, T)
 
 
 
-for i, head in enumerate(model.blocks[0].sa.heads):
-    wei = head.wei
-    assert wei.shape == (BATCH_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-    assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
-    assert (torch.triu(wei, diagonal=1) == 0).all()
-    print(f"wei of the first sequence in the batch: {i}")
-    print(wei[0,:8,:8].round(decimals=2))
+    for i, head in enumerate(model.blocks[0].sa.heads):
+        wei = head.wei
+        assert wei.shape == (BATCH_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+        assert torch.allclose(wei.sum(dim=-1), torch.ones(BATCH_SIZE, BLOCK_SIZE, device=DEVICE))
+        assert (torch.triu(wei, diagonal=1) == 0).all()
+        print(f"wei of the first sequence in the batch: {i}")
+        print(wei[0,:8,:8].round(decimals=2))
 
-#calculate all the weights:
-# layers: 
-weights_in_token_embedding = vocab_size * N_EMBD
-weights_in_position_embedding = BLOCK_SIZE * N_EMBD
-layer_norm_weights = N_EMBD + N_EMBD
-weights_in_lm_head = N_EMBD * vocab_size + vocab_size
+    #calculate all the weights:
+    # layers: 
+    weights_in_token_embedding = vocab_size * N_EMBD
+    weights_in_position_embedding = BLOCK_SIZE * N_EMBD
+    layer_norm_weights = N_EMBD + N_EMBD
+    weights_in_lm_head = N_EMBD * vocab_size + vocab_size
 
-HEAD_SIZE = N_EMBD//N_HEAD
-weights_in_Key_in_head = N_EMBD * HEAD_SIZE
-weights_in_Query_in_head = N_EMBD * HEAD_SIZE
-weights_in_Value_in_head = N_EMBD * HEAD_SIZE
-weights_of_proj_in_ma = N_EMBD * N_EMBD + N_EMBD
-all_weights_in_all_heads = N_HEAD * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
-weights_of_mha = weights_of_proj_in_ma + all_weights_in_all_heads
-weights_and_bias_in_ffwd =((N_EMBD * 4 * N_EMBD) + (4*N_EMBD)) + ((4*N_EMBD*N_EMBD) + N_EMBD)
-weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd + (2*layer_norm_weights)
-weights_in_all_blocks = N_LAYER * weights_in_one_block
+    HEAD_SIZE = N_EMBD//N_HEAD
+    weights_in_Key_in_head = N_EMBD * HEAD_SIZE
+    weights_in_Query_in_head = N_EMBD * HEAD_SIZE
+    weights_in_Value_in_head = N_EMBD * HEAD_SIZE
+    weights_of_proj_in_ma = N_EMBD * N_EMBD + N_EMBD
+    all_weights_in_all_heads = N_HEAD * (weights_in_Key_in_head + weights_in_Query_in_head + weights_in_Value_in_head)
+    weights_of_mha = weights_of_proj_in_ma + all_weights_in_all_heads
+    weights_and_bias_in_ffwd =((N_EMBD * 4 * N_EMBD) + (4*N_EMBD)) + ((4*N_EMBD*N_EMBD) + N_EMBD)
+    weights_in_one_block = weights_of_mha + weights_and_bias_in_ffwd + (2*layer_norm_weights)
+    weights_in_all_blocks = N_LAYER * weights_in_one_block
 
-expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head + layer_norm_weights
-actual_weights = sum(p.numel() for p in model.parameters())
+    expected_weights = weights_in_token_embedding + weights_in_position_embedding + weights_in_all_blocks + weights_in_lm_head + layer_norm_weights
+    actual_weights = sum(p.numel() for p in model.parameters())
 
-print(f"weights expected: {expected_weights}")
-print(f"weights actual: {actual_weights}")
+    print(f"weights expected: {expected_weights}")
+    print(f"weights actual: {actual_weights}")
 
-assert actual_weights == expected_weights
-
-
-
-
-#run the model on a batch, change only the last character of each row, run it again. 
-# The logits at every position except the last must be identical (`torch.equal`). 
-# If they change, the mask isn't working.
-
-with torch.no_grad():
-    xb, yb = get_batch('train')
-    logits_1, loss = model(xb)
-
-    # A copy, so xb keeps the original. Change the last character of every block:
-    # id // 2 is always a different id, except for 0, which becomes 1.
-    xb2 = xb.clone()
-    last = xb[:, -1]  # (B,): the last character of each block
-    xb2[:, -1] = torch.where(last != 0, last // 2, 1)
-    assert (xb2[:, -1] != xb[:, -1]).all()  # every block's last character changed
-    assert torch.equal(xb2[:, :-1], xb[:, :-1])  # and nothing else
-
-    logits_2, loss = model(xb2)
-
-    # Positions 0 to 6 can't see position 7, so their logits must not move at all.
-    assert torch.equal(logits_1[:, :-1], logits_2[:, :-1])
-    # Position 7 sees its own new character, so in every block its 65 logits must differ somewhere.
-    assert (logits_1[:, -1] != logits_2[:, -1]).any(dim=-1).all()
+    assert actual_weights == expected_weights
 
 
 
 
+    #run the model on a batch, change only the last character of each row, run it again. 
+    # The logits at every position except the last must be identical (`torch.equal`). 
+    # If they change, the mask isn't working.
 
-#assert logits.shape == (4,8,65)
+    with torch.no_grad():
+        xb, yb = get_batch('train')
+        logits_1, loss = model(xb)
 
-assert vocab_size == 65
-assert len(data) == 1115394
-assert decode(encode("hi there")) == "hi there"
-assert len(train_data) == 1003854
-assert len(validation_data) == 111540
+        # A copy, so xb keeps the original. Change the last character of every block:
+        # id // 2 is always a different id, except for 0, which becomes 1.
+        xb2 = xb.clone()
+        last = xb[:, -1]  # (B,): the last character of each block
+        xb2[:, -1] = torch.where(last != 0, last // 2, 1)
+        assert (xb2[:, -1] != xb[:, -1]).all()  # every block's last character changed
+        assert torch.equal(xb2[:, :-1], xb[:, :-1])  # and nothing else
+
+        logits_2, loss = model(xb2)
+
+        # Positions 0 to 6 can't see position 7, so their logits must not move at all.
+        assert torch.equal(logits_1[:, :-1], logits_2[:, :-1])
+        # Position 7 sees its own new character, so in every block its 65 logits must differ somewhere.
+        assert (logits_1[:, -1] != logits_2[:, -1]).any(dim=-1).all()
 
 
-# assert x.shape == (4,8)
-# assert y.shape == (4,8)
-# assert torch.equal(x[:, 1:], y[:, :-1])
+
+
+
+    #assert logits.shape == (4,8,65)
+
+    assert vocab_size == 65
+    assert len(data) == 1115394
+    assert decode(encode("hi there")) == "hi there"
+    assert len(train_data) == 1003854
+    assert len(validation_data) == 111540
+
+
+    # assert x.shape == (4,8)
+    # assert y.shape == (4,8)
+    # assert torch.equal(x[:, 1:], y[:, :-1])
+
+if __name__ == "__main__":
+    model = train_and_generate()
+    checks_and_validations(model)
