@@ -48,3 +48,7 @@ gpt-from-scratch/*.epub
 gpt-from-scratch/*.pdf
 gpt-from-scratch/output.txt
 gpt-from-scratch/model.pt
+
+# Hugging Face demo: Trainer checkpoints (GBs) and run output
+hugging-face-demo/test-trainer/
+hugging-face-demo/output.txt
