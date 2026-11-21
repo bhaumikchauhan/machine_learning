@@ -1,0 +1,11 @@
+# PyTorch built for CUDA 13.2 (the RTX 4070 SUPER's driver supports up to 13.3); without this line pip installs the CPU-only build
+--extra-index-url https://download.pytorch.org/whl/cu132
+torch==2.15.0+cu132
+# Hugging Face: models, pipeline(), tokenizers, Trainer (tokenizers and huggingface_hub come with it)
+transformers==5.23.0
+# loading and processing data: load_dataset, .map
+datasets==5.2.0
+# needed by Trainer
+accelerate==1.16.0
+# metrics such as accuracy and F1
+evaluate==0.4.6
