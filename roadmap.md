@@ -77,6 +77,7 @@ https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io
 - **RAG** (retrieval-augmented generation): split documents into chunks, embed them, find the closest chunks to a question, and give them to the LLM as context.
 - **Vector databases:** they store the embeddings and find the nearest neighbours fast, using approximate indexes such as HNSW. Learn with FAISS, then build with pgvector (Postgres). Qdrant, Chroma and Pinecone are worth knowing by name. The distance ideas are the same as in clustering.
 - **Evaluation:** a test set of questions; check whether the right chunks were retrieved and whether the answers are faithful to them.
+- **Run a good reasoning model locally:** use llama.cpp or Ollama to run an open-source reasoning model (e.g. DeepSeek-R1 or QwQ) on the local machine; observe the chain-of-thought output and compare quality vs a closed API model.
 
 ### Phase 3: Time series ⬜
 

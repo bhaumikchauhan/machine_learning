@@ -416,6 +416,16 @@ A notebook printout loses all of this. *GMSC: `train_and_log()`, the experiment 
 
 **A managed platform's MLflow isn't the open-source one.** Each platform supports its own subset and sets its own defaults, so check the features the code relies on before choosing, and test with a throwaway model before moving. Azure ML's MLflow follows MLflow 2: no aliases. On Databricks, the default sklearn format becomes cloudpickle, and the metric history of a run that logged a model has an extra point. *GMSC: the registry moved to Databricks; `serialization_format="skops"` stated explicitly.*
 
+**LLM inference servers.** Serving a large language model at scale needs more than a FastAPI endpoint around `model.generate()`: memory management, batching, and hardware use all matter. Three common tools, each solving a different version of the problem:
+
+- **TGI (Text Generation Inference, Hugging Face).** *(Archived March 2026, read-only. HuggingFace now recommends vLLM or SGLang instead.)* Was a production-grade server for HuggingFace models. Solved: throughput at inference by enabling **continuous batching** (new requests join a running batch instead of waiting), **Flash Attention** (fused kernel that never materialises the full T×T attention matrix in slow HBM memory, cutting memory use from O(T²) to O(T)), and **KV caching** (K and V matrices for already-generated tokens are stored and reused across autoregressive steps). *Inference only.*
+
+- **vLLM.** Focuses on memory efficiency under many concurrent requests. Solves: the KV cache's memory fragmentation problem. Naive serving pre-allocates one large contiguous memory block per request (must guess the max response length), wasting most of it. vLLM uses **paged attention**: the KV cache is split into fixed-size pages (like OS virtual memory), a page table maps each request to whichever pages hold its K and V, and pages are allocated and freed one at a time as the sequence grows or finishes. Result: much higher GPU utilisation when many requests are in flight simultaneously. *Inference only.*
+
+- **llama.cpp.** Runs models on CPU (or mixed CPU/GPU) with 4-bit quantisation. Solves: running a large model when no GPU with enough VRAM is available. The weights are compressed from 16 or 32 bits to 4 bits per value (losing some precision but keeping most quality), so a 7B model fits in ~4 GB of RAM. *Inference only; no training.*
+
+All three are inference tools. Training still runs with PyTorch directly (or a framework like HuggingFace `Trainer`).
+
 ## Reinforcement learning
 
 **State-action value function Q(s, a).** The return if you start in state s, take action a once, then behave optimally. Forcing only the first action makes actions comparable: everything after it is the same (optimal), so Q(s, left) vs Q(s, right) judges just that first step. The best action is argmax_a Q(s, a), and the best return is max_a Q(s, a). In real RL the policy isn't known: Q is learned first and the policy is read off it. *RL, γ = 0.5: Q(2, right) = 12.5 although right is the wrong move from 2; Q(3, right) = 100 × 0.5⁴ = 6.25 (3 → 4 → 3 → 2 → 1).*
