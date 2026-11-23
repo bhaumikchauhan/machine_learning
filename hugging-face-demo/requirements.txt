@@ -9,3 +9,5 @@ datasets==5.2.0
 accelerate==1.16.0
 # metrics such as accuracy and F1
 evaluate==0.4.6
+# tables of predictions (datasets also installs it, but main.py imports it directly)
+pandas==3.1.1

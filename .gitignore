@@ -51,4 +51,5 @@ gpt-from-scratch/model.pt
 
 # Hugging Face demo: Trainer checkpoints (GBs) and run output
 hugging-face-demo/test-trainer/
+hugging-face-demo/bert-mrpc/
 hugging-face-demo/output.txt
