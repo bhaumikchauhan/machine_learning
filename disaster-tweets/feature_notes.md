@@ -29,3 +29,14 @@ From [data_analysis.py](data_analysis.py); plots in `plots/`.
 - **Group duplicates into the same fold, by the normalised text** (URLs removed, lower case, spaces collapsed), and judge the keep rule on this grouped CV. The folds never change the submitted model (step 7 fits on all of train, so it memorises the 400 shared tweets either way); they change how a model is measured, and so which model is chosen. Ungrouped CV rewards memorising: a change that only memorises better (keeping every rare word, say) would look like a gain. Grouped CV measures tweets never seen, as with real new tweets.
 - **Also print the ungrouped score**, as Kaggle has a similar overlap (12.7% duplicated rows in train, 12% of test seen in train): it shows how much memorisation is worth, and is the one to compare with the Kaggle score in step 7.
 - **Keep the 66 conflicting groups as they are.** The noise is real: Kaggle's test labels were made the same way, so cleaning train wouldn't make test cleaner. They cap the score (a model can't get both labels of the same tweet right), the same for every model compared.
+- **No local holdout.** Kaggle keeps the test labels hidden, so its score is the one honest check at the end, and all 7,613 tweets go to CV. Titanic held out 20% as well, and that holdout agreed with CV (0.838 against 0.841) while Kaggle gave 0.787: a holdout cut from `train.csv` shares its quirks. A local holdout here would also have to be split by group.
+- **Choose on CV, submit at milestones.** Keeping a change because its Kaggle score rose fits the choice to the test set (overfitting the leaderboard; 3,263 test tweets, so gains of a few thousandths are chance). Submit the baseline and the final model, with the expected score written first.
+
+## Validation (step 2, 2026-11-24)
+
+`disaster_tweets.py`, written by the user.
+
+- **Folds:** `create_folds` builds `StratifiedGroupKFold(5, shuffle=True, random_state=42)` folds with the normalised text as group (`data_analysis.normalise`) and saves `folds.csv` (`id`, `fold`; in git, so the transformer is scored on the same folds). It runs only if the file doesn't exist, so a later sklearn version can't silently change the folds. Asserts: no group on both sides of any fold, every tweet has a fold.
+- **Reading them back:** merged onto train by `id` (so the order of `folds.csv` doesn't matter), then `PredefinedSplit(test_fold=...)` as `cv=`.
+- **Fold sizes and rates:** 1,524, 1,523, 1,522, 1,522, 1,522 tweets; disaster rate 42.94–42.98% (plain `StratifiedKFold`, same seed: 42.94–43.01%). Grouping didn't cost balance: about 6,900 groups, most of them single tweets, fill the gaps around the big blocks (the 17-row one included).
+- **The dummy** ("always disaster") through both CVs, train and validation: F1 0.6011, precision 0.4297, recall 1.0, accuracy 0.4297, sd at most 0.0002. As worked out by hand (2 × 0.4297 / 1.4297), so the folds, scoring and printing are right.

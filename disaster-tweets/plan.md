@@ -84,7 +84,7 @@ F1 against the number of training tweets (10% to 100%), train and validation (th
 |---|---|---|
 | 0 setup | venv with uv (torch hardlinked from `D:\uv-cache`), imports and CUDA pass | 2026-11-24 |
 | 1 data | URL and keyword are signals, location isn't; 12.7% of rows are duplicates once URLs are ignored, 66 groups conflicting | 2026-11-24 |
-| 2 validation | | |
+| 2 validation | grouped folds saved to `folds.csv` (disaster rate 42.94–42.98% per fold); dummy F1 0.6011 on both CVs; no local holdout, Kaggle is the final check | 2026-11-24 |
 | 3 baseline | | |
 | 4 look inside | | |
 | 5 improvements | | |
