@@ -29,7 +29,7 @@ Kaggle's "Natural Language Processing with Disaster Tweets": classify each tweet
 
 ## Step 2: validation (user)
 
-1. **Folds:** stratified 5-fold, fixed seed. **Duplicates in the same fold:** a tweet in both the training and the validation part is a memorised answer, so group identical texts (`StratifiedGroupKFold`, groups = the text). Save the fold assignment (a `fold` column per `id`) so the transformer is scored on exactly the same folds.
+1. **Folds:** stratified 5-fold, fixed seed. **Duplicates in the same fold:** a tweet in both the training and the validation part is a memorised answer, so group duplicates (`StratifiedGroupKFold`, groups = the text normalised: URLs removed, lower case, spaces collapsed, as in `data_analysis.py`). Save the fold assignment (a `fold` column per `id`) so the transformer is scored on exactly the same folds.
 2. **Conflicting duplicates:** keep them (the noise is real), drop them, or relabel by majority. Write the choice and why in `feature_notes.md`.
 3. **Scoring:** F1 on class 1, plus precision, recall and accuracy for reading; train scores too (`return_train_score=True`), for the gap.
 4. **Trivial models through the same CV:** `DummyClassifier(strategy="constant", constant=1)` should give F1 ≈ 0.60. This tests the CV code before any real model.
