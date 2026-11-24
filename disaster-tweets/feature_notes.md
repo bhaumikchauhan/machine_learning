@@ -40,3 +40,28 @@ From [data_analysis.py](data_analysis.py); plots in `plots/`.
 - **Reading them back:** merged onto train by `id` (so the order of `folds.csv` doesn't matter), then `PredefinedSplit(test_fold=...)` as `cv=`.
 - **Fold sizes and rates:** 1,524, 1,523, 1,522, 1,522, 1,522 tweets; disaster rate 42.94–42.98% (plain `StratifiedKFold`, same seed: 42.94–43.01%). Grouping didn't cost balance: about 6,900 groups, most of them single tweets, fill the gaps around the big blocks (the 17-row one included).
 - **The dummy** ("always disaster") through both CVs, train and validation: F1 0.6011, precision 0.4297, recall 1.0, accuracy 0.4297, sd at most 0.0002. As worked out by hand (2 × 0.4297 / 1.4297), so the folds, scoring and printing are right.
+
+## The baseline (step 3, 2026-11-24)
+
+`build_pipeline()`: `TfidfVectorizer()` + `LogisticRegression(max_iter=1000)`, default settings, on `text` only. The vectorizer is in the Pipeline, so each fold learns its vocabulary and IDF from its training part only.
+
+- **Guessed before running:** validation F1 0.70, train F1 0.73 (gap 0.03).
+
+| | Grouped folds | Plain folds |
+|---|---|---|
+| Validation F1 | **0.7476 ± 0.0118** | 0.7510 ± 0.0085 |
+| Train F1 | 0.8587 | 0.8590 |
+| Validation precision / recall | 0.803 / 0.700 | 0.808 / 0.701 |
+| Validation accuracy | 0.797 | 0.800 |
+
+- **Per fold (grouped, validation F1):** 0.7247, 0.7516, 0.7490, 0.7555, 0.7571. Fold 0 is the hard one, 0.025 below the rest.
+- **0.15 above "always disaster"** (0.60). The guess was 0.05 low.
+- **The gap is 0.11, not 0.03:** with about 20,000 columns for 7,613 tweets, the model could separate its own training tweets by their rare words; the penalty (`C=1`) keeps those weights small, which is why train F1 stops at 0.86, not 1.0. Tuning C is step 5c.
+- **Precision 0.80, recall 0.70:** the model misses disasters more often than it raises false alarms. The cut-off (step 4 and 5g) trades one for the other.
+- **Grouped vs plain:** only 0.003 apart, much less than the 12.7% duplicate rate suggests. At `C=1` rare words get small weights, so a copy in the training part helps little. Watch it in step 5: changes that let the model memorise more (a larger C, more n-grams) could widen it.
+
+**Keep rule, written before any change was tried:** keep a change only if it beats the current model's validation F1 on **all 5 grouped folds** (a tie counts as a loss) **and** the mean gain is **at least 0.008**. Why:
+- Judged on the fold-by-fold differences. Fold 0's difficulty hits both models alike, so it cancels in the difference; it stays in (its tweets are real, and probably the hard ones that changes should help).
+- With 5 folds, a change with no effect wins all 5 by luck 1 time in 32 (at least 4: 6 in 32, too loose).
+- 0.008, not a bar near the fold sd (0.012): that sd is mostly fold difficulty, and a fold-by-fold difference varies much less; a higher bar would reject small, consistent gains, as in Titanic, where the group-fate feature won 46 of 50 folds and was kept only by overriding the rule after the result.
+- One condition, so a large gain that loses one fold is rejected: a change has to help everywhere.

@@ -53,3 +53,6 @@ gpt-from-scratch/model.pt
 hugging-face-demo/test-trainer/
 hugging-face-demo/bert-mrpc/
 hugging-face-demo/output.txt
+
+# Disaster Tweets: run output
+disaster-tweets/output.txt

@@ -51,8 +51,16 @@ def print_scores(scores, label):
         train_score = scores['train_' + score_type]
         print(f"{score_type} TRAIN mean: {train_score.mean():.4f} std (+/- {train_score.std():.4f})")
         print(f"{score_type} TEST mean: {test_score.mean():.4f} std (+/- {test_score.std():.4f})")
-        
+        if score_type == 'f1':
+            print("Test F1 score for each fold:")
+            for i, score in enumerate(test_score):
+                print(f"Fold_{i}: {score}")
 
+def cross_validate_model_and_print_scores(model, X, y, df_fold):
+    scores = cross_validate_model(model, X, y, PredefinedSplit(test_fold=df_fold["fold"]))
+    print_scores(scores, "PredefinedSplit")
+    scores = cross_validate_model(model, X, y, StratifiedKFold(shuffle=True, random_state=RANDOM_SEED, n_splits=N_FOLDS))
+    print_scores(scores, "StratifiedKFold")
 
 if __name__ == "__main__":
     df = get_train_data_from_csv()
@@ -61,7 +69,4 @@ if __name__ == "__main__":
         create_folds(X, y)
     df_fold = pd.read_csv(FOLDS_CSV)
     df_fold = df.merge(df_fold, on="id")
-    scores = cross_validate_model(get_dummy_classifier(), X, y, PredefinedSplit(test_fold=df_fold["fold"]))
-    print_scores(scores, "PredefinedSplit")
-    scores = cross_validate_model(get_dummy_classifier(), X, y, StratifiedKFold(shuffle=True, random_state=RANDOM_SEED, n_splits=N_FOLDS))
-    print_scores(scores, "StratifiedKFold")
+    cross_validate_model_and_print_scores(build_pipeline(), X['text'], y, df_fold)
