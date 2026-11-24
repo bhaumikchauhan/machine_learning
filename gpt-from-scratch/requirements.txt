@@ -1,3 +1,8 @@
+# Install with uv (from this folder): uv venv venv --python 3.11
+#   then: uv pip install --python venv/Scripts/python.exe --index-strategy unsafe-best-match -r requirements.txt
+# uv's cache is on D: (UV_CACHE_DIR=D:\uv-cache), the same drive as the repo, so torch is hardlinked: stored once for all venvs.
+# unsafe-best-match: look in both indexes, as pip does; uv's default would take every package found on the PyTorch index from there.
+
 # PyTorch built for CUDA 13.2 (the RTX 4070 SUPER's driver supports up to 13.3); the CPU-only build would train without the GPU
 --extra-index-url https://download.pytorch.org/whl/cu132
 torch==2.15.0+cu132
