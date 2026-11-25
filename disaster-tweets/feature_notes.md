@@ -132,3 +132,9 @@ From [learning_curve.py](learning_curve.py) (Claude's): the final model trained 
 - **The model:** the final TF-IDF model (TF-IDF defaults + `LogisticRegression(C=1)`, cut-off 0.5) fitted on all 7,613 training tweets. `create_submission()` in `disaster_tweets.py`, written by Claude; it checks the columns, the 3,263 rows and the ids against `sample_submission.csv`. 36.8% of test tweets predicted disaster (train: 43.0% are).
 - **Expected, written before uploading:** 0.74, "near the validation score".
 - **Kaggle: 0.79374**, +0.046 above the grouped CV (0.7476) and +0.042 above the plain CV (0.7510): outside the check in plan.md (within the fold-to-fold spread, ±0.012). In line with the honest TF-IDF scores quoted in plan.md (0.78–0.80).
+- **Why higher than CV** (the user named A and C from options):
+  - **More training tweets:** 6,089 per fold → 7,613 is 0.32 of a doubling; at about +0.03 per doubling (step 6), about +0.010.
+  - **The 400 test tweets also in train:** about +0.003 to +0.01 (plain CV, with the same kind of overlap, was +0.003 above grouped). The model calls 53% of them disaster against 34.5% of unseen test tweets: many are retweeted news.
+  - **Chance:** about ±0.008 (F1 on 3,263 tweets; per-fold sd 0.012 on 1,522).
+  - **Left unexplained: about +0.025.** The model treats test like train (mean |p − 0.5| 0.230 against 0.219 out-of-fold; 20% near 0.5 in both; 36.8% against 37.4% predicted disaster), so the difference is more likely in the labels (perhaps less noise than train's 66 conflicting groups). Checking would need the leaked test labels, which would make Kaggle another validation set: not done.
+- **For the method:** here CV was pessimistic (Titanic: optimistic). A shift like that affects every model alike, so the keep rule, which compares models with each other, still holds: CV ranks changes; it doesn't predict the leaderboard number to within a few points.
