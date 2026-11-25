@@ -56,3 +56,7 @@ hugging-face-demo/output.txt
 
 # Disaster Tweets: run output
 disaster-tweets/output.txt
+
+# Disaster Tweets: Trainer output folder (checkpoints, if any)
+disaster-tweets/bert_runs/
+disaster-tweets/trainer_output/

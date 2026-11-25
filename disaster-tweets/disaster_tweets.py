@@ -25,7 +25,6 @@ MENTION = re.compile(r"@\w+")
 sklearn.set_config(enable_metadata_routing=True)
 
 def get_train_data_from_csv():
-    
     return pd.read_csv(data_analysis.DATA / "train.csv")
 
 def get_X_y(df):

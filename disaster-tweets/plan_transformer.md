@@ -81,7 +81,7 @@ Each change is compared with the current transformer fold by fold; the simpler v
 
 | Step | Result | Date |
 |---|---|---|
-| 1 one fold | | |
+| 1 one fold | fold 0: BERT F1 0.7816 vs TF-IDF 0.7247 (+0.057); 17 s per epoch; checks pass | 2026-11-26 |
 | 2 decisions | | |
 | 3 baseline, 5 folds | | |
 | 4 look inside | | |

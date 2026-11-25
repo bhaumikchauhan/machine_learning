@@ -138,3 +138,17 @@ From [learning_curve.py](learning_curve.py) (Claude's): the final model trained 
   - **Chance:** about ±0.008 (F1 on 3,263 tweets; per-fold sd 0.012 on 1,522).
   - **Left unexplained: about +0.025.** The model treats test like train (mean |p − 0.5| 0.230 against 0.219 out-of-fold; 20% near 0.5 in both; 36.8% against 37.4% predicted disaster), so the difference is more likely in the labels (perhaps less noise than train's 66 conflicting groups). Checking would need the leaked test labels, which would make Kaggle another validation set: not done.
 - **For the method:** here CV was pessimistic (Titanic: optimistic). A shift like that affects every model alike, so the keep rule, which compares models with each other, still holds: CV ranks changes; it doesn't predict the leaderboard number to within a few points.
+
+# Transformer
+
+The plan is in [plan_transformer.md](plan_transformer.md): fine-tune a pretrained transformer on the same grouped folds (`folds.csv`), compared fold by fold with the TF-IDF model (0.7476).
+
+## One fold, end to end (step 1, 2026-11-26)
+
+`disaster_tweets_transformer.py`, written by the user: `bert-base-uncased`, trained on folds 1–4 (6,089 tweets), scored on fold 0 (1,524). Lr 5e-5 (linear decay to 0 over the 1,143 steps: the Trainer's default schedule), batch 16, 3 epochs, bf16, `max_length=96`, seed 42 set before `from_pretrained`. No evaluation or checkpoints during training (`eval_strategy="no"`, `save_strategy="no"`), so nothing about the validation tweets is seen before the epoch decision in step 2. Probabilities saved to `oof_bert_fold0.csv` (`id`, `fold`, `p`).
+
+- **Predicted:** F1 0.83, about 1 minute per epoch.
+- **Fold 0: F1 0.7816** (precision 0.799, recall 0.765, accuracy 0.816), against TF-IDF's 0.7247 on the same fold: **+0.057**, more than any TF-IDF change gained. The prediction was too high: 0.83 is the Kaggle-level figure, and here Kaggle came out about 0.046 above grouped CV.
+- **Time:** about 17 s per epoch (52 s for 3), 2.6 s to predict fold 0: about 3.5 times faster than predicted (bf16, short tweets).
+- **Checks:** F1 recomputed from the saved probabilities (`p ≥ 0.5`, `f1_score`) equals `compute_metrics`; no fold 0 id in the training part; a second run gave identical losses (seeded).
+- **Datasets from pandas:** `preserve_index=False` (after filtering by fold the index isn't 0, 1, 2…, and would become a `__index_level_0__` column); the label column renamed `target` → `label` (the Trainer looks for `label`); only `text`, `label`, `id` converted, `text` and `id` removed after tokenizing.
