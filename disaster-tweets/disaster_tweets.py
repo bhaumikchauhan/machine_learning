@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import sklearn
 import data_analysis
-from sklearn.model_selection import PredefinedSplit, StratifiedGroupKFold, StratifiedKFold, cross_validate
+from sklearn.model_selection import PredefinedSplit, StratifiedGroupKFold, StratifiedKFold, TunedThresholdClassifierCV, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -73,7 +73,7 @@ def create_folds(X, y):
 def get_dummy_classifier():
     return DummyClassifier(strategy="constant", constant=1)
 
-def print_scores(scores, label, print_c):
+def print_scores(scores, label, print_c, print_threshold=False):
     print(f"{label}:")
     for score_type in ["f1", "precision", "recall", "accuracy"]:
         test_score = scores['test_' + score_type]
@@ -85,6 +85,12 @@ def print_scores(scores, label, print_c):
             print("Test F1 score for each fold:")
             for i, score in enumerate(test_score):
                 print(f"Fold_{i}: {score}")
+
+    if print_threshold:
+        for fold, score in enumerate(scores['estimator']):
+            print(f"Best threshold for Fold_{fold}: {score.best_threshold_}")
+    #scores['estimator'][0].best_threshold_
+
         
     if print_c:
         for fold, score in enumerate(scores['estimator']):
@@ -94,9 +100,9 @@ def print_scores(scores, label, print_c):
 
 def cross_validate_model_and_print_scores(model, X, y, df_fold, params=None):
     pre_defined_split_scores = cross_validate_model(model, X, y, PredefinedSplit(test_fold=df_fold["fold"]), params)
-    step = model.named_steps["lr"]
-    print_c = isinstance(step, LogisticRegressionCV)
-    print_scores(pre_defined_split_scores, "PredefinedSplit", print_c)
+    print_c = isinstance(model, Pipeline) and isinstance(model.named_steps["lr"], LogisticRegressionCV)
+    print_threshold = isinstance(model, TunedThresholdClassifierCV)
+    print_scores(pre_defined_split_scores, "PredefinedSplit", print_c, print_threshold)
     stratified_split_scores = cross_validate_model(model, X, y, StratifiedKFold(shuffle=True, random_state=RANDOM_SEED, n_splits=N_FOLDS), params)
     print_scores(stratified_split_scores, "StratifiedKFold", print_c)
     return pre_defined_split_scores
@@ -139,6 +145,10 @@ def get_tfidf_clean():
 def get_tfidf_char_wb():
     return TfidfVectorizer(analyzer='char_wb', ngram_range=(2,5))
 
+def get_tuned_threshold_cv():
+    return TunedThresholdClassifierCV(build_pipeline(get_tfidf_base_line()), scoring="f1",
+                           cv=StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED))
+
 if __name__ == "__main__":
     df = get_train_data_from_csv()
     X, y = get_X_y(df)
@@ -148,12 +158,12 @@ if __name__ == "__main__":
     df_fold = df.merge(df_fold, on="id")
     print("Baseline:")
     base_line_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line()), X['text'], y, df_fold)
-    print("char_wb TfidfVectorizer")
+    print("Tuned threshold:")
     #bigram_scores = cross_validate_model_and_print_scores(build_pipeline(TfidfVectorizer(ngram_range=(1,2))), X['text'], y, df_fold)
-    #groups = X['text'].map(data_analysis.normalise)
+    groups = X['text'].map(data_analysis.normalise)
     #.
     # candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line(), get_logistic_regression_withcv_grouped()), X['text'], y, df_fold, params={"groups": groups})
 
-    candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_char_wb()), X['text'], y, df_fold)
+    candidate_scores = cross_validate_model_and_print_scores(get_tuned_threshold_cv(), X['text'], y, df_fold, params={"groups": groups})
 
     keep_rule(base_line_scores['test_f1'], candidate_scores['test_f1'])
