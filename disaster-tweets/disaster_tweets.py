@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import sklearn
 import data_analysis
 from sklearn.model_selection import PredefinedSplit, StratifiedGroupKFold, StratifiedKFold, cross_validate
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.dummy import DummyClassifier
 
@@ -12,6 +13,8 @@ N_FOLDS = 5
 FOLDS_CSV = data_analysis.HERE / "folds.csv"
 MIN_F1_GAIN = 0.008
 MIN_FOLD_WIN_SHARE = 1
+CS=[0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
+sklearn.set_config(enable_metadata_routing=True)
 
 def get_train_data_from_csv():
     
@@ -22,12 +25,13 @@ def get_X_y(df):
     y = df['target']
     return X, y
 
-def build_pipeline(tfidfVectorizer):
-    return Pipeline([("tfidf", tfidfVectorizer), ("lr", LogisticRegression(max_iter=1000))])
+def build_pipeline(tfidfVectorizer, lr=None):
+    if lr is None:
+        lr = LogisticRegression(max_iter=1000)
+    return Pipeline([("tfidf", tfidfVectorizer), ("lr", lr)])
 
-def cross_validate_model(pipeline, X, y, cv):
-    return cross_validate(pipeline, X, y, cv=cv,
-                  scoring=["f1", "precision", "recall", "accuracy"], return_train_score=True)
+def cross_validate_model(pipeline, X, y, cv, params=None):
+    return cross_validate(pipeline, X, y, cv=cv, scoring=["f1", "precision", "recall", "accuracy"], return_train_score=True, return_estimator=True, params=params)
 
 def create_folds(X, y):
     groups = X['text'].map(data_analysis.normalise)
@@ -46,7 +50,7 @@ def create_folds(X, y):
 def get_dummy_classifier():
     return DummyClassifier(strategy="constant", constant=1)
 
-def print_scores(scores, label):
+def print_scores(scores, label, print_c):
     print(f"{label}:")
     for score_type in ["f1", "precision", "recall", "accuracy"]:
         test_score = scores['test_' + score_type]
@@ -58,12 +62,20 @@ def print_scores(scores, label):
             print("Test F1 score for each fold:")
             for i, score in enumerate(test_score):
                 print(f"Fold_{i}: {score}")
+        
+    if print_c:
+        for fold, score in enumerate(scores['estimator']):
+            print(f"C for Fold_{fold}: {score.named_steps['lr'].C_[0]}")
+        Cs = [est.named_steps['lr'].C_[0] for est in scores['estimator']]
+        print(f"C: min {min(Cs)}, median {np.median(Cs)}, max {max(Cs)}")
 
-def cross_validate_model_and_print_scores(model, X, y, df_fold):
-    pre_defined_split_scores = cross_validate_model(model, X, y, PredefinedSplit(test_fold=df_fold["fold"]))
-    print_scores(pre_defined_split_scores, "PredefinedSplit")
-    stratified_split_scores = cross_validate_model(model, X, y, StratifiedKFold(shuffle=True, random_state=RANDOM_SEED, n_splits=N_FOLDS))
-    print_scores(stratified_split_scores, "StratifiedKFold")
+def cross_validate_model_and_print_scores(model, X, y, df_fold, params=None):
+    pre_defined_split_scores = cross_validate_model(model, X, y, PredefinedSplit(test_fold=df_fold["fold"]), params)
+    step = model.named_steps["lr"]
+    print_c = isinstance(step, LogisticRegressionCV)
+    print_scores(pre_defined_split_scores, "PredefinedSplit", print_c)
+    stratified_split_scores = cross_validate_model(model, X, y, StratifiedKFold(shuffle=True, random_state=RANDOM_SEED, n_splits=N_FOLDS), params)
+    print_scores(stratified_split_scores, "StratifiedKFold", print_c)
     return pre_defined_split_scores
 
 def keep_rule(current_f1, candidate_f1):
@@ -80,6 +92,24 @@ def keep_rule(current_f1, candidate_f1):
     print("Keep the candidate." if keep else "Keep the current version.")
     return keep
 
+def get_tfidf_base_line():
+    return TfidfVectorizer()
+
+def get_tfidf_bigram():
+    return TfidfVectorizer(ngram_range=(1,2))
+
+def get_tfidf_min_df_2():
+    return TfidfVectorizer(min_df=2)
+
+def get_tfidf_sublinear_tf():
+    return TfidfVectorizer(sublinear_tf=True)
+
+def get_tfidf_min_df_2_sublinear_tf():
+    return TfidfVectorizer(min_df=2, sublinear_tf=True)
+
+def get_logistic_regression_withcv_grouped():
+    return LogisticRegressionCV(Cs=CS, cv=StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED), scoring="f1", max_iter=1000)
+
 
 if __name__ == "__main__":
     df = get_train_data_from_csv()
@@ -89,9 +119,10 @@ if __name__ == "__main__":
     df_fold = pd.read_csv(FOLDS_CSV)
     df_fold = df.merge(df_fold, on="id")
     print("Baseline:")
-    base_line_scores = cross_validate_model_and_print_scores(build_pipeline(TfidfVectorizer()), X['text'], y, df_fold)
-    print("sublinear_tf=True:")
+    base_line_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line()), X['text'], y, df_fold)
+    print("LogisticRegressionCV")
     #bigram_scores = cross_validate_model_and_print_scores(build_pipeline(TfidfVectorizer(ngram_range=(1,2))), X['text'], y, df_fold)
-    min_df_scores = cross_validate_model_and_print_scores(build_pipeline(TfidfVectorizer(sublinear_tf=True)), X['text'], y, df_fold)
+    groups = X['text'].map(data_analysis.normalise)
+    candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line(), get_logistic_regression_withcv_grouped()), X['text'], y, df_fold, params={"groups": groups})
 
-    keep_rule(base_line_scores['test_f1'], min_df_scores['test_f1'])
+    keep_rule(base_line_scores['test_f1'], candidate_scores['test_f1'])
