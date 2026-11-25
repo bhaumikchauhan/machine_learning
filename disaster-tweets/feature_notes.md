@@ -65,3 +65,31 @@ From [data_analysis.py](data_analysis.py); plots in `plots/`.
 - With 5 folds, a change with no effect wins all 5 by luck 1 time in 32 (at least 4: 6 in 32, too loose).
 - 0.008, not a bar near the fold sd (0.012): that sd is mostly fold difficulty, and a fold-by-fold difference varies much less; a higher bar would reject small, consistent gains, as in Titanic, where the group-fate feature won 46 of 50 folds and was kept only by overriding the rule after the result.
 - One condition, so a large gain that loses one fold is rejected: a change has to help everywhere.
+
+## Looking inside the baseline (step 4, 2026-11-25)
+
+From [look_inside.py](look_inside.py) (Claude's; reading only, nothing changes the model); out-of-fold predictions on the grouped folds; plot `plots/cutoff.png`.
+
+- **The words** (fitted on all of train, 21,637 columns): the strongest disaster word is `in` (3.96, in 1,789 tweets: news style, "fire in California"), then `hiroshima` (the 70th anniversary), `fires`, `california`, `http`, `fire`, `train`, `storm`, `suicide`, `bombing`, `killed`, `earthquake`, `derailment`. Towards "not": personal words (`you`, `my`, `your`, `me`, `he`, `she`, `love`, `song`, `nowplaying`, `youtube`, `ebay`) and keywords mostly used as metaphors (`body`, `bags`, `panic`, `traumatised`, `blew`, `upheaval`).
+- **URLs are cut into pieces:** `http` leans disaster (2.75, in 3,603 tweets), `https` the other way (−1.41); every link also adds `t`, `co` and a random code. The http/https split probably reflects the app that posted, not the meaning (step 5e).
+- **The mistakes:** 562 false positives, 983 false negatives: the model misses disasters about twice as often as it raises false alarms. The most confident false negatives are mostly odd labels ("My back is so sunburned :(", keyword `hurricane`, labelled disaster); the most confident false positives are news-style or metaphors ("I'm On Fire.", a Calgary weather-and-traffic bot, "Governor weighs parole for California school bus hijacker"). 8.7% of false positives are in a conflicting group, against 3.1% of all tweets.
+- **The cut-off:** F1 is flat near its top: best 0.46 (F1 0.7514) against 0.7476 at 0.5, +0.004, chosen on the validation tweets themselves (optimistic); each fold's best differs (0.46 to 0.55). Precision and recall cross at about 0.45.
+- **Fold 0** is not hard for a reason measured here: the same disaster rate (43.0%), repeats (12.8%), fewer conflicting tweets than folds 3 and 4; accuracy 0.780 against 0.797–0.808. It drew more hard tweets.
+- **The user's prediction:** word pairs (5a) should beat the current model; a size was hard to guess. Changes then taken one at a time, each with a pass/fail prediction first.
+
+## Improvements (step 5, from 2026-11-25)
+
+Each change against the current model on the grouped folds, through `keep_rule` (all 5 folds won, mean gain ≥ 0.008). The current model is still the baseline (0.7476).
+
+| Change | Validation F1 | Train F1 | Mean gain | Folds won | Predicted | Result |
+|---|---|---|---|---|---|---|
+| 5a word pairs, `ngram_range=(1, 2)` | 0.7280 | 0.8777 | −0.020 | 1 of 5 | pass | **dropped** |
+| 5b-i `min_df=2` | 0.7496 | 0.8400 | +0.002 | 3 of 5 | pass | **dropped** |
+| 5b-ii `sublinear_tf=True` | 0.7461 | 0.8591 | −0.002 | 2 of 5 | fail | **dropped** |
+| 5b-i + ii together | 0.7493 | 0.8415 | +0.002 | 4 of 5 | (none) | **dropped** |
+
+- **5a: word pairs overfit.** Columns 21,637 → 90,133, of which 72,299 (80%) appear in one tweet only. Training gives such pairs weights because they make the training tweets right, so train F1 rose (0.878) and validation fell, mostly through false alarms (precision 0.803 → 0.761, recall unchanged). And each row is scaled to length 1, so with twice the entries the useful words get smaller values (mean single-word entry 0.239 → 0.148): their weights must grow, and `C=1` charges more. Dropped *as tested* (pairs alone at C=1): it could be retried after `min_df` or a tuned C, since a decision depends on the other settings.
+- **5b-i: `min_df=2`** removes about 15,000 single-tweet words, a third of the columns left. Train F1 fell (0.859 → 0.840, the gap 0.11 → 0.09: less to memorise), validation barely moved, folds both ways. The rare words weren't helping or hurting new tweets: `C=1` already kept their weights small. Fewer columns for the same score is tempting, but the rule keeps a change only if it passes, and the rule isn't changed after the result.
+- **5b-ii: `sublinear_tf`** (count → 1 + log(count)) changes only entries with a count above 1: 5.3% of them (43% of tweets repeat a word, often URL pieces or "the"). Nothing to gain.
+- **Together:** the same as `min_df` alone (0.7493 against 0.7496), so `sublinear_tf` adds nothing on top either.
+- **So far:** the rare columns and how words are counted matter little at `C=1`. Next: 5c, tuning C inside the folds.

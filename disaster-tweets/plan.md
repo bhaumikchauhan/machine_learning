@@ -86,7 +86,7 @@ F1 against the number of training tweets (10% to 100%), train and validation (th
 | 1 data | URL and keyword are signals, location isn't; 12.7% of rows are duplicates once URLs are ignored, 66 groups conflicting | 2026-11-24 |
 | 2 validation | grouped folds saved to `folds.csv` (disaster rate 42.94–42.98% per fold); dummy F1 0.6011 on both CVs; no local holdout, Kaggle is the final check | 2026-11-24 |
 | 3 baseline | TF-IDF + LR: validation F1 0.748 ± 0.012 (grouped), train 0.859; keep rule: all 5 folds won and mean gain ≥ 0.008 | 2026-11-24 |
-| 4 look inside | | |
-| 5 improvements | | |
+| 4 look inside | strongest words news-style (`in`, place names) vs personal (`you`, `my`); URLs cut into `http`/`https` pieces; 983 false negatives vs 562 false positives; best cut-off 0.46 only +0.004 | 2026-11-25 |
+| 5 improvements | 5a word pairs −0.020, 5b-i `min_df=2` +0.002, 5b-ii `sublinear_tf` −0.002: all dropped; current model still the baseline. Next 5c | 2026-11-25 |
 | 6 learning curve | | |
 | 7 submission | | |
