@@ -17,7 +17,17 @@ Fine-tune a pretrained transformer on the same task, on the **same grouped folds
 2. `compute_metrics` returns F1 on class 1 (plus precision, recall, accuracy), from argmax of the logits, so it matches `cross_validate`'s F1 at a 0.5 cut-off.
 3. Save fold 0's probabilities (softmax of the logits, column 1) with their `id`.
 
-**Prediction first:** fold 0's F1 (TF-IDF scored 0.7247 there, its hardest fold), and the minutes per epoch.
+How to write it:
+- **Data:** merge `train.csv` with `folds.csv` on `id`; fold 0 is the validation part, folds 1–4 the training part. Each part becomes a `datasets.Dataset` (`Dataset.from_pandas`) with `text`, `label` and `id`. Tokenize with `truncation=True, max_length=96`; a `DataCollatorWithPadding` pads each batch (as in the demo).
+- **Seed:** `set_seed(SEED)` before `from_pretrained(..., num_labels=2)`.
+- **`TrainingArguments`:** `num_train_epochs=3`, `learning_rate=5e-5`, `per_device_train_batch_size=16`, `bf16=True` (the 4070 supports it; faster), `report_to="none"`.
+  - **`eval_strategy="no"`**, then one `trainer.predict()` on fold 0 after training. Scoring fold 0 after every epoch would show which epoch was best, and step 2's epoch decision would then be shaped by the validation tweets.
+  - **`save_strategy="no"`**: no checkpoints (GBs each); the `output_dir` itself goes in `.gitignore`.
+- **After training:** `p = softmax(logits)[:, 1]`; save `id`, `fold`, `p` to `oof_bert_fold0.csv`; recompute F1 from `p ≥ 0.5` with `f1_score` and compare it with `compute_metrics`.
+- **Assert:** no fold 0 `id` is in the training part.
+- Run output goes into `output.txt` (gitignored).
+
+**Prediction first:** fold 0's F1 (TF-IDF scored 0.7247 there, its hardest fold), and the minutes per epoch. **The user's prediction (2026-11-25): F1 0.83, about 1 minute per epoch.**
 
 **Check:** the F1 recomputed from the saved probabilities (`p ≥ 0.5`) with `sklearn.metrics.f1_score` equals what `compute_metrics` printed; the validation tweets of fold 0 never reach the training set (an assert on the ids).
 
