@@ -126,3 +126,9 @@ From [learning_curve.py](learning_curve.py) (Claude's): the final model trained 
 - **Predicted: flat at 100%. Wrong: still rising**, more slowly with each step: the last doubling (3,044 → 6,089) added +0.027, on all 5 folds (+0.002 to +0.041); over the upper half, about +0.03 per doubling.
 - The gap shrinks mostly because validation rises; train falls slightly (fewer chance patterns to memorise per tweet).
 - **With step 5:** with these tweets, no change of settings got more out of bag of words; more tweets would still help (perhaps 0.77 at 12,000, 0.80 at 24,000, if the trend holds). More labelled tweets aren't available, but a pretrained transformer brings knowledge from billions of words: the "more data" this curve asks for.
+
+## Submission (step 7, 2026-11-25)
+
+- **The model:** the final TF-IDF model (TF-IDF defaults + `LogisticRegression(C=1)`, cut-off 0.5) fitted on all 7,613 training tweets. `create_submission()` in `disaster_tweets.py`, written by Claude; it checks the columns, the 3,263 rows and the ids against `sample_submission.csv`. 36.8% of test tweets predicted disaster (train: 43.0% are).
+- **Expected, written before uploading:** 0.74, "near the validation score".
+- **Kaggle: 0.79374**, +0.046 above the grouped CV (0.7476) and +0.042 above the plain CV (0.7510): outside the check in plan.md (within the fold-to-fold spread, ±0.012). In line with the honest TF-IDF scores quoted in plan.md (0.78–0.80).

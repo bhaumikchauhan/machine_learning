@@ -15,6 +15,7 @@ from sklearn.preprocessing import OneHotEncoder
 RANDOM_SEED = 42
 N_FOLDS = 5
 FOLDS_CSV = data_analysis.HERE / "folds.csv"
+SUBMISSION_CSV = data_analysis.HERE / "submission.csv"
 MIN_F1_GAIN = 0.008
 MIN_FOLD_WIN_SHARE = 1
 CS=[0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
@@ -148,6 +149,28 @@ def get_tfidf_char_wb():
 def get_tuned_threshold_cv():
     return TunedThresholdClassifierCV(build_pipeline(get_tfidf_base_line()), scoring="f1",
                            cv=StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED))
+
+def create_submission(path=SUBMISSION_CSV):
+    """Step 7 (written by Claude): the final model (TF-IDF defaults + LogisticRegression(C=1), cut-off 0.5)
+    fitted on all 7,613 training tweets, predicting test.csv. Run with:
+        venv/Scripts/python.exe -c "import disaster_tweets; disaster_tweets.create_submission()"
+    """
+    train = get_train_data_from_csv()
+    test = pd.read_csv(data_analysis.DATA / "test.csv")
+    sample = pd.read_csv(data_analysis.DATA / "sample_submission.csv")
+
+    model = build_pipeline(get_tfidf_base_line()).fit(train['text'], train['target'])
+    submission = pd.DataFrame({"id": test["id"], "target": np.asarray(model.predict(test['text']), dtype=int)})
+
+    assert list(submission.columns) == list(sample.columns), "columns differ from sample_submission.csv"
+    assert len(submission) == len(sample) == 3263, "wrong number of rows"
+    assert submission["id"].equals(sample["id"]), "ids differ from sample_submission.csv"
+    assert submission["target"].isin([0, 1]).all()
+
+    submission.to_csv(path, index=False)
+    print(f"{path}: {len(submission)} rows, {submission.target.mean():.1%} predicted disaster "
+          f"(train: {train.target.mean():.1%} disaster)")
+    return submission
 
 if __name__ == "__main__":
     df = get_train_data_from_csv()
