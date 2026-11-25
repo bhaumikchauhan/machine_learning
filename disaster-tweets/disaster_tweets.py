@@ -1,3 +1,5 @@
+import html
+import re
 import pandas as pd
 import numpy as np
 import sklearn
@@ -7,6 +9,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.dummy import DummyClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
 
 RANDOM_SEED = 42
 N_FOLDS = 5
@@ -14,6 +18,9 @@ FOLDS_CSV = data_analysis.HERE / "folds.csv"
 MIN_F1_GAIN = 0.008
 MIN_FOLD_WIN_SHARE = 1
 CS=[0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
+MAX_ITER = 1000
+URL = re.compile(r"https?://\S+")
+MENTION = re.compile(r"@\w+")
 sklearn.set_config(enable_metadata_routing=True)
 
 def get_train_data_from_csv():
@@ -25,10 +32,26 @@ def get_X_y(df):
     y = df['target']
     return X, y
 
+def clean(text: str) -> str:
+    """5e: one token per URL and per @mention, HTML entities decoded.
+    Given to TfidfVectorizer as preprocessor=, which replaces its built-in lowercasing, so lower() is done here."""
+    text = html.unescape(text)                  # &amp; -> &, &gt; -> >, &lt; -> <
+    text = URL.sub(" urltoken ", text)          # every link: one column instead of http, t, co and a random code
+    text = MENTION.sub(" mentiontoken ", text)  # every @user: one column instead of one per user name
+    return text.lower()
+
+
 def build_pipeline(tfidfVectorizer, lr=None):
     if lr is None:
-        lr = LogisticRegression(max_iter=1000)
+        lr = LogisticRegression(max_iter=MAX_ITER)
     return Pipeline([("tfidf", tfidfVectorizer), ("lr", lr)])
+
+def build_pipeline_with_column_transformer():
+    preprocess = ColumnTransformer([
+            ('text', TfidfVectorizer(), 'text'),
+            ('keyword', OneHotEncoder(handle_unknown="ignore"), ['keyword'])
+        ])
+    return Pipeline([('preprocess', preprocess),('lr', LogisticRegression(max_iter=MAX_ITER))])
 
 def cross_validate_model(pipeline, X, y, cv, params=None):
     return cross_validate(pipeline, X, y, cv=cv, scoring=["f1", "precision", "recall", "accuracy"], return_train_score=True, return_estimator=True, params=params)
@@ -108,8 +131,13 @@ def get_tfidf_min_df_2_sublinear_tf():
     return TfidfVectorizer(min_df=2, sublinear_tf=True)
 
 def get_logistic_regression_withcv_grouped():
-    return LogisticRegressionCV(Cs=CS, cv=StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED), scoring="f1", max_iter=1000)
+    return LogisticRegressionCV(Cs=CS, cv=StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED), scoring="f1", max_iter=MAX_ITER)
 
+def get_tfidf_clean():
+    return TfidfVectorizer(preprocessor=clean)
+
+def get_tfidf_char_wb():
+    return TfidfVectorizer(analyzer='char_wb', ngram_range=(2,5))
 
 if __name__ == "__main__":
     df = get_train_data_from_csv()
@@ -120,9 +148,12 @@ if __name__ == "__main__":
     df_fold = df.merge(df_fold, on="id")
     print("Baseline:")
     base_line_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line()), X['text'], y, df_fold)
-    print("LogisticRegressionCV")
+    print("char_wb TfidfVectorizer")
     #bigram_scores = cross_validate_model_and_print_scores(build_pipeline(TfidfVectorizer(ngram_range=(1,2))), X['text'], y, df_fold)
-    groups = X['text'].map(data_analysis.normalise)
-    candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line(), get_logistic_regression_withcv_grouped()), X['text'], y, df_fold, params={"groups": groups})
+    #groups = X['text'].map(data_analysis.normalise)
+    #.
+    # candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_base_line(), get_logistic_regression_withcv_grouped()), X['text'], y, df_fold, params={"groups": groups})
+
+    candidate_scores = cross_validate_model_and_print_scores(build_pipeline(get_tfidf_char_wb()), X['text'], y, df_fold)
 
     keep_rule(base_line_scores['test_f1'], candidate_scores['test_f1'])
