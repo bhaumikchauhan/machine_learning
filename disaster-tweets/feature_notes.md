@@ -107,4 +107,22 @@ Each change against the current model on the grouped folds, through `keep_rule` 
 
 **Step 5 result: 7 changes, none passed; the final TF-IDF model is the baseline** (TF-IDF defaults + `LogisticRegression(C=1)`, 0.7476 on the grouped folds). Several changes gained +0.003 to +0.007 with folds both ways: bag of words looks near what it can do here, about 0.75. The rule held when 5d came close.
 
+**How `TunedThresholdClassifierCV` chose (5g, explained afterwards):** inside each outer training part, 5 grouped inner splits each give an F1-against-cut-off curve (100 cut-offs between the lowest and highest probability); the curves are averaged and the peak is `best_threshold_`; then the pipeline is refitted on the whole training part. For outer fold 0 the inner splits alone would pick 0.39 to 0.505; their average peaks at 0.47, on a flat top (0.40–0.52 within about 0.01), hence the small gain. Plot: `plots/tuned_threshold_fold0.png`.
+
 **Lesson for the next problem, not applied here:** with 5 folds and changes that flip about 150 tweets per fold, "all 5 folds won and +0.008" can only see fairly large gains; repeated CV (10 × 5 grouped folds, as in Titanic) would measure +0.004-sized gains more precisely, at 10 times the run time. Decide the number of folds with the keep rule, before the first comparison.
+
+## Learning curve (step 6, 2026-11-25)
+
+From [learning_curve.py](learning_curve.py) (Claude's): the final model trained on 10% … 100% of each grouped fold's training part (a random subset), scored on that fold's validation tweets. Plot: `plots/learning_curve.png`.
+
+| Training tweets per fold | Train F1 | Validation F1 | Gap |
+|---|---|---|---|
+| 608 (10%) | 0.880 | 0.612 | 0.27 |
+| 1,217 | 0.876 | 0.663 | 0.21 |
+| 3,044 (50%) | 0.866 | 0.720 | 0.15 |
+| 4,871 | 0.862 | 0.740 | 0.12 |
+| 6,089 (100%) | 0.859 | 0.747 | 0.11 |
+
+- **Predicted: flat at 100%. Wrong: still rising**, more slowly with each step: the last doubling (3,044 → 6,089) added +0.027, on all 5 folds (+0.002 to +0.041); over the upper half, about +0.03 per doubling.
+- The gap shrinks mostly because validation rises; train falls slightly (fewer chance patterns to memorise per tweet).
+- **With step 5:** with these tweets, no change of settings got more out of bag of words; more tweets would still help (perhaps 0.77 at 12,000, 0.80 at 24,000, if the trend holds). More labelled tweets aren't available, but a pretrained transformer brings knowledge from billions of words: the "more data" this curve asks for.

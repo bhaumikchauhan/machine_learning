@@ -88,5 +88,5 @@ F1 against the number of training tweets (10% to 100%), train and validation (th
 | 3 baseline | TF-IDF + LR: validation F1 0.748 ± 0.012 (grouped), train 0.859; keep rule: all 5 folds won and mean gain ≥ 0.008 | 2026-11-24 |
 | 4 look inside | strongest words news-style (`in`, place names) vs personal (`you`, `my`); URLs cut into `http`/`https` pieces; 983 false negatives vs 562 false positives; best cut-off 0.46 only +0.004 | 2026-11-25 |
 | 5 improvements | 5a word pairs −0.020, 5b-i `min_df=2` +0.002, 5b-ii `sublinear_tf` −0.002, 5c tuned C (3–10, nested, grouped inner CV) +0.004, 5d keyword +0.007 (4 of 5), 5e cleaning −0.006, 5f char n-grams +0.003, 5g tuned cut-off (0.45–0.47) +0.004: all 7 dropped; the baseline is the final TF-IDF model (0.7476) | 2026-11-25 |
-| 6 learning curve | | |
+| 6 learning curve | still rising at 100% (+0.027 for the last doubling, about +0.03 per doubling): more tweets would help; a pretrained model is the way to get that | 2026-11-25 |
 | 7 submission | | |
