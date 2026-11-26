@@ -152,3 +152,33 @@ The plan is in [plan_transformer.md](plan_transformer.md): fine-tune a pretraine
 - **Time:** about 17 s per epoch (52 s for 3), 2.6 s to predict fold 0: about 3.5 times faster than predicted (bf16, short tweets).
 - **Checks:** F1 recomputed from the saved probabilities (`p ≥ 0.5`, `f1_score`) equals `compute_metrics`; no fold 0 id in the training part; a second run gave identical losses (seeded).
 - **Datasets from pandas:** `preserve_index=False` (after filtering by fold the index isn't 0, 1, 2…, and would become a `__index_level_0__` column); the label column renamed `target` → `label` (the Trainer looks for `label`); only `text`, `label`, `id` converted, `text` and `id` removed after tokenizing.
+
+## Decisions before the full CV (step 2, decided 2026-11-26)
+
+Written before any 5-fold run. Words used below: for fold k, the **training part** is the other four folds (≈ 6,090 tweets) and the **validation part** is fold k (≈ 1,523). The **check part** is a grouped split of the training part (≈ 1,220), leaving the **inner-train part** (≈ 4,870).
+
+**1. The number of epochs: chosen inside each fold's training part (option B).** Per fold k:
+
+| | Run | Trains on | Epochs | Scored on |
+|---|---|---|---|---|
+| a | one run per seed, check F1 after each epoch | inner-train, ≈ 4,870 | 5 | check, ≈ 1,220, after every epoch |
+| b | average the seeds' check curves; the best average epoch is *n* | | | |
+| c | a fresh model per seed (`set_seed` + `from_pretrained`) | the whole training part, ≈ 6,090 | *n* | validation (fold k), once |
+
+- **Not fixed at 3 (option A):** 3 comes from the course's recipe, on another data set. A fixed count can't leak, but if it's wrong it only makes BERT score lower than it could.
+- **Never by watching fold k's F1 after each epoch:** the count would be fitted to the tweets that score it, the step 4 trap. There, each fold's best cut-off on its own validation tweets gave 0.7560, against 0.7519 when chosen inside the folds (5g): the extra +0.004 was noise counted as gain.
+- **Each fold chooses its own *n*:** choosing once inside fold 0's training part would use tweets from folds 1–4, which then score folds 1–4.
+- **Why (a) is one run and not 5:** a 5-epoch run passes through epochs 1–4, so scoring after each epoch gives all five counts at once.
+- **Why retrain in (c) instead of keeping (a)'s model:** (a)'s model never learned from the 1,220 check tweets. (c) learns from about 25% more tweets; at about +0.03 F1 per doubling (step 6), that's roughly +0.01. *n* stays honest either way: it was chosen on the check part, and fold k is never used. The same pattern as 5g's refit.
+- **Why the curves are averaged:** seeds differ by a few thousandths on 1,220 check tweets, which is noise. A seed's own peak doesn't carry over to its run in (c) anyway: different tweets mean different batches, so a different path. Averaging is steadier, as `TunedThresholdClassifierCV` averages its inner curves.
+- **Cost, one seed:** (a) ≈ 68 s per fold (14 s per epoch on 80% of the tweets), (c) up to 85 s, so about 13 minutes for 5 folds, worst case.
+
+**2. Seeds.** The seed sets the new head's starting weights (the ≈ 110 million BERT weights start pretrained, the same for every seed), the batch order and dropout. Different paths settle at different scores, not only at different epochs: on a few thousand examples, ±0.01–0.02, and now and then a seed that barely learns.
+- **First, measure the spread:** fold 0, 3 seeds (≈ 8 minutes).
+- **The baseline (step 3): 1 seed.** BERT against TF-IDF was +0.057 on fold 0, far above any seed spread.
+- **Step 5 changes: 3 seeds** if the measured spread is near the 0.008 bar (≈ 38 minutes per change, worst case).
+- **With several seeds, a fold's score is the mean F1 over its seeds.**
+
+**3. The keep rule: unchanged** (chosen by Claude at the user's request): all 5 folds won (a tie counts as a loss) and a mean gain of at least 0.008, fold by fold on the same grouped folds. It's the same rule as for TF-IDF, so "kept" means the same thing in both plans, and BERT against TF-IDF is judged on equal terms. Winning 5 of 5 by luck happens about 1 time in 32. Seed noise is handled by decision 2 (3 seeds shrink it by about √3), not by moving the bar.
+
+**4. What the model sees: the text only**, as for TF-IDF. Keyword is a later change (step 5b).
