@@ -37,6 +37,15 @@ How to write it:
 2. **Seeds:** a fine-tune's score varies with the seed (the head's start and the batch order; the demo's unseeded run scored 0.79 accuracy against 0.855 seeded). Decide how many seeds per fold (1 is cheap; 3 shows the spread), and how a comparison uses them (the mean over seeds, per fold).
 3. **The keep rule for transformer changes:** the TF-IDF rule (all 5 folds won, mean gain ≥ 0.008), or a different one written now, given that seed noise adds to fold noise.
 4. **What the model sees:** the text only, as TF-IDF did. Keyword is a later change (step 5).
+5. **The seed-spread run (user):** fold 0 only, 3 seeds (42, 43, 44), the step 1 code turned into functions so step 3 is a loop over folds:
+   - Split the training part (folds 1–4) with `StratifiedGroupKFold(5, shuffle=True, random_state=SEED)` on the normalised text; the first split gives inner-train (≈ 4,870) and check (≈ 1,220), the same for all seeds.
+   - Per seed: one 5-epoch run on inner-train, `eval_strategy="epoch"` on the check part (never fold 0); the check F1 per epoch from `trainer.state.log_history`.
+   - Average the 3 check curves; *n* = the best average epoch (a tie → fewer epochs).
+   - Per seed: a fresh model on the whole training part for *n* epochs, `eval_strategy="no"`; predict fold 0 once; F1 at `p ≥ 0.5`.
+   - Print the curves, *n*, fold 0's F1 per seed with mean and sd, and the time; save `oof_bert_seeds_fold0.csv` (`id`, `fold`, `seed`, `p`).
+   - The sd decides step 5's seed count: above 0.003 → 3 seeds.
+
+**Check:** no id shared between inner-train, check and fold 0, no group across inner-train and check; 5 check scores per seed.
 
 ## Step 3: the transformer baseline, 5 folds (user)
 
@@ -82,7 +91,7 @@ Each change is compared with the current transformer fold by fold; the simpler v
 | Step | Result | Date |
 |---|---|---|
 | 1 one fold | fold 0: BERT F1 0.7816 vs TF-IDF 0.7247 (+0.057); 17 s per epoch; checks pass | 2026-11-26 |
-| 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if needed; keep rule unchanged; text only | 2026-11-26 |
+| 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if the seed sd is above 0.003; keep rule unchanged; text only. Seed-spread run: | 2026-11-26 |
 | 3 baseline, 5 folds | | |
 | 4 look inside | | |
 | 5 improvements | | |
