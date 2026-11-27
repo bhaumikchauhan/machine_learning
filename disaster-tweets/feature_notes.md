@@ -230,3 +230,52 @@ The fold loop, written by the user: for each fold k, a fresh `bert-base-uncased`
 - **sd with ddof=0** (`np.std`), as for TF-IDF's ± 0.012; `pandas.std()` (ddof=1) would give 0.0092.
 - **Checks:** 7,613 rows with unique ids, the same set as `train.csv`; each fold's F1 recomputed from the saved `p`, matched to the labels by `id` (not by row order), equals the F1 logged in the loop; no id in both the training part and fold k. Fold 0 reproduced step 1's 0.7816, and a second run gave every fold's F1 to every digit.
 - **A rough Kaggle expectation:** TF-IDF scored about 0.046 above its grouped CV on Kaggle, so about 0.84 here, at the top of the 0.83–0.84 quoted for BERT-type models. It's written down properly in step 6.
+
+## Looking inside the transformer (step 4, 2026-11-27)
+
+From [look_inside_transformer.py](look_inside_transformer.py) (Claude's; reading only). BERT's out-of-fold probabilities are from `oof_bert_all_fold.csv`; TF-IDF's are recomputed on the same folds. Both reproduce their logged per-fold F1. Plot: `plots/cutoff_bert.png`.
+
+**1. Where the two models disagree.**
+
+| Label | Both right | BERT only | TF-IDF only | Both wrong |
+|---|---|---|---|---|
+| 0, not disaster (4,342) | 3,437 | 279 | 343 | 283 |
+| 1, disaster (3,271) | 2,164 | 408 | 124 | 575 |
+
+- **BERT's gain is recall.** It misses 699 disasters against TF-IDF's 983 (−284), and raises 626 false alarms against 562 (+64). Recall rose from 0.699 to 0.786 while precision stayed at 0.80.
+- **The two models make different mistakes.** They agree on 84.8% of the predictions, and their probabilities correlate at 0.76. BERT fixes 687 tweets and breaks 467. Of TF-IDF's 1,545 mistakes, BERT shares 858 (56%). This is what a blend needs (5e).
+- **The misses BERT fixes** are mostly disaster words in chatty tweets: @mentions and "you", the words that pull TF-IDF towards "not" ("Did anyone else see that fireball falling to earth?", "that storm's been given you guys trouble though"). Some of the fixed tweets have doubtful labels ("…little derailment is possible so I applaud you :)", labelled 1).
+- **The false alarms BERT fixes** are word artefacts: a wind-report bot, "Heroes of the Storm", "HAIL STATE", links (`http` leaned disaster in TF-IDF).
+- **The metaphors and the news-style false alarms are not fixed.** Of TF-IDF's 20 most confident false alarms, BERT also calls 17 a disaster, "I'm On Fire." among them (BERT 0.991). Most are news about real events labelled 0 (evacuation of an abandoned aircraft, a church arson). These are disputed labels, not something BERT failed to read.
+- **BERT also makes new metaphor mistakes** in chatty tweets ("I'll be dam if I get any of that drought bud" 0.992, "thunderstorms… make my soul explode" 0.975). Reading in context isn't enough when the disaster word is strong.
+
+**2. The mistakes left:** 1,325 (626 false positives, 699 false negatives), against TF-IDF's 1,545.
+- **The conflicting groups force at least 83 mistakes** on any model: 237 tweets, and in each group the copies with the minority label are lost. 96 of BERT's mistakes are in these groups.
+- **The most confident mistakes are mostly label noise.** The false positives at p 0.999 are news about disasters labelled 0 ("No reported flooding po in the area", "Cinema evacuated following false fire alarm"). The false negatives at p 0.001–0.003 are tweets labelled 1 that aren't disasters ("Check out my Lava lamp dude", "THUNDER BUDDYS!!!!", "Fall off a cliff please").
+
+**BERT is very confident, more than it should be.** This was a new reading, added to the plan's four.
+
+| Probability band | BERT share | BERT disaster rate | TF-IDF share | TF-IDF disaster rate |
+|---|---|---|---|---|
+| < 0.05 | 42.4% | 12.6% | 0.4% | 6.9% |
+| 0.4–0.6 | 2.0% | 36.5% | 20.9% | 44.5% |
+| ≥ 0.95 | 34.6% | 87.9% | 0.7% | 98.1% |
+
+- 77% of BERT's probabilities are below 0.05 or above 0.95. Of those at 0.95 or more, only 87.9% are disasters, and 12.6% of those under 0.05 are. BERT is **overconfident**: its fine-tuning loss pushes the probabilities to the ends, and a few of these labels are wrong anyway.
+- TF-IDF is the other way round: **underconfident**. Its 0.8–0.95 band is 97.7% disasters, because the C=1 penalty keeps its weights small.
+- **For a blend (5e):** a plain average of probabilities lets BERT's extremes decide. BERT 0.99 and TF-IDF 0.14 average to 0.565, so BERT's call wins. TF-IDF changes the result mostly where BERT is unsure, about 5% of the tweets. Averaging the logits or the ranks would weigh the two more evenly; that's a choice for step 5e.
+
+**3. The cut-off is flat.** F1 stays within 0.005 of its 0.5 value from cut-off 0.30 to 0.92, because few tweets lie between them. The best over all the tweets is 0.74 (F1 0.7976 against 0.7952, +0.002), chosen on the tweets that score it. Each fold's own best is all over the place (0.44 to 0.83). **So 5d (the cut-off chosen inside the folds) can't come near the 0.008 bar.** Precision and recall cross at about 0.40.
+
+**4. Fold 0 is hard for both models, for the same reason.** (The plan says "Fold 1", a slip: fold 0 is the hard one.)
+
+| Fold | TF-IDF accuracy | BERT accuracy | Both wrong | TF-IDF only wrong | BERT only wrong | Conflicting |
+|---|---|---|---|---|---|---|
+| 0 | 78.0% | 81.6% | **12.1%** | 9.8% | 6.2% | 2.8% |
+| 1 | 79.8% | 82.3% | 11.2% | 9.1% | 6.6% | 2.4% |
+| 2 | 79.7% | 83.2% | 10.4% | 9.9% | 6.4% | 2.4% |
+| 3 | 80.2% | 83.5% | 11.6% | 8.1% | 4.9% | 4.2% |
+| 4 | 80.8% | 82.3% | 11.0% | 8.1% | 6.6% | 3.9% |
+
+- Fold 0 has the most tweets that **both** models get wrong (12.1%), but few conflicting ones (2.8%). It drew more tweets that are hard for any model, or labelled against their wording, rather than more copies with clashing labels.
+- BERT narrows the gap: fold 0 is 0.017 below the mean of the other folds for BERT, against 0.029 for TF-IDF.
