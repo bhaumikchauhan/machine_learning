@@ -304,4 +304,5 @@ Each change is judged against the current transformer (BERT, 0.7951) fold by fol
 - **The prediction was too high:** 0.7990 against 0.81, and it fails on both conditions.
 - **The gain is mostly fold 0** (+0.017, the hard fold); without it, the other four average +0.0005.
 - **Where it differs from BERT:** precision is higher on four folds, recall about the same; BERT's gain over TF-IDF was recall.
+- **Fold 4's loss is probably real, not seed luck** (the user's reading): a difference carries two runs' luck, √2 × 0.0018 ≈ 0.0025, and −0.011 is about 4 times that. Even at double the seed sd (an sd from 3 seeds is rough, and it was measured on BERT, fold 0) it would be about 2 times. So twitter-roberta is better on some folds and worse on one, not better everywhere.
 - **Two things changed together** (the model and the preprocessing); that is how the model is meant to be used, so they count as one change.
