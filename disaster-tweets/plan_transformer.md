@@ -34,10 +34,11 @@ How to write it:
 ## Step 2: decisions before the full CV (user, written in feature_notes.md before any 5-fold run)
 
 1. **The number of epochs:** fixed in advance (the course's 3), or chosen inside each fold's training part (a grouped split of the training part, as with C and the cut-off). **Not** by watching fold *k*'s validation F1 and keeping the best epoch: that choice is fitted to the tweets that score it (step 4 of the TF-IDF plan, the cut-off, was the same trap).
+   **Changed 2026-11-27:** fixed at 3 after fold 0's check curves came out flat (means 0.7824–0.7854 over 1–5 epochs; see feature_notes.md). Steps 3 and 5 use 3 epochs, no check split.
 2. **Seeds:** a fine-tune's score varies with the seed (the head's start and the batch order; the demo's unseeded run scored 0.79 accuracy against 0.855 seeded). Decide how many seeds per fold (1 is cheap; 3 shows the spread), and how a comparison uses them (the mean over seeds, per fold).
 3. **The keep rule for transformer changes:** the TF-IDF rule (all 5 folds won, mean gain ≥ 0.008), or a different one written now, given that seed noise adds to fold noise.
 4. **What the model sees:** the text only, as TF-IDF did. Keyword is a later change (step 5).
-5. **The seed-spread run (user):** fold 0 only, 3 seeds (42, 43, 44), the step 1 code turned into functions so step 3 is a loop over folds:
+5. **The seed-spread run (user):** (as first planned; after the epoch change, only the last part, 3 seeds × 3 epochs on folds 1–4, is rerun) fold 0 only, 3 seeds (42, 43, 44), the step 1 code turned into functions so step 3 is a loop over folds:
    - Split the training part (folds 1–4) with `StratifiedGroupKFold(5, shuffle=True, random_state=SEED)` on the normalised text; the first split gives inner-train (≈ 4,870) and check (≈ 1,220), the same for all seeds.
    - Per seed: one 5-epoch run on inner-train, `eval_strategy="epoch"` on the check part (never fold 0); the check F1 per epoch from `trainer.state.log_history`.
    - Average the 3 check curves; *n* = the best average epoch (a tie → fewer epochs).
@@ -91,7 +92,7 @@ Each change is compared with the current transformer fold by fold; the simpler v
 | Step | Result | Date |
 |---|---|---|
 | 1 one fold | fold 0: BERT F1 0.7816 vs TF-IDF 0.7247 (+0.057); 17 s per epoch; checks pass | 2026-11-26 |
-| 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if the seed sd is above 0.003; keep rule unchanged; text only. Seed-spread run: | 2026-11-26 |
+| 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if the seed sd is above 0.003; keep rule unchanged; text only. Epochs then fixed at 3 (fold 0's check curves flat over 1–5). Seed-spread run: fold 0 F1 0.7816 / 0.7847 / 0.7848, sd 0.0018 → 1 seed for step 5; step 1 reproduced | 2026-11-27 |
 | 3 baseline, 5 folds | | |
 | 4 look inside | | |
 | 5 improvements | | |

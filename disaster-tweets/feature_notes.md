@@ -172,6 +172,16 @@ Written before any 5-fold run. Words used below: for fold k, the **training part
 - **Why retrain in (c) instead of keeping (a)'s model:** (a)'s model never learned from the 1,220 check tweets. (c) learns from about 25% more tweets; at about +0.03 F1 per doubling (step 6), that's roughly +0.01. *n* stays honest either way: it was chosen on the check part, and fold k is never used. The same pattern as 5g's refit.
 - **Why the curves are averaged:** seeds differ by a few thousandths on 1,220 check tweets, which is noise. A seed's own peak doesn't carry over to its run in (c) anyway: different tweets mean different batches, so a different path. Averaging is steadier, as `TunedThresholdClassifierCV` averages its inner curves.
 - **Cost, one seed:** (a) ≈ 68 s per fold (14 s per epoch on 80% of the tweets), (c) up to 85 s, so about 13 minutes for 5 folds, worst case.
+- **Changed after the fold 0 run (2026-11-27): fixed at 3 epochs** (the user's choice). Fold 0's check curves (inner-train 4,871, check 1,218; `check_f1_fold0.csv`) were flat:
+
+  | Check F1 | 1 | 2 | 3 | 4 | 5 |
+  |---|---|---|---|---|---|
+  | seed 42 | 0.7729 | 0.7876 | 0.7871 | 0.7838 | 0.7866 |
+  | seed 43 | 0.7953 | 0.7852 | 0.7869 | 0.7786 | 0.7762 |
+  | seed 44 | 0.7847 | 0.7796 | 0.7820 | 0.7863 | 0.7845 |
+  | **mean** | 0.7843 | 0.7841 | **0.7854** | 0.7829 | 0.7824 |
+
+  The means span 0.003 over 1–5 epochs, less than the seeds differ at any one epoch, so the count barely matters, and option B's per-fold choice (about 4 extra minutes per fold) buys almost nothing. *n* = 3 here anyway. **Known, accepted leak:** the check tweets belong to folds 1–4, so "3" for scoring folds 1–4 was informed by some of their own tweets. It's one number from a flat curve, so it carries almost no information about which tweets are easy; chosen to save time, not because 3 scored best.
 
 **2. Seeds.** The seed sets the new head's starting weights (the ≈ 110 million BERT weights start pretrained, the same for every seed), the batch order and dropout. Different paths settle at different scores, not only at different epochs: on a few thousand examples, ±0.01–0.02, and now and then a seed that barely learns.
 - **First, measure the spread:** fold 0, 3 seeds (≈ 8 minutes).
@@ -182,3 +192,19 @@ Written before any 5-fold run. Words used below: for fold k, the **training part
 **3. The keep rule: unchanged** (chosen by Claude at the user's request): all 5 folds won (a tie counts as a loss) and a mean gain of at least 0.008, fold by fold on the same grouped folds. It's the same rule as for TF-IDF, so "kept" means the same thing in both plans, and BERT against TF-IDF is judged on equal terms. Winning 5 of 5 by luck happens about 1 time in 32. Seed noise is handled by decision 2 (3 seeds shrink it by about √3), not by moving the bar.
 
 **4. What the model sees: the text only**, as for TF-IDF. Keyword is a later change (step 5b).
+
+### The seed spread (2026-11-27)
+
+Fold 0, 3 epochs on folds 1–4 (6,089 tweets), one fresh model per seed, fold 0 (1,524) predicted once; `oof_bert_seeds_fold0.csv` (`id`, `fold`, `seed`, `p`). About 55 s per seed. The script now logs to the console and to `logs/run_<date>_<time>.log` (gitignored), one file per run.
+
+| Seed | Fold 0 F1 | Precision | Recall | Accuracy |
+|---|---|---|---|---|
+| 42 | 0.7816 | 0.799 | 0.765 | 0.816 |
+| 43 | 0.7847 | 0.805 | 0.765 | 0.820 |
+| 44 | 0.7848 | 0.782 | 0.788 | 0.814 |
+| **mean / sd** | **0.7837 / 0.0018** | | | |
+
+- **sd 0.0018, below the 0.003 switch: 1 seed for step 5.** (An sd from 3 seeds is rough; the margin isn't large.)
+- **Reproduction check passed:** seed 42 gave 0.7816, exactly step 1; seeds 42 and 43 also matched the earlier crashed run to every digit.
+- **Every seed beats TF-IDF on fold 0** (0.7247) by 0.057–0.060.
+- **A tie, found by an assert:** seed 44 had one tweet with equal logits (bf16 keeps about 3 significant digits). `argmax` called it 0, `p ≥ 0.5` called it 1, so `compute_metrics` and the F1 from the saved probabilities differed by exactly one true positive (0.7839 against 0.7848). Now one rule everywhere: `p ≥ 0.5` from a float64 softmax, in `compute_metrics` too.
