@@ -279,3 +279,4 @@ From [look_inside_transformer.py](look_inside_transformer.py) (Claude's; reading
 
 - Fold 0 has the most tweets that **both** models get wrong (12.1%), but few conflicting ones (2.8%). It drew more tweets that are hard for any model, or labelled against their wording, rather than more copies with clashing labels.
 - BERT narrows the gap: fold 0 is 0.017 below the mean of the other folds for BERT, against 0.029 for TF-IDF.
+- **The user's prediction for step 5:** 5a helps most (a model pretrained on tweets has seen more of them). The blend (5e) won't help, because the metaphors and news-style false alarms stay false alarms in both models. 5e was nearly chosen first, on the grounds that BERT is overconfident and TF-IDF underconfident; that says how to blend, not whether it helps.

@@ -65,7 +65,7 @@ How to write it:
 3. **The cut-off:** F1 against the cut-off on the out-of-fold probabilities (reading only, as in the TF-IDF step 4).
 4. **Fold 1:** does it still lose to the others?
 
-**Check:** the user reads the disagreements and predicts which step 5 change helps most.
+**Check:** the user reads the disagreements and predicts which step 5 change helps most. **The user's prediction (2026-11-27): 5a (a model pretrained on tweets: it has seen more tweets); the blend (5e) won't help, since the metaphors and news-style false alarms stay false alarms in both models.**
 
 ## Step 5: improvements, one at a time (user, judged by the keep rule)
 
