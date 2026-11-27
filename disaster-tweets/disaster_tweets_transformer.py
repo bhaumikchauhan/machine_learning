@@ -2,6 +2,7 @@ import numpy as np
 import contextlib
 import gc
 import io
+import re
 import logging
 import sys
 import time
@@ -22,7 +23,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_sc
 from transformers import PreTrainedTokenizerBase
 from transformers import TrainerCallback
 
-CHECKPOINT = "bert-base-uncased"
+#CHECKPOINT = "cardiffnlp/twitter-roberta-base"
 SEED = 42
 SEEDS = [42, 43, 44]
 # Fixed (step 2, 2026-11-27): fold 0's check curves were flat over 1-5 epochs (means 0.7824-0.7854),
@@ -32,6 +33,7 @@ LEARNING_RATE = 5e-5
 PER_DEVICE_TRAIN_BATCH_SIZE=16
 STEP_1_FOLD_0_F1 = 0.7816   # seed 42, 3 epochs: must be reproduced
 TFIDF_FOLD_F1 = np.array([0.7247, 0.7516, 0.7490, 0.7555, 0.7571])
+BERT_FOLD_F1 = np.array([0.7816, 0.7964, 0.8061, 0.7997, 0.7920])
 
 LOG_DIR = data_analysis.HERE / "logs"
 START = time.perf_counter()
@@ -66,8 +68,18 @@ class LogTrainerToFile(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         file_logger.info(f"{elapsed()}   trainer: {logs}")
 
+def preprocess_roberta(text):
+    """The tweet as twitter-roberta saw it in pretraining (Cardiff NLP's model card):
+    every word starting with @ becomes @user, every word starting with http becomes http.
+    A "word" starts after a space, a newline or the start of the text, and runs to the next whitespace."""
+    text = re.sub(r"(?<!\S)@\S+", "@user", text)
+    return re.sub(r"(?<!\S)http\S*", "http", text)
+
 def tokenize_function(row, tokenizer: PreTrainedTokenizerBase):
     return tokenizer(row['text'], truncation=True, max_length=96)
+
+def tokenize_function_check(row, tokenizer: PreTrainedTokenizerBase):
+    return tokenizer(row['text'])
 
 def probability(logits):
     """P(class 1) per row, softmax in float64. The one rule for a prediction is p >= 0.5, everywhere:
@@ -88,9 +100,10 @@ def make_dataset(df, tokenizer):
 
     tokenized_ds = df_ds.map(tokenize_function, batched=True, fn_kwargs={"tokenizer": tokenizer})
     tokenized_ds = tokenized_ds.remove_columns(['text', 'id'])
+
     return tokenized_ds
 
-def fine_tune(seed, tokenizer, data_collator, train_ds, num_epochs, eval_ds=None):
+def fine_tune(model_name, seed, tokenizer, data_collator, train_ds, num_epochs, eval_ds=None):
     """A fresh model, seeded before its head is drawn. With eval_ds, eval_ds is scored after every epoch."""
     set_seed(seed)
     training_args = TrainingArguments(
@@ -103,7 +116,7 @@ def fine_tune(seed, tokenizer, data_collator, train_ds, num_epochs, eval_ds=None
             eval_strategy="no" if eval_ds is None else "epoch",
             save_strategy="no"
         )
-    model = AutoModelForSequenceClassification.from_pretrained(CHECKPOINT, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     trainer = Trainer(
             model,
             training_args,
@@ -135,16 +148,16 @@ def predict_p(trainer, ds, labels):
     log(predictions.metrics)
     return p, f1
 
-def fold_probabilities(seed, tokenizer, data_collator, train_ds, num_epochs, val_ds, val_labels):
+def fold_probabilities(model_name, seed, tokenizer, data_collator, train_ds, num_epochs, val_ds, val_labels):
     """A fresh model on the whole training part for num_epochs; the validation fold predicted once."""
-    trainer = fine_tune(seed, tokenizer, data_collator, train_ds, num_epochs)
+    trainer = fine_tune(model_name, seed, tokenizer, data_collator, train_ds, num_epochs)
     p, f1 = predict_p(trainer, val_ds, val_labels)
     del trainer
     free_gpu()
     return p, f1
 
-def seed_spread():
-    log(f"Seed-spread run: fold 0, seeds {SEEDS}, {NUM_EPOCHS} epochs, {CHECKPOINT}")
+def seed_spread(model_name):
+    log(f"Seed-spread run: fold 0, seeds {SEEDS}, {NUM_EPOCHS} epochs, {model_name}")
 
     #merge train and folds on id
     log("Loading train.csv and folds.csv")
@@ -162,7 +175,7 @@ def seed_spread():
     log(f"Training part {len(train_df)}, fold 0 {len(val_df)}")
 
     log("Tokenizing the training part and fold 0")
-    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     tokenized_train = make_dataset(train_df, tokenizer)
@@ -174,7 +187,7 @@ def seed_spread():
     for i, seed in enumerate(SEEDS, start=1):
         log(f"Seed {seed} ({i} of {len(SEEDS)}): {NUM_EPOCHS} epochs on the training part, then predict fold 0")
         t = time.perf_counter()
-        p, fold_f1[seed] = fold_probabilities(seed, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
+        p, fold_f1[seed] = fold_probabilities(model_name, seed, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
         oof.append(pd.DataFrame({"id": val_df['id'].to_numpy(), "fold": val_df['fold'].to_numpy(), "seed": seed, "p": p}))
         log(f"Seed {seed}: fold 0 F1 {fold_f1[seed]:.4f} ({time.perf_counter() - t:.0f} s)")
 
@@ -192,21 +205,37 @@ def seed_spread():
     log(f"Reproduction check: seed 42 {fold_f1[42]:.4f} vs step 1 {STEP_1_FOLD_0_F1}")
     log("Done")
 
-def main():
+def main(model_name, oof_name, preprocess=None):
     log("Loading train.csv and folds.csv")
     train_all = dt.get_train_data_from_csv()
+    test_all = pd.read_csv(data_analysis.DATA / "test.csv")
+    all_data = pd.concat([train_all, test_all], ignore_index=True)
+    
+
     folds = pd.read_csv(dt.FOLDS_CSV)
     train_all_folds = train_all.merge(folds, on="id", how="inner")
     assert len(train_all) == len(train_all_folds)
 
     train_all_folds = train_all_folds.rename(columns={'target' : 'label'})
+    if preprocess is not None:
+        train_all_folds['text'] = train_all_folds['text'].map(preprocess)
+        all_data['text'] = all_data['text'].map(preprocess)
 
-    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    
+    df_ds = datasets.Dataset.from_pandas(all_data[['text']], preserve_index=False)
+    all_data_tokenized = df_ds.map(tokenize_function_check, batched=True, fn_kwargs={"tokenizer": tokenizer})
+    max_len = max((len(item['input_ids']) for item in all_data_tokenized))
+    log(f"max len of token: {max_len}")
+    log(f"number of tokenized tweet having length > 96: {sum(1 for item in all_data_tokenized if len(item['input_ids']) > 96)}")
+    assert max_len <=96
+    
+    
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     fold_f1 = {}
     oof = []
     fold_ids = sorted(folds.fold.unique())
-    log(f"Baseline: {len(fold_ids)} folds, seed {SEED}, {NUM_EPOCHS} epochs, {CHECKPOINT}")
+    log(f"Baseline: {len(fold_ids)} folds, seed {SEED}, {NUM_EPOCHS} epochs, {model_name}")
     for k in fold_ids:
         log(f"Fold {k} ({k + 1} of {len(fold_ids)}): {NUM_EPOCHS} epochs on the other folds, then predict fold {k}")
         t = time.perf_counter()
@@ -217,7 +246,7 @@ def main():
         tokenized_train = make_dataset(train_df, tokenizer)
         tokenized_val = make_dataset(val_df, tokenizer)
         
-        p, fold_f1[k] = fold_probabilities(SEED, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
+        p, fold_f1[k] = fold_probabilities(model_name, SEED, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
                
         oof.append(pd.DataFrame({"id": val_df['id'].to_numpy(), "fold": val_df['fold'].to_numpy(), "p": p}))
         log(f"Fold {k}: F1 {fold_f1[k]:.4f} ({time.perf_counter() - t:.0f} s)")
@@ -235,7 +264,7 @@ def main():
         assert f1_score(g.label, g.p >= 0.5) == fold_f1[k]
     log("Checks passed: 7,613 tweets, one probability each; per-fold F1 recomputed by id matches")
 
-    oof_df.to_csv(data_analysis.HERE / "oof_bert_all_fold.csv", index=False)
+    oof_df.to_csv(data_analysis.HERE / f"{oof_name}.csv", index=False)
 
     log("Summary:")
     f1s = pd.Series(fold_f1)
@@ -244,10 +273,10 @@ def main():
     log(f"mean {f1s.mean():.4f}, sd {sd:.4f}, min {f1s.min():.4f}, max {f1s.max():.4f}")
 
     # keep_rule prints; its lines are caught and logged so they reach the run's file too
-    log("Keep rule: BERT against TF-IDF, fold by fold")
+    log("Keep rule: ROBERTA against BERT, fold by fold")
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        dt.keep_rule(TFIDF_FOLD_F1, f1s.to_numpy())
+        dt.keep_rule(BERT_FOLD_F1, f1s.to_numpy())
     for line in printed.getvalue().splitlines():
         log(line)
     log("Done")
@@ -257,7 +286,7 @@ if __name__ == "__main__":
     log_path = setup_logging()
     log(f"Logging to {log_path}")
     try:
-        main()
+        main("cardiffnlp/twitter-roberta-base", "oof_twitter_roberta", preprocess_roberta)
     except Exception:
         logger.exception(f"{elapsed()} Run failed")   # the traceback goes into the file too
         raise

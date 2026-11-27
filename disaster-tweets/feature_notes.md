@@ -280,3 +280,28 @@ From [look_inside_transformer.py](look_inside_transformer.py) (Claude's; reading
 - Fold 0 has the most tweets that **both** models get wrong (12.1%), but few conflicting ones (2.8%). It drew more tweets that are hard for any model, or labelled against their wording, rather than more copies with clashing labels.
 - BERT narrows the gap: fold 0 is 0.017 below the mean of the other folds for BERT, against 0.029 for TF-IDF.
 - **The user's prediction for step 5:** 5a helps most (a model pretrained on tweets has seen more of them). The blend (5e) won't help, because the metaphors and news-style false alarms stay false alarms in both models. 5e was nearly chosen first, on the grounds that BERT is overconfident and TF-IDF underconfident; that says how to blend, not whether it helps.
+
+## Improvements (step 5, from 2026-11-28)
+
+Each change is judged against the current transformer (BERT, 0.7951) fold by fold with the keep rule, 1 seed (seed sd on fold 0 was 0.0018).
+
+### 5a: a model pretrained on tweets (2026-11-28): rejected
+
+`cardiffnlp/twitter-roberta-base` (RoBERTa-base trained further on about 58 million tweets), with the same recipe (seed 42, 3 epochs, lr 5e-5, batch 16, `max_length=96`). The text was preprocessed as in its pretraining: every word starting with `@` became `@user`, every word starting with `http` became `http`. After preprocessing, the longest tweet (train and test) is 70 tokens (median 24, against 33 raw), none over 96. No fold collapsed: the training loss fell from about 0.43 to 0.28 per fold, as with BERT. About 57 s per fold. Out-of-fold probabilities: `oof_twitter_roberta.csv`.
+
+- **Predicted:** mean 0.81, passes.
+
+| Fold | BERT | twitter-roberta | Diff | Precision BERT / roberta | Recall BERT / roberta |
+|---|---|---|---|---|---|
+| 0 | 0.7816 | 0.7987 | +0.0171 | 0.799 / 0.830 | 0.765 / 0.769 |
+| 1 | 0.7964 | 0.8015 | +0.0051 | 0.786 / 0.807 | 0.807 / 0.797 |
+| 2 | 0.8061 | 0.8132 | +0.0071 | 0.802 / 0.814 | 0.810 / 0.812 |
+| 3 | 0.7997 | 0.8009 | +0.0012 | 0.836 / 0.818 | 0.766 / 0.784 |
+| 4 | 0.7920 | 0.7807 | −0.0113 | 0.801 / 0.794 | 0.783 / 0.768 |
+| **mean ± sd** | **0.7951 ± 0.008** | **0.7990 ± 0.010** | **+0.0039** | | |
+
+- **Rejected:** 4 of 5 folds won and a mean gain of +0.0039, half the 0.008 bar. Fold 4 lost by 0.011.
+- **The prediction was too high:** 0.7990 against 0.81, and it fails on both conditions.
+- **The gain is mostly fold 0** (+0.017, the hard fold); without it, the other four average +0.0005.
+- **Where it differs from BERT:** precision is higher on four folds, recall about the same; BERT's gain over TF-IDF was recall.
+- **Two things changed together** (the model and the preprocessing); that is how the model is meant to be used, so they count as one change.
