@@ -54,7 +54,7 @@ How to write it:
 2. Print F1 per fold, mean and sd, and the time.
 3. Compare with the TF-IDF model **fold by fold** with the keep rule.
 
-**Prediction first:** the mean CV F1, and whether it passes the keep rule against TF-IDF.
+**Prediction first:** the mean CV F1, and whether it passes the keep rule against TF-IDF. **The user's prediction (2026-11-27): mean 0.79, passes (fold 0, TF-IDF's hardest, already won by 0.057).**
 
 **Check:** every tweet gets exactly one out-of-fold probability; the per-fold F1 matches the printed one.
 
@@ -93,7 +93,7 @@ Each change is compared with the current transformer fold by fold; the simpler v
 |---|---|---|
 | 1 one fold | fold 0: BERT F1 0.7816 vs TF-IDF 0.7247 (+0.057); 17 s per epoch; checks pass | 2026-11-26 |
 | 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if the seed sd is above 0.003; keep rule unchanged; text only. Epochs then fixed at 3 (fold 0's check curves flat over 1–5). Seed-spread run: fold 0 F1 0.7816 / 0.7847 / 0.7848, sd 0.0018 → 1 seed for step 5; step 1 reproduced | 2026-11-27 |
-| 3 baseline, 5 folds | | |
+| 3 baseline, 5 folds | BERT CV F1 **0.7951 ± 0.008** (0.7816, 0.7964, 0.8061, 0.7997, 0.7920) vs TF-IDF 0.7476: all 5 folds won, mean gain +0.048, kept; predicted 0.79 and a pass; 3.8 min; checks pass | 2026-11-27 |
 | 4 look inside | | |
 | 5 improvements | | |
 | 6 submission | | |

@@ -208,3 +208,25 @@ Fold 0, 3 epochs on folds 1–4 (6,089 tweets), one fresh model per seed, fold 0
 - **Reproduction check passed:** seed 42 gave 0.7816, exactly step 1; seeds 42 and 43 also matched the earlier crashed run to every digit.
 - **Every seed beats TF-IDF on fold 0** (0.7247) by 0.057–0.060.
 - **A tie, found by an assert:** seed 44 had one tweet with equal logits (bf16 keeps about 3 significant digits). `argmax` called it 0, `p ≥ 0.5` called it 1, so `compute_metrics` and the F1 from the saved probabilities differed by exactly one true positive (0.7839 against 0.7848). Now one rule everywhere: `p ≥ 0.5` from a float64 softmax, in `compute_metrics` too.
+
+## The transformer baseline, 5 folds (step 3, 2026-11-27)
+
+The fold loop, written by the user: for each fold k, a fresh `bert-base-uncased` (seed 42, 3 epochs, the step 1 recipe) trained on the other four folds and predicting fold k once. Out-of-fold probabilities for all 7,613 tweets are in `oof_bert_all_fold.csv` (`id`, `fold`, `p`). About 46 s per fold, 3.8 minutes in all.
+
+- **Predicted:** a mean of 0.79, and it passes the keep rule ("fold 0, TF-IDF's hardest, was already won by 0.057").
+
+| Fold | TF-IDF | BERT | Diff | BERT precision | BERT recall |
+|---|---|---|---|---|---|
+| 0 | 0.7247 | 0.7816 | +0.0569 | 0.799 | 0.765 |
+| 1 | 0.7516 | 0.7964 | +0.0448 | 0.786 | 0.807 |
+| 2 | 0.7490 | 0.8061 | +0.0571 | 0.802 | 0.810 |
+| 3 | 0.7555 | 0.7997 | +0.0442 | 0.836 | 0.766 |
+| 4 | 0.7571 | 0.7920 | +0.0349 | 0.801 | 0.783 |
+| **mean ± sd** | **0.7476 ± 0.012** | **0.7951 ± 0.008** | **+0.0476** | | |
+
+- **Kept:** all 5 folds won, and the mean gain of 0.048 is six times the 0.008 bar. The smallest gain (fold 4, +0.035) is still larger than any TF-IDF change gained. BERT is now the model to beat in step 5.
+- **The prediction was right on both parts:** 0.7951 against 0.79, and it passes. Fold 0 is BERT's hardest fold too (0.7816, its lowest), so the reasoning held. Why fold 0 is hard for both models is a question for step 4.
+- **The folds vary more than the seeds:** the sd over folds is 0.008, the sd over seeds on fold 0 was 0.0018. Most of the spread is which tweets land in a fold, not training luck.
+- **sd with ddof=0** (`np.std`), as for TF-IDF's ± 0.012; `pandas.std()` (ddof=1) would give 0.0092.
+- **Checks:** 7,613 rows with unique ids, the same set as `train.csv`; each fold's F1 recomputed from the saved `p`, matched to the labels by `id` (not by row order), equals the F1 logged in the loop; no id in both the training part and fold k. Fold 0 reproduced step 1's 0.7816, and a second run gave every fold's F1 to every digit.
+- **A rough Kaggle expectation:** TF-IDF scored about 0.046 above its grouped CV on Kaggle, so about 0.84 here, at the top of the 0.83–0.84 quoted for BERT-type models. It's written down properly in step 6.

@@ -1,4 +1,7 @@
+import numpy as np
+import contextlib
 import gc
+import io
 import logging
 import sys
 import time
@@ -20,6 +23,7 @@ from transformers import PreTrainedTokenizerBase
 from transformers import TrainerCallback
 
 CHECKPOINT = "bert-base-uncased"
+SEED = 42
 SEEDS = [42, 43, 44]
 # Fixed (step 2, 2026-11-27): fold 0's check curves were flat over 1-5 epochs (means 0.7824-0.7854),
 # so the per-fold epoch choice was dropped; the run is in git history and check_f1_fold0.csv.
@@ -27,6 +31,7 @@ NUM_EPOCHS = 3
 LEARNING_RATE = 5e-5
 PER_DEVICE_TRAIN_BATCH_SIZE=16
 STEP_1_FOLD_0_F1 = 0.7816   # seed 42, 3 epochs: must be reproduced
+TFIDF_FOLD_F1 = np.array([0.7247, 0.7516, 0.7490, 0.7555, 0.7571])
 
 LOG_DIR = data_analysis.HERE / "logs"
 START = time.perf_counter()
@@ -138,7 +143,7 @@ def fold_probabilities(seed, tokenizer, data_collator, train_ds, num_epochs, val
     free_gpu()
     return p, f1
 
-def main():
+def seed_spread():
     log(f"Seed-spread run: fold 0, seeds {SEEDS}, {NUM_EPOCHS} epochs, {CHECKPOINT}")
 
     #merge train and folds on id
@@ -186,6 +191,67 @@ def main():
     log(f"Step 5 seeds: {'3 (sd above 0.003)' if sd > 0.003 else '1 (sd at most 0.003)'}")
     log(f"Reproduction check: seed 42 {fold_f1[42]:.4f} vs step 1 {STEP_1_FOLD_0_F1}")
     log("Done")
+
+def main():
+    log("Loading train.csv and folds.csv")
+    train_all = dt.get_train_data_from_csv()
+    folds = pd.read_csv(dt.FOLDS_CSV)
+    train_all_folds = train_all.merge(folds, on="id", how="inner")
+    assert len(train_all) == len(train_all_folds)
+
+    train_all_folds = train_all_folds.rename(columns={'target' : 'label'})
+
+    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    fold_f1 = {}
+    oof = []
+    fold_ids = sorted(folds.fold.unique())
+    log(f"Baseline: {len(fold_ids)} folds, seed {SEED}, {NUM_EPOCHS} epochs, {CHECKPOINT}")
+    for k in fold_ids:
+        log(f"Fold {k} ({k + 1} of {len(fold_ids)}): {NUM_EPOCHS} epochs on the other folds, then predict fold {k}")
+        t = time.perf_counter()
+        train_df = train_all_folds[train_all_folds['fold'] != k]
+        val_df = train_all_folds[train_all_folds['fold'] == k]
+        assert len(set(train_df.id) & set(val_df.id)) == 0
+        
+        tokenized_train = make_dataset(train_df, tokenizer)
+        tokenized_val = make_dataset(val_df, tokenizer)
+        
+        p, fold_f1[k] = fold_probabilities(SEED, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
+               
+        oof.append(pd.DataFrame({"id": val_df['id'].to_numpy(), "fold": val_df['fold'].to_numpy(), "p": p}))
+        log(f"Fold {k}: F1 {fold_f1[k]:.4f} ({time.perf_counter() - t:.0f} s)")
+
+    log("Validating output of all trained folds")
+    oof_df = pd.concat(oof, ignore_index=True)
+    assert len(oof_df) == len(train_all) == 7613
+    assert oof_df.id.is_unique
+    assert set(oof_df.id) == set(train_all.id)   # every tweet gets exactly one out-of-fold probability
+
+    # Recompute each fold's F1 from the saved p, matched to the labels by id (not by row order)
+    oof_labelled = oof_df.merge(train_all_folds[['id', 'label']], on='id', how='inner', validate='one_to_one')
+    assert len(oof_labelled) == len(oof_df)
+    for k, g in oof_labelled.groupby('fold'):
+        assert f1_score(g.label, g.p >= 0.5) == fold_f1[k]
+    log("Checks passed: 7,613 tweets, one probability each; per-fold F1 recomputed by id matches")
+
+    oof_df.to_csv(data_analysis.HERE / "oof_bert_all_fold.csv", index=False)
+
+    log("Summary:")
+    f1s = pd.Series(fold_f1)
+    sd = np.std(f1s.to_numpy())   # ddof=0, as TF-IDF's ± 0.012
+    log(f"All folds F1: {f1s.round(4).to_dict()}")
+    log(f"mean {f1s.mean():.4f}, sd {sd:.4f}, min {f1s.min():.4f}, max {f1s.max():.4f}")
+
+    # keep_rule prints; its lines are caught and logged so they reach the run's file too
+    log("Keep rule: BERT against TF-IDF, fold by fold")
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        dt.keep_rule(TFIDF_FOLD_F1, f1s.to_numpy())
+    for line in printed.getvalue().splitlines():
+        log(line)
+    log("Done")
+
 
 if __name__ == "__main__":
     log_path = setup_logging()
