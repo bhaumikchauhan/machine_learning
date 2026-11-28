@@ -210,12 +210,15 @@ def seed_spread(model_name):
     log(f"Reproduction check: seed 42 {fold_f1[42]:.4f} vs step 1 {STEP_1_FOLD_0_F1}")
     log("Done")
 
-def seed_check(model_name, fold_ids, seeds, oof_name):
-    """Step 5 check (2026-11-28): the seed spread on other folds than fold 0, for the baseline recipe.
-    Per fold and seed, a fresh model on the other folds; the fold predicted once. Seed 42's runs are in oof_bert_all_fold.csv."""
-    log(f"Seed check: folds {fold_ids}, seeds {seeds}, {NUM_EPOCHS} epochs, {model_name}")
+def seed_check(model_name, fold_ids, seeds, oof_name, preprocess=None):
+    """Extra seeds (step 5, 2026-11-28): per fold and seed, a fresh model on the other folds; the fold predicted once.
+    The recipe and the preprocessing as in main(); seed 42's runs are in main()'s out-of-fold files."""
+    log(f"Seed check: folds {fold_ids}, seeds {seeds}, {NUM_EPOCHS} epochs, {model_name}, "
+        f"preprocess {preprocess.__name__ if preprocess else None}")
     train_all_folds = dt.get_train_data_from_csv().merge(pd.read_csv(dt.FOLDS_CSV), on="id", how="inner")
     train_all_folds = train_all_folds.rename(columns={'target': 'label'})
+    if preprocess is not None:
+        train_all_folds['text'] = train_all_folds.apply(lambda row: preprocess(row["keyword"], row["text"]), axis=1)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     rows, oof = [], []
