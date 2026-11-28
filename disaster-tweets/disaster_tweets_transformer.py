@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 
 import torch
+from urllib.parse import unquote
 
 import disaster_tweets as dt
 import data_analysis
@@ -68,12 +69,16 @@ class LogTrainerToFile(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         file_logger.info(f"{elapsed()}   trainer: {logs}")
 
-def preprocess_roberta(text):
+def preprocess_roberta(keyword, text):
     """The tweet as twitter-roberta saw it in pretraining (Cardiff NLP's model card):
     every word starting with @ becomes @user, every word starting with http becomes http.
     A "word" starts after a space, a newline or the start of the text, and runs to the next whitespace."""
     text = re.sub(r"(?<!\S)@\S+", "@user", text)
     return re.sub(r"(?<!\S)http\S*", "http", text)
+
+def preprocess_keyword(keyword, text):
+    keyword = "none." if pd.isna(keyword) else f"{unquote(keyword)}."
+    return f"Keyword: {keyword} {text}"
 
 def tokenize_function(row, tokenizer: PreTrainedTokenizerBase):
     return tokenizer(row['text'], truncation=True, max_length=96)
@@ -218,8 +223,9 @@ def main(model_name, oof_name, preprocess=None):
 
     train_all_folds = train_all_folds.rename(columns={'target' : 'label'})
     if preprocess is not None:
-        train_all_folds['text'] = train_all_folds['text'].map(preprocess)
-        all_data['text'] = all_data['text'].map(preprocess)
+        train_all_folds['text'] = train_all_folds.apply(lambda row: preprocess(row["keyword"], row["text"]), axis=1)
+        all_data['text'] = all_data.apply(lambda row: preprocess(row["keyword"], row["text"]), axis=1)
+
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     
@@ -273,7 +279,7 @@ def main(model_name, oof_name, preprocess=None):
     log(f"mean {f1s.mean():.4f}, sd {sd:.4f}, min {f1s.min():.4f}, max {f1s.max():.4f}")
 
     # keep_rule prints; its lines are caught and logged so they reach the run's file too
-    log("Keep rule: ROBERTA against BERT, fold by fold")
+    log("Keep rule: BERT + keyword against BERT, fold by fold")
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
         dt.keep_rule(BERT_FOLD_F1, f1s.to_numpy())
@@ -286,7 +292,8 @@ if __name__ == "__main__":
     log_path = setup_logging()
     log(f"Logging to {log_path}")
     try:
-        main("cardiffnlp/twitter-roberta-base", "oof_twitter_roberta", preprocess_roberta)
+        #main("cardiffnlp/twitter-roberta-base", "oof_twitter_roberta", preprocess_roberta)
+        main("bert-base-uncased", "oof_bert_keyword", preprocess_keyword)
     except Exception:
         logger.exception(f"{elapsed()} Run failed")   # the traceback goes into the file too
         raise

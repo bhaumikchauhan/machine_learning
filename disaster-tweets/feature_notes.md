@@ -306,3 +306,23 @@ Each change is judged against the current transformer (BERT, 0.7951) fold by fol
 - **Where it differs from BERT:** precision is higher on four folds, recall about the same; BERT's gain over TF-IDF was recall.
 - **Fold 4's loss is probably real, not seed luck** (the user's reading): a difference carries two runs' luck, √2 × 0.0018 ≈ 0.0025, and −0.011 is about 4 times that. Even at double the seed sd (an sd from 3 seeds is rough, and it was measured on BERT, fold 0) it would be about 2 times. So twitter-roberta is better on some folds and worse on one, not better everywhere.
 - **Two things changed together** (the model and the preprocessing); that is how the model is meant to be used, so they count as one change.
+
+### 5b: keyword in the input (2026-11-28): rejected
+
+BERT (`bert-base-uncased`, the baseline recipe) with the input `"Keyword: {keyword}. {text}"`. The keyword is URL-decoded (`airplane%20accident` → `airplane accident`), and a missing one (61 tweets) becomes `none`. `preprocess_keyword(keyword, text)`, applied to every tweet before the fold loop; `preprocess_roberta` now takes the keyword too and ignores it, so 5a can be rerun unchanged. The longest input is 89 tokens (train and test), none over 96. Loss fell from about 0.42 to 0.25 per fold. About 55 s per fold. Out-of-fold probabilities: `oof_bert_keyword.csv`.
+
+- **Predicted:** a mean gain of +0.009, 4 of 5 folds won, so rejected by the all-folds condition.
+
+| Fold | BERT | BERT + keyword | Diff | Precision BERT / + keyword | Recall BERT / + keyword |
+|---|---|---|---|---|---|
+| 0 | 0.7816 | 0.7877 | +0.0061 | 0.799 / 0.812 | 0.765 / 0.765 |
+| 1 | 0.7964 | 0.7979 | +0.0015 | 0.786 / 0.793 | 0.807 / 0.803 |
+| 2 | 0.8061 | 0.8202 | +0.0141 | 0.802 / 0.835 | 0.810 / 0.806 |
+| 3 | 0.7997 | 0.7855 | −0.0142 | 0.836 / 0.811 | 0.766 / 0.761 |
+| 4 | 0.7920 | 0.8056 | +0.0136 | 0.801 / 0.813 | 0.783 / 0.798 |
+| **mean ± sd** | **0.7951 ± 0.008** | **0.7994 ± 0.013** | **+0.0042** | | |
+
+- **Rejected:** 4 of 5 folds won and a mean gain of +0.0042, about half the bar. Fold 3 lost by 0.014.
+- **The prediction:** the folds won (4 of 5) and the verdict were right; the gain was half the predicted +0.009. TF-IDF's keyword change was the same pattern (+0.007, 4 of 5).
+- **Precision rose on four folds** (as with twitter-roberta); recall about the same.
+- **The differences swing widely:** +0.014, −0.014, +0.014 on three folds. 5a's swung too (+0.017 to −0.011).

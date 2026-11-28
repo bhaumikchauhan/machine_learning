@@ -81,6 +81,8 @@ Each change is compared with the current transformer fold by fold; the simpler v
 
 **5a, as planned (2026-11-27):** `cardiffnlp/twitter-roberta-base` (not BERTweet: slow tokenizer only, its own normalisation). Same recipe as the baseline (seed 42, 3 epochs, lr 5e-5, batch 16, `max_length=96`, same folds); the text preprocessed as in pretraining (`@…` → `@user`, `http…` → `http`); token lengths logged before training (0 over 96 expected); a fold that collapses (loss stays near 0.69) is reported, and a lower learning rate is a separate change. Keep rule against BERT's per-fold F1, 1 seed. **The user's prediction: mean 0.81, passes.**
 
+**5b, as planned (2026-11-28):** BERT with the input `"keyword: {keyword}. {text}"` (keyword URL-decoded; missing → `none`), built before the fold loop, the same for every fold; otherwise the baseline recipe, no tweet preprocessing. Keep rule against BERT's per-fold F1; `oof_bert_keyword.csv`. **The user's prediction: mean gain +0.009, 4 of 5 folds won (so rejected by the all-folds condition).**
+
 ## Step 6: submission
 
 1. **The final model:** decide between (a) one model fine-tuned on all 7,613 tweets with the step 2 epoch count, or (b) the average of the five fold models' probabilities on test (no extra training; each model saw 80% of the tweets). Write the choice and why before predicting.
@@ -97,5 +99,5 @@ Each change is compared with the current transformer fold by fold; the simpler v
 | 2 decisions | epochs chosen inside each fold (one check split, up to 5 epochs, seed curves averaged, retrain on the whole training part); seed spread measured on fold 0 first, 1 seed for the baseline, 3 for step 5 if the seed sd is above 0.003; keep rule unchanged; text only. Epochs then fixed at 3 (fold 0's check curves flat over 1–5). Seed-spread run: fold 0 F1 0.7816 / 0.7847 / 0.7848, sd 0.0018 → 1 seed for step 5; step 1 reproduced | 2026-11-27 |
 | 3 baseline, 5 folds | BERT CV F1 **0.7951 ± 0.008** (0.7816, 0.7964, 0.8061, 0.7997, 0.7920) vs TF-IDF 0.7476: all 5 folds won, mean gain +0.048, kept; predicted 0.79 and a pass; 3.8 min; checks pass | 2026-11-27 |
 | 4 look inside | BERT's gain is recall (misses 983 → 699, false alarms 562 → 626); agrees with TF-IDF on 84.8%, shares 56% of its mistakes; does not fix the metaphors and news-style false alarms (17 of TF-IDF's 20 most confident ones), whose labels are disputed; overconfident (77% of p below 0.05 or above 0.95); cut-off flat (best 0.74, +0.002), so 5d is unlikely; fold 0 has the most tweets both models get wrong | 2026-11-27 |
-| 5 improvements | 5a twitter-roberta-base: 0.7990 ± 0.010, +0.0039, 4 of 5 folds (fold 4 −0.011), rejected (predicted 0.81, pass) | 2026-11-28 |
+| 5 improvements | 5a twitter-roberta-base: 0.7990 ± 0.010, +0.0039, 4 of 5 folds (fold 4 −0.011), rejected (predicted 0.81, pass); 5b keyword: 0.7994 ± 0.013, +0.0042, 4 of 5 (fold 3 −0.014), rejected (predicted +0.009, 4 of 5) | 2026-11-28 |
 | 6 submission | | |
