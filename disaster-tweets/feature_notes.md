@@ -341,3 +341,22 @@ BERT (`bert-base-uncased`, the baseline recipe) with the input `"Keyword: {keywo
 - **5a and 5b were judged on luck more than assumed.** Fold 3's −0.014 in 5b and fold 4's −0.011 in 5a are each below all three BERT seeds on that fold, so part of them may be real. But mean gains of +0.004, with ±0.003 of luck, can't rule out a true gain near 0.008.
 - **Lesson:** an sd from 3 runs on one fold is a weak basis for a decision; it should have been measured on more than one fold.
 - **Decision (the user, 2026-11-28, before any new run): option A.** Step 2's rule (3 seeds when the seed sd is above 0.003) now applies: from here on every change is judged on 3 seeds (42, 43, 44), a fold's score being the mean F1 over its seeds, against the BERT baseline's 3-seed mean per fold. 5a and 5b are judged again the same way. Not fishing for a pass: the rule was written in step 2, before any change ran; only the measurement it used was wrong. Not chosen: B, 3 seeds only for later changes, leaving 5a and 5b rejected on 1 seed.
+- **The user's prediction for the 3-seed judgement:** neither 5a nor 5b passes.
+
+### 5a and 5b judged on 3 seeds (2026-11-28): both rejected
+
+Seeds 43 and 44 for BERT on folds 1 and 2, and for twitter-roberta (5a) and BERT + keyword (5b) on all five folds: 24 runs, 19 minutes (`seed_check()`; `oof_bert_seeds_fold1_2.csv`, `oof_twitter_roberta_seeds_43_44.csv`, `oof_bert_keyword_seeds_43_44.csv`). A fold's score is the mean F1 over seeds 42, 43, 44.
+
+| Fold | BERT | 5a twitter-roberta | Diff | 5b BERT + keyword | Diff |
+|---|---|---|---|---|---|
+| 0 | 0.7837 | 0.7926 | +0.0089 | 0.7892 | +0.0055 |
+| 1 | 0.7977 | 0.8020 | +0.0043 | 0.7986 | +0.0009 |
+| 2 | 0.8164 | 0.8143 | −0.0021 | 0.8240 | +0.0075 |
+| 3 | 0.7976 | 0.7995 | +0.0018 | 0.7915 | −0.0062 |
+| 4 | 0.7949 | 0.7887 | −0.0061 | 0.8009 | +0.0061 |
+| **mean** | **0.7981** | **0.7994** | **+0.0014**, 3 of 5 | **0.8008** | **+0.0028**, 4 of 5 |
+
+- **Both rejected,** as the user predicted. With 3 seeds the mean gain carries about ±0.002 of luck, so +0.0014 and +0.0028 are clearly below 0.008: if either helps, it's by a few thousandths.
+- **The gains shrank** from the 1-seed runs (+0.0039 and +0.0042), mostly because seed 42 was an unlucky seed for BERT: its 3-seed mean is 0.7981, against 0.7951 with seed 42 alone.
+- **The seed sd over all 45 runs** (3 models × 5 folds × 3 seeds), pooled: **0.0056**. Fold 0's 0.0018 was the lowest of the 15.
+- **The bar from here on:** BERT's 3-seed mean per fold, 0.7837, 0.7977, 0.8164, 0.7976, 0.7949 (mean 0.7981); `BERT_FOLD_F1_3_SEEDS` in the script. Against TF-IDF that's still +0.0505, all five folds won.

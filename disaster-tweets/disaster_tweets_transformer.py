@@ -35,6 +35,8 @@ PER_DEVICE_TRAIN_BATCH_SIZE=16
 STEP_1_FOLD_0_F1 = 0.7816   # seed 42, 3 epochs: must be reproduced
 TFIDF_FOLD_F1 = np.array([0.7247, 0.7516, 0.7490, 0.7555, 0.7571])
 BERT_FOLD_F1 = np.array([0.7816, 0.7964, 0.8061, 0.7997, 0.7920])
+# The current model's per-fold F1 from step 5 on: the mean over seeds 42, 43, 44 (2026-11-28)
+BERT_FOLD_F1_3_SEEDS = np.array([0.7837, 0.7977, 0.8164, 0.7976, 0.7949])
 
 LOG_DIR = data_analysis.HERE / "logs"
 START = time.perf_counter()
