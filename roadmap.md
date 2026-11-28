@@ -119,3 +119,29 @@ One end-to-end project on data I pick. It's the centrepiece of the portfolio.
 | SQL | Regular practice. It comes back in time series features, pgvector and the capstone's data pipeline. | Throughout |
 | Cloud ML platform | The registry is on Databricks (managed MLflow 3, Unity Catalog), the container goes to Azure. Azure ML's MLflow follows MLflow 2 (no aliases), so it lost the registry. Know AWS SageMaker and GCP Vertex AI by name. | From phase 1's cloud step, more in phase 4 |
 | Portfolio | This GitHub repo: a README per project, the notes and lessons, a live demo link from phase 1, the capstone write-up, the Kaggle profile. | Updated as each phase finishes |
+
+## Noise and luck in model comparisons (added 2026-11-28)
+
+Arose in the Disaster Tweets transformer, step 5a: is a fold's loss of −0.011 seed luck or real? A difference between two runs carries both runs' luck, √2 × the seed sd. Fits phase 5's statistics; useful whenever two models are compared.
+
+**1. The basics: why a difference has √2 × the luck**
+- Khan Academy, "Combining random variables" (variance of sums and differences): why Var(A − B) = Var(A) + Var(B).
+- StatQuest, "Standard Deviation vs Standard Error": why the mean of 3 seeds has √3 less luck.
+- *Seeing Theory* (Brown University), "Frequentist inference": interactive, the noise shrinking with more samples.
+
+**2. Comparing models fairly with CV**
+- Sebastian Raschka, *Model Evaluation, Model Selection, and Algorithm Selection in Machine Learning* (arXiv 1811.12808), part IV. Start here.
+- scikit-learn example, "Statistical comparison of models using grid search": fold-by-fold comparison, corrected t-test, Bayesian version.
+- Dietterich (1998), "Approximate Statistical Tests for Comparing Supervised Classification Learning Algorithms": why the plain t-test on CV folds finds too many differences; 5×2 CV.
+
+**3. Seed luck in fine-tuning**
+- Dodge et al. (2020), "Fine-Tuning Pretrained Language Models: Weight Initializations, Data Orders, and Early Stopping" (arXiv 2002.06305): BERT over hundreds of seeds.
+- Mosbach et al. (2021), "On the Stability of Fine-tuning BERT" (ICLR 2021): why runs collapse, what makes fine-tuning stable.
+- Reimers & Gurevych (2017), "Reporting Score Distributions Makes a Difference" (arXiv 1707.09861): one seed can reverse which model looks better.
+- Bouthillier et al. (2021), "Accounting for Variance in Machine Learning Benchmarks" (MLSys 2021): every source of noise in a benchmark, and how many runs are needed.
+- Picard (2021), "torch.manual_seed(3407) is all you need": the best and worst of 10,000 seeds.
+
+**Practice on the Disaster Tweets numbers** (about 20 lines of numpy):
+1. Draw 100,000 pairs of runs with seed sd 0.0018; the sd of their difference should come out near 0.0025.
+2. A change with a true gain of +0.008 per fold: how often does it win all 5 folds at seed sd 0.003, and at 0.006? (Step 2 of the transformer plan: about 89% and 38%.)
+3. A change with no real gain: how often does it pass the keep rule by luck? (About 1 in 32 for 5 of 5 wins, less with the 0.008 bar.)
