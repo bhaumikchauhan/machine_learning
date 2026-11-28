@@ -210,6 +210,32 @@ def seed_spread(model_name):
     log(f"Reproduction check: seed 42 {fold_f1[42]:.4f} vs step 1 {STEP_1_FOLD_0_F1}")
     log("Done")
 
+def seed_check(model_name, fold_ids, seeds, oof_name):
+    """Step 5 check (2026-11-28): the seed spread on other folds than fold 0, for the baseline recipe.
+    Per fold and seed, a fresh model on the other folds; the fold predicted once. Seed 42's runs are in oof_bert_all_fold.csv."""
+    log(f"Seed check: folds {fold_ids}, seeds {seeds}, {NUM_EPOCHS} epochs, {model_name}")
+    train_all_folds = dt.get_train_data_from_csv().merge(pd.read_csv(dt.FOLDS_CSV), on="id", how="inner")
+    train_all_folds = train_all_folds.rename(columns={'target': 'label'})
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    rows, oof = [], []
+    for k in fold_ids:
+        train_df = train_all_folds[train_all_folds['fold'] != k]
+        val_df = train_all_folds[train_all_folds['fold'] == k]
+        assert len(set(train_df.id) & set(val_df.id)) == 0
+        tokenized_train = make_dataset(train_df, tokenizer)
+        tokenized_val = make_dataset(val_df, tokenizer)
+        for seed in seeds:
+            log(f"Fold {k}, seed {seed}")
+            t = time.perf_counter()
+            p, f1 = fold_probabilities(model_name, seed, tokenizer, data_collator, tokenized_train, NUM_EPOCHS, tokenized_val, val_df['label'])
+            oof.append(pd.DataFrame({"id": val_df['id'].to_numpy(), "fold": k, "seed": seed, "p": p}))
+            rows.append({"fold": k, "seed": seed, "f1": f1})
+            log(f"Fold {k}, seed {seed}: F1 {f1:.4f} ({time.perf_counter() - t:.0f} s)")
+    pd.concat(oof, ignore_index=True).to_csv(data_analysis.HERE / f"{oof_name}.csv", index=False)
+    log(f"F1 per fold and seed:\n{pd.DataFrame(rows).pivot(index='fold', columns='seed', values='f1').round(4)}")
+    log("Done")
+
 def main(model_name, oof_name, preprocess=None):
     log("Loading train.csv and folds.csv")
     train_all = dt.get_train_data_from_csv()

@@ -326,3 +326,17 @@ BERT (`bert-base-uncased`, the baseline recipe) with the input `"Keyword: {keywo
 - **The prediction:** the folds won (4 of 5) and the verdict were right; the gain was half the predicted +0.009. TF-IDF's keyword change was the same pattern (+0.007, 4 of 5).
 - **Precision rose on four folds** (as with twitter-roberta); recall about the same.
 - **The differences swing widely:** +0.014, −0.014, +0.014 on three folds. 5a's swung too (+0.017 to −0.011).
+
+### The seed spread, measured again (2026-11-28)
+
+5a and 5b both swung by about ±0.014 per fold, while the seed luck of a difference was supposed to be about ±0.0025 (√2 × fold 0's 0.0018). If the swings were pure luck, the seed sd would be about 0.007–0.008. So BERT's baseline was rerun with seeds 43 and 44 on folds 3 and 4, where the swings were (`seed_check()`, written by Claude; `oof_bert_seeds_fold3_4.csv`):
+
+| Fold | Seed 42 | Seed 43 | Seed 44 | sd | Range |
+|---|---|---|---|---|---|
+| 0 | 0.7816 | 0.7847 | 0.7848 | 0.0018 | 0.003 |
+| 3 | 0.7997 | 0.8031 | 0.7901 | 0.0067 | 0.013 |
+| 4 | 0.7920 | 0.7994 | 0.7932 | 0.0040 | 0.007 |
+
+- **Fold 0's sd was low by chance.** Pooled over the three folds, the seed sd is about **0.0046**, above step 2's 0.003 switch. A fold's difference then carries about ±0.0066 of luck, and the mean gain over 5 folds about ±0.003 with 1 seed (±0.0017 with 3).
+- **5a and 5b were judged on luck more than assumed.** Fold 3's −0.014 in 5b and fold 4's −0.011 in 5a are each below all three BERT seeds on that fold, so part of them may be real. But mean gains of +0.004, with ±0.003 of luck, can't rule out a true gain near 0.008.
+- **Lesson:** an sd from 3 runs on one fold is a weak basis for a decision; it should have been measured on more than one fold.
