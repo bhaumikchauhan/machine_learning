@@ -73,7 +73,14 @@ https://credit-api.lemonocean-12436fd6.centralindia.azurecontainerapps.io
 
 **Part 2, an LLM application:**
 
-- **Prompting** and calling an LLM API; cost and latency.
+- **Prompting** and calling an LLM API; cost and latency. Resources (added 2026-11-28), in order:
+  1. Andrej Karpathy, "Intro to Large Language Models" (YouTube, 1 hour): what an LLM does when prompted (pretraining, then fine-tuning into an assistant).
+  2. Anthropic, "Prompt Engineering Interactive Tutorial" (GitHub `anthropics/prompt-eng-interactive-tutorial`, 9 notebook chapters with exercises): clear instructions, roles, XML tags to separate data, few-shot examples, step-by-step thinking, avoiding made-up answers.
+  3. Anthropic `courses` repo (GitHub `anthropics/courses`): "API fundamentals" and "Real world prompting"; its "Prompt evaluations" course leads into RAG evaluation.
+  4. DeepLearning.AI, "ChatGPT Prompt Engineering for Developers" (Andrew Ng, Isa Fulford; free, about 1.5 hours): the same ideas from a second angle, on OpenAI's API.
+  5. Lilian Weng, "Prompt Engineering" (lilianweng.github.io): the research behind few-shot, chain-of-thought and self-consistency.
+  6. Anthropic docs, "Prompt caching", "Token counting", "Message Batches": the cost and latency part.
+  7. Anthropic, "Building effective agents" (blog, Dec 2024): when one prompt is enough, and when chains, routing or agents are needed.
 - **RAG** (retrieval-augmented generation): split documents into chunks, embed them, find the closest chunks to a question, and give them to the LLM as context.
 - **Vector databases:** they store the embeddings and find the nearest neighbours fast, using approximate indexes such as HNSW. Learn with FAISS, then build with pgvector (Postgres). Qdrant, Chroma and Pinecone are worth knowing by name. The distance ideas are the same as in clustering.
 - **Evaluation:** a test set of questions; check whether the right chunks were retrieved and whether the answers are faithful to them.
